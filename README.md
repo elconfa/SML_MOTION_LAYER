@@ -138,5 +138,22 @@ Livello B (contratto + interfaccia + FB comando + multi-asse + MAPPING), superse
 
 ## Licenza
 
-Da definire (progetto privato). Le componenti di terze parti mantengono le
+**GPL-3.0** — vedi [`LICENSE`](LICENSE).
+
+> Copyright (C) 2024-2026 Massimo Confalonieri
+>
+> Questo programma è software libero: puoi ridistribuirlo e/o modificarlo secondo
+> i termini della GNU General Public License versione 3, pubblicata dalla Free
+> Software Foundation.
+
+SML deriva da **OpenSML** (feecat/opensml), rilasciato sotto **GPL-3.0**: per
+copyleft l'intera opera è quindi GPL-3.0 (una licenza permissiva non sarebbe
+compatibile). L'OTG (`FB_S7RTT_OTG`) e le librerie del produttore mantengono le
 rispettive licenze.
+
+### Git LFS
+I binari in [`binaries/`](binaries/) (`.library`, `.compiled-library*`,
+`.projectarchive`, `.tpzip`, `.tszip`, `.zip`) sono tracciati con **Git LFS**
+(vedi [`.gitattributes`](.gitattributes)). Per lavorarci: installa git-lfs
+(`brew install git-lfs` o equivalente) e `git lfs install` una volta; poi
+`git add`/`push` dei binari usa automaticamente LFS.

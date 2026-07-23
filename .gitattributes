@@ -1,0 +1,13 @@
+# Git LFS — progetti/librerie compilate (cartella binaries/)
+# Richiede: git lfs install  (una volta per macchina) + git lfs install nel repo
+*.library             filter=lfs diff=lfs merge=lfs -text
+*.compiled-library    filter=lfs diff=lfs merge=lfs -text
+*.compiled-library-*  filter=lfs diff=lfs merge=lfs -text
+*.projectarchive      filter=lfs diff=lfs merge=lfs -text
+*.tpzip               filter=lfs diff=lfs merge=lfs -text
+*.tszip               filter=lfs diff=lfs merge=lfs -text
+*.zip                 filter=lfs diff=lfs merge=lfs -text
+
+# Sorgenti ST: testo normale (diff leggibili), fine riga normalizzato
+*.txt   text
+*.md    text
