@@ -1,0 +1,22 @@
+(* ============================================================
+   GVL_IO — Immagini di processo del bridge I/O (hardware)
+   SML v9 — bridge I/O (nuovo)
+
+   Usato SOLO col bridge (TwinCAT, o CoDeSys in variante bridge).
+   Su CoDeSys con link diretto nella scheda I/O Mapping NON serve:
+   in quel caso lasciare IO_LINK_ENABLE = FALSE (i due SML_IoLink_*
+   si auto-bypassano) e mappare GVL_AXIS.Axis[n] direttamente.
+
+   Collegare al fieldbus:
+     DriveOut[]  -> RxPDO del drive (PLC -> Drive)
+     DriveIn[]   -> TxPDO del drive (Drive -> PLC)
+   ============================================================ *)
+
+{attribute 'qualified_only'}
+VAR_GLOBAL
+    // flag di abilitazione del bridge (design-time o runtime)
+    IO_LINK_ENABLE : BOOL := FALSE;   // TRUE = attiva SML_IoLink_In / _Out
+
+    DriveOut AT %Q* : ARRAY[1..GVL_SML_CONST.MAX_AXIS] OF ST_DriveOut;  // RxPDO
+    DriveIn  AT %I* : ARRAY[1..GVL_SML_CONST.MAX_AXIS] OF ST_DriveIn;   // TxPDO
+END_VAR

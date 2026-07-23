@@ -1,0 +1,33 @@
+(* ============================================================
+   SML_IoLink_In — Bridge I/O: immagine INPUT -> struct asse
+   SML v9 — bridge I/O (nuovo)
+
+   Copia GVL_IO.DriveIn[n] (TxPDO del drive) in GVL_AXIS.Axis[n]
+   (campi input). Chiamare all'INIZIO del task, PRIMA di MAIN, cosi'
+   il calcolo usa input freschi (zero ritardo).
+
+   GATE: attivo solo se GVL_IO.IO_LINK_ENABLE = TRUE; altrimenti
+   bypass (es. simulazione, o CoDeSys con link diretto).
+   ============================================================ *)
+
+PROGRAM SML_IoLink_In
+VAR
+    n : UINT;
+END_VAR
+
+IF NOT GVL_IO.IO_LINK_ENABLE THEN RETURN; END_IF
+
+FOR n := 1 TO GVL_SML_CONST.MAX_AXIS DO
+    GVL_AXIS.Axis[n].StatusWord                   := GVL_IO.DriveIn[n].StatusWord;
+    GVL_AXIS.Axis[n].Modes_of_operation_display   := GVL_IO.DriveIn[n].Modes_of_operation_display;
+    GVL_AXIS.Axis[n].Torque_Actual_Value          := GVL_IO.DriveIn[n].Torque_Actual_Value;
+    GVL_AXIS.Axis[n].Position_Actual_Value        := GVL_IO.DriveIn[n].Position_Actual_Value;
+    GVL_AXIS.Axis[n].Velocity_Actual_Value        := GVL_IO.DriveIn[n].Velocity_Actual_Value;
+    GVL_AXIS.Axis[n].Current_Actual_Value         := GVL_IO.DriveIn[n].Current_Actual_Value;
+    GVL_AXIS.Axis[n].Following_Error_Actual_Value := GVL_IO.DriveIn[n].Following_Error_Actual_Value;
+    GVL_AXIS.Axis[n].Error_Code                   := GVL_IO.DriveIn[n].Error_Code;
+    GVL_AXIS.Axis[n].Digital_Inputs               := GVL_IO.DriveIn[n].Digital_Inputs;
+    GVL_AXIS.Axis[n].TouchProbe_StatusWord        := GVL_IO.DriveIn[n].TouchProbe_StatusWord;
+    GVL_AXIS.Axis[n].TouchProbe_Rising_Value      := GVL_IO.DriveIn[n].TouchProbe_Rising_Value;
+    GVL_AXIS.Axis[n].TouchProbe_Falling_Value     := GVL_IO.DriveIn[n].TouchProbe_Falling_Value;
+END_FOR

@@ -1,0 +1,154 @@
+(* ============================================================
+   SML_Home — CiA402 Homing Sequence (mode 6)
+   SML v4 — Merged (OpenSML_Home + SML_Home/Confa)
+
+   Prerequisites — configure via SDO or EtherCAT startup params:
+     0x6098  Homing Method
+     0x6099.01  Speed for limit switch search
+     0x6099.02  Speed for index pulse
+     0x609A  Homing Acceleration
+
+   The homing offset (0x607C) is written via PDO at runtime
+   through diHomeOffset — no SDO access needed.
+
+   CiA402 completion: StatusWord bit 10 (Target Reached) AND
+   bit 12 (Home Attained) must both be set.
+
+   State flow:
+     0 Idle → 10 Mode Switch → 20 Homing → 30 Done → 40 Handshake → 0
+                                         → 999 Error
+
+   Stall watchdog (state 20): if position doesn't change for
+   tStallTimeout, the homing sequence is aborted.
+   ============================================================ *)
+
+FUNCTION_BLOCK SML_Home
+VAR_IN_OUT
+    Axis : OpenSML_Axis;
+END_VAR
+VAR_INPUT
+    xEnable        : BOOL;           // Level: FB active; drop to abort
+    xExecute       : BOOL;           // Edge/level: start homing
+    xReset         : BOOL;           // Pulse: acknowledge error and return to idle
+    diHomeOffset   : DINT;           // Home offset [encoder counts] — written to 0x607C
+    tStallTimeout  : TIME := T#10S;  // Max time without position change before error
+END_VAR
+VAR_OUTPUT
+    xBusy  : BOOL; // Homing sequence in progress
+    xDone  : BOOL; // Homing completed successfully
+    xError : BOOL; // Error: fault, stall, timeout, or operator abort
+    eProgress : E_PROGRESS; // Livello A: avanzamento unificato (proiezione di iState)
+END_VAR
+VAR
+    iState     : INT;
+    tonStall   : TON;  // Stall watchdog
+    tonMode    : TON;  // Mode-switch timeout guard
+    Pos_Old    : DINT; // Previous-cycle position for stall detection
+END_VAR
+
+CASE iState OF
+
+    0: // Idle — reset outputs, capture baseline position for stall detection
+        xBusy  := FALSE;
+        xDone  := FALSE;
+        xError := FALSE;
+        tonStall.IN := FALSE;
+        tonMode.IN  := FALSE;
+        Pos_Old := Axis.Position_Actual_Value; // Baseline so state 20 starts correctly
+
+        IF xEnable THEN
+            IF xExecute AND Axis.StatusWord.1         // SwitchedOn
+                        AND Axis.StatusWord.2         // OperationEnabled
+                        AND Axis.Modes_of_operation_display = 6 // Already in Homing mode
+                        AND NOT Axis.StatusWord.3 THEN
+                iState := 10;
+
+            ELSIF xExecute AND Axis.StatusWord.1
+                           AND Axis.Modes_of_operation_display <> 6 THEN
+                // Different mode active — drop EnableOperation for mode switch
+                Axis.ControlWord.3 := FALSE;
+                iState := 10;
+
+            ELSIF xExecute OR Axis.StatusWord.3 THEN
+                iState := 999; // Drive not ready or fault present
+            END_IF
+        END_IF
+
+    10: // Mode Switch — request Homing mode, write offset, re-enable operation
+        tonMode(IN := TRUE, PT := T#2S); // Mode switch should be nearly instantaneous
+        Axis.ControlWord.4      := FALSE;       // Clear Start Homing bit before arming
+        Axis.Modes_of_operation := 6;           // Request Homing mode
+        Axis.Home_Offset        := diHomeOffset; // Write offset to 0x607C via PDO
+
+        // Re-enable operation only when drive confirms mode 6 is active
+        Axis.ControlWord.3 := (Axis.Modes_of_operation_display = 6);
+
+        IF Axis.StatusWord.3 OR NOT xEnable OR tonMode.Q THEN
+            tonMode.IN := FALSE;
+            iState := 999;
+        ELSIF Axis.StatusWord.2 AND Axis.ControlWord.3 THEN
+            // OperationEnabled confirmed in Homing mode
+            tonMode.IN := FALSE;
+            xBusy := TRUE;
+            iState := 20;
+        END_IF
+
+    20: // Homing in progress — arm Start Homing, monitor completion and stall
+        Axis.ControlWord.4 := TRUE; // Start Homing (bit 4 in HM mode)
+
+        // Stall watchdog: timer runs while position is unchanged from last cycle.
+        // Pos_Old updated AFTER timer call so comparison is current-vs-previous.
+        tonStall(IN := (Axis.Position_Actual_Value = Pos_Old), PT := tStallTimeout);
+        Pos_Old := Axis.Position_Actual_Value;
+
+        IF Axis.StatusWord.3 OR NOT xEnable THEN
+            // Drive fault or operator abort
+            tonStall.IN := FALSE;
+            iState := 999;
+        ELSIF tonStall.Q THEN
+            // Axis hasn't moved for tStallTimeout → stalled or misconfigured
+            tonStall.IN := FALSE;
+            iState := 999;
+        ELSIF Axis.StatusWord.10 AND Axis.StatusWord.12 THEN
+            // Target Reached (bit 10) AND Home Attained (bit 12) = success
+            tonStall.IN := FALSE;
+            Axis.ControlWord.4   := FALSE;               // Deassert Start Homing
+            Axis.Target_Position := Axis.Position_Actual_Value; // Prevent position jump
+            iState := 30;
+        END_IF
+
+    30: // Done — hold xDone until xExecute drops
+        xDone := TRUE;
+        IF NOT xEnable THEN
+            iState := 0;
+        ELSIF NOT xExecute THEN
+            iState := 40; // Wait for handshake before accepting new request
+        END_IF
+
+    40: // Handshake — wait here until a new xExecute is asserted or enable drops
+        // Prevents bounce if xExecute is held after completion
+        IF NOT xEnable THEN
+            iState := 0;
+        ELSIF xExecute THEN
+            // New homing request — go to idle so state 0 evaluates fresh
+            iState := 0;
+        END_IF
+
+    999: // Error — latched; reset by xReset pulse or dropping xExecute
+        tonStall.IN := FALSE;
+        tonMode.IN  := FALSE;
+        Axis.ControlWord.4 := FALSE; // Deassert Start Homing for safety
+        xBusy  := FALSE;
+        xError := TRUE;
+        IF NOT xExecute OR xReset THEN
+            iState := 0;
+        END_IF
+
+END_CASE
+
+// ── Livello A: proiezione avanzamento unificato (E_PROGRESS) ──────────────
+IF    xError     THEN eProgress := PROGRESS_ERROR;
+ELSIF xDone      THEN eProgress := PROGRESS_DONE;
+ELSIF iState = 0 THEN eProgress := PROGRESS_INVALID;
+ELSE                  eProgress := PROGRESS_BUSY;
+END_IF

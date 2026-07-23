@@ -1,0 +1,200 @@
+(* ============================================================
+   SML_AxisController — CSP+OTG All-in-One Orchestrator
+   SML v4 — Merged (OpenSML_AxisController fully revised)
+
+   Combines Power + Home + CSP motion into a single FB using
+   OpenSML_Control for configuration and status.
+
+   USE THIS FB for: jerk-limited trajectories, online re-targeting,
+   high-precision following, simulation.
+   USE FB_SML instead for: simple PP/PV applications, no OTG needed.
+
+   REQUIRES: FB_S7RTT_OTG (native, included in this library)
+   DRIVE CONFIG: 0x6060=8, 0x60C2=CycleTime at startup
+   WARNING: Do NOT drop xMoveEnable while axis is moving.
+
+   DIAGNOSTICS (v4):
+   SML_Diagnostics is built in. Read Control.DiagCode / Control.DiagText for
+   the live condition and Control.FirstFaultCode / FirstFaultText for the
+   latched root cause. Pulse Control.xDiagReset to acknowledge.
+   ============================================================ *)
+
+FUNCTION_BLOCK SML_AxisController
+VAR_IN_OUT
+    Axis    : OpenSML_Axis;
+    Control : OpenSML_Control;
+END_VAR
+VAR_OUTPUT
+    eProgress : E_PROGRESS; // Livello A: avanzamento unificato (proiezione di iState)
+END_VAR
+VAR
+    Power         : SML_Power;
+    Home          : SML_Home;
+    Diag          : SML_Diagnostics;
+    iState        : INT;
+    otg           : FB_S7RTT_OTG;
+    InterfaceType : BOOL;   // FALSE = position, TRUE = velocity
+    JogVel        : LREAL;
+    MoveVel       : LREAL;
+END_VAR
+
+// ── Scale guard ───────────────────────────────────────────────────────────
+IF Control.Scale = 0.0 THEN Control.Scale := 1.0; END_IF
+
+// ── Simulation: mirror target → actual ────────────────────────────────────
+IF Control.xSimulation THEN
+    Axis.Position_Actual_Value := Axis.Target_Position;
+END_IF
+
+// ── Sub-FBs ───────────────────────────────────────────────────────────────
+Power(
+    Axis           := Axis,
+    xExecute       := Control.xAxisEnable,
+    xEmergencyStop := Control.xEmergencyStop,
+    xDone          => Control.xEnabled,
+    xError         =>);
+
+Home(
+    Axis         := Axis,
+    xEnable      := Control.xEnabled AND NOT Control.xMoveEnable,
+    xExecute     := Control.xHomeEnable AND NOT Control.xMoveEnable,
+    diHomeOffset := Control.HomeOffset,  // B3: now configurable via Control struct
+    xDone        => Control.xHomeDone,
+    xError       =>);
+
+// ── Actual position in user units ─────────────────────────────────────────
+Control.lrActualPosition := DINT_TO_LREAL(Axis.Position_Actual_Value) / Control.Scale;
+
+// ── Status defaults ───────────────────────────────────────────────────────
+Control.xInPosition := FALSE;
+Control.xBusy       := (iState > 0 AND iState < 999);
+
+CASE iState OF
+
+    0: // Idle
+        Control.xError := FALSE;
+        IF Control.xMoveEnable THEN
+            IF Axis.StatusWord.1 AND Axis.StatusWord.2
+               AND Axis.Modes_of_operation_display = 8
+               AND NOT Axis.StatusWord.3 THEN
+                iState := 10;
+            ELSIF Axis.StatusWord.1 AND Axis.Modes_of_operation_display <> 8 THEN
+                Axis.ControlWord.3 := FALSE;
+                iState := 10;
+            ELSIF Control.xSimulation THEN
+                iState := 10; // M2: still seed the OTG via the mode-switch state
+            ELSE
+                iState := 999;
+            END_IF
+        END_IF
+
+    10: // Mode Switch to CSP (8) — also seeds the OTG
+        // M1: call OTG here with xInit=TRUE so the integrator is (re)seeded to
+        // the actual position every cycle while in this state. Re-entry after an
+        // error therefore restarts from the real position, never from stale _pos.
+        Axis.Modes_of_operation := 8;
+        Axis.ControlWord.3 := (Axis.Modes_of_operation_display = 8);
+        otg.CurrentPosition := Control.lrActualPosition;  // Seed OTG with actual position
+        otg(xInit            := TRUE,
+            ControlInterface := TRUE,
+            TargetPosition   := Control.lrFollowPosition,
+            TargetVelocity   := 0.0,
+            CycleTIme        := Control.CycleTime,
+            MaxVelocity      := Control.MaxVelocity,
+            MaxAcceleration  := Control.MaxAcceleration,
+            MaxJerk          := Control.MaxJerk);
+        IF (Axis.StatusWord.2 AND Axis.Modes_of_operation_display = 8) OR Control.xSimulation THEN
+            iState := 20;
+        END_IF
+
+    20: // Motion loop
+        // ── Determine OTG interface and setpoints ──────────────
+        IF Control.xFollowEnable AND Control.lrFollowVelocity > 0.0 THEN
+            InterfaceType := FALSE; // Position interface
+            MoveVel       := MIN(Control.lrFollowVelocity, Control.MaxVelocity);
+            JogVel        := 0.0;
+        ELSIF Control.JogPos AND NOT Control.xFollowEnable THEN
+            InterfaceType := TRUE;  // Velocity interface
+            JogVel        := MIN(Control.JogVelocity, Control.MaxVelocity);
+            MoveVel       := Control.MaxVelocity;
+        ELSIF Control.JogNeg AND NOT Control.xFollowEnable THEN
+            InterfaceType := TRUE;
+            JogVel        := MAX(-Control.JogVelocity, -Control.MaxVelocity);
+            MoveVel       := Control.MaxVelocity;
+        ELSE
+            InterfaceType := TRUE;  // Velocity = 0: hold position
+            JogVel        := 0.0;
+            MoveVel       := Control.MaxVelocity;
+        END_IF
+
+        otg(
+            xInit            := FALSE,
+            ControlInterface := InterfaceType,
+            TargetPosition   := Control.lrFollowPosition,
+            TargetVelocity   := JogVel,
+            CycleTIme        := Control.CycleTime,
+            MaxVelocity      := MoveVel,
+            MaxAcceleration  := Control.MaxAcceleration,
+            MaxJerk          := Control.MaxJerk);
+
+        // Convert OTG output [user units] → encoder counts (B4: signed conversion)
+        Axis.Target_Position := LREAL_TO_DINT(otg.NewPosition * Control.Scale);
+
+        // In-position check using configurable window
+        Control.xInPosition := ABS(otg.NewPosition - Control.lrActualPosition)
+                                < Control.PositionWindow;
+
+        // ── Error monitoring ────────────────────────────────────
+        IF Axis.StatusWord.13 THEN       // Following error
+            iState := 999;
+        ELSIF Axis.StatusWord.3 THEN     // Drive fault
+            iState := 999;
+        ELSIF otg.xError THEN            // OTG constraint error
+            iState := 999;
+        ELSIF Power.xError THEN          // Power FB lost drive
+            iState := 999;
+        ELSIF NOT Control.xMoveEnable THEN
+            iState := 0;
+        END_IF
+
+    999: // Error — latched
+        Control.xError      := TRUE;
+        Control.xInPosition := FALSE;
+        IF NOT Control.xMoveEnable THEN
+            Control.xError := FALSE;
+            iState := 0;
+        END_IF
+
+END_CASE
+
+// ── Aggregated diagnostics ──────────────────────────────────────────────────
+// Called AFTER the CASE so otg.xError reflects this cycle's OTG call.
+// CSP path uses only Power/Home/OTG errors; the PP/PV/Jog/TouchProbe inputs
+// are FALSE here (handled by FB_SML for that path).
+Diag(
+    Axis             := Axis,
+    xReset           := Control.xDiagReset,
+    xResetCount      := FALSE,
+    xPowerError      := Power.xError,
+    xHomeError       := Home.xError,
+    xMoveError       := FALSE,
+    xVelError        := FALSE,
+    xJogError        := FALSE,
+    xTouchProbeError := FALSE,
+    xOtgError        := otg.xError,
+    DiagCode         => Control.DiagCode,
+    DiagText         => Control.DiagText,
+    xActiveFault     => Control.xActiveFault,
+    xActiveWarning   => Control.xActiveWarning,
+    FirstFaultCode   => Control.FirstFaultCode,
+    FirstFaultText   => Control.FirstFaultText,
+    DriveErrorCode   => Control.DriveErrorCode,
+    FollowingError   => Control.FollowingError,
+    FaultCount       => Control.FaultCount);
+
+// ── Livello A: proiezione avanzamento unificato (E_PROGRESS) ──────────────
+IF    Control.xError                      THEN eProgress := PROGRESS_ERROR;
+ELSIF iState = 20 AND Control.xInPosition THEN eProgress := PROGRESS_DONE;
+ELSIF iState = 0                          THEN eProgress := PROGRESS_INVALID;
+ELSE                                           eProgress := PROGRESS_BUSY;
+END_IF

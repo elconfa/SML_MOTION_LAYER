@@ -1,0 +1,30 @@
+(* ============================================================
+   SML_IoLink_Out — Bridge I/O: struct asse -> immagine OUTPUT
+   SML v9 — bridge I/O (nuovo)
+
+   Copia GVL_AXIS.Axis[n] (campi output) in GVL_IO.DriveOut[n]
+   (RxPDO del drive). Chiamare alla FINE del task, DOPO MAIN, cosi'
+   gli output riflettono il calcolo del ciclo corrente (zero ritardo).
+
+   GATE: attivo solo se GVL_IO.IO_LINK_ENABLE = TRUE; altrimenti bypass.
+   ============================================================ *)
+
+PROGRAM SML_IoLink_Out
+VAR
+    n : UINT;
+END_VAR
+
+IF NOT GVL_IO.IO_LINK_ENABLE THEN RETURN; END_IF
+
+FOR n := 1 TO GVL_SML_CONST.MAX_AXIS DO
+    GVL_IO.DriveOut[n].ControlWord            := GVL_AXIS.Axis[n].ControlWord;
+    GVL_IO.DriveOut[n].Modes_of_operation     := GVL_AXIS.Axis[n].Modes_of_operation;
+    GVL_IO.DriveOut[n].Target_Position        := GVL_AXIS.Axis[n].Target_Position;
+    GVL_IO.DriveOut[n].Profile_Velocity       := GVL_AXIS.Axis[n].Profile_Velocity;
+    GVL_IO.DriveOut[n].Target_Velocity        := GVL_AXIS.Axis[n].Target_Velocity;
+    GVL_IO.DriveOut[n].Target_Torque          := GVL_AXIS.Axis[n].Target_Torque;
+    GVL_IO.DriveOut[n].Profile_Acceleration   := GVL_AXIS.Axis[n].Profile_Acceleration;
+    GVL_IO.DriveOut[n].Profile_Deceleration   := GVL_AXIS.Axis[n].Profile_Deceleration;
+    GVL_IO.DriveOut[n].Home_Offset            := GVL_AXIS.Axis[n].Home_Offset;
+    GVL_IO.DriveOut[n].TouchProbe_ControlWord := GVL_AXIS.Axis[n].TouchProbe_ControlWord;
+END_FOR

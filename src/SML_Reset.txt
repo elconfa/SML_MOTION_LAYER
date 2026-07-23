@@ -1,0 +1,81 @@
+(* ============================================================
+   SML_Reset — CiA402 Fault Reset (standalone FB)
+   SML v4 — Merged (from Confa; not present in original OpenSML)
+
+   Pulses ControlWord bit 7 (rising edge 0→1) to clear a drive
+   fault independently of the power sequence.
+
+   Use this FB when you need to reset a fault without going through
+   the full SML_Power enable sequence, for example to clear a
+   non-critical warning while the drive is in a known safe state.
+
+   State machine:
+     0 Idle → 10 Reset pulse → 20 Done (wait xExecute drop) → 0
+                             → 999 Error (fault not cleared)
+   ============================================================ *)
+
+FUNCTION_BLOCK SML_Reset
+VAR_IN_OUT
+    Axis : OpenSML_Axis;
+END_VAR
+VAR_INPUT
+    xExecute : BOOL; // Pulse or level: trigger fault reset
+END_VAR
+VAR_OUTPUT
+    xDone  : BOOL; // Fault cleared successfully
+    xError : BOOL; // Fault not cleared within timeout
+    eProgress : E_PROGRESS; // Livello A: avanzamento unificato (proiezione di iState)
+END_VAR
+VAR
+    iState     : INT;
+    tonTimeout : TON;
+    tTimeOut   : TIME := T#500MS;
+END_VAR
+
+CASE iState OF
+
+    0: // Idle — pre-clear bit 7, wait for execute
+        Axis.ControlWord.7 := FALSE; // Rising edge requires bit7 to start at 0
+        xDone  := FALSE;
+        xError := FALSE;
+        IF xExecute THEN
+            iState := 10;
+        END_IF
+
+    10: // Assert Fault Reset bit (rising edge 0→1)
+        Axis.ControlWord.7 := TRUE;
+        tonTimeout(IN := TRUE, PT := tTimeOut);
+        IF tonTimeout.Q AND NOT Axis.StatusWord.3 THEN
+            // Fault cleared
+            Axis.ControlWord.7 := FALSE;
+            xDone := TRUE;
+            tonTimeout(IN := FALSE);
+            iState := 20;
+        ELSIF tonTimeout.Q THEN
+            // Persistent fault — hardware intervention required
+            Axis.ControlWord.7 := FALSE;
+            tonTimeout(IN := FALSE);
+            iState := 999;
+        END_IF
+
+    20: // Done — hold until xExecute drops (prevents continuous re-reset)
+        IF NOT xExecute THEN
+            iState := 0;
+        END_IF
+
+    999: // Error — fault not cleared; reset by dropping xExecute
+        tonTimeout(IN := FALSE);
+        Axis.ControlWord.7 := FALSE;
+        xError := TRUE;
+        IF NOT xExecute THEN
+            iState := 0;
+        END_IF
+
+END_CASE
+
+// ── Livello A: proiezione avanzamento unificato (E_PROGRESS) ──────────────
+IF    xError     THEN eProgress := PROGRESS_ERROR;
+ELSIF xDone      THEN eProgress := PROGRESS_DONE;
+ELSIF iState = 0 THEN eProgress := PROGRESS_INVALID;
+ELSE                  eProgress := PROGRESS_BUSY;
+END_IF

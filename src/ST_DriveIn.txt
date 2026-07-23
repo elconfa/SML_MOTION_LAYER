@@ -1,0 +1,27 @@
+(* ============================================================
+   ST_DriveIn — Immagine di processo INPUT (Drive -> PLC)
+   SML v9 — bridge I/O (nuovo)
+
+   Meta' "input" di OpenSML_Axis, STESSO ordine e stessi tipi.
+   Usata per il bridge I/O: si dichiara AT %I* (mappata ai TxPDO
+   del drive) e si copia in GVL_AXIS.Axis[n] prima del calcolo.
+
+   Vale sia per CoDeSys sia per TwinCAT (ST generico IEC 61131-3).
+   ============================================================ *)
+
+TYPE ST_DriveIn :
+STRUCT
+    StatusWord                   : UINT;   // 0x6041
+    Modes_of_operation_display   : SINT;   // 0x6061
+    Torque_Actual_Value          : INT;    // 0x6077 [0.1 % rated]
+    Position_Actual_Value        : DINT;   // 0x6064 [encoder counts]
+    Velocity_Actual_Value        : DINT;   // 0x606C [drive velocity units]
+    Current_Actual_Value         : INT;    // 0x6078 [0.1 % rated]
+    Following_Error_Actual_Value : DINT;   // 0x60F4 [encoder counts]
+    Error_Code                   : UINT;   // 0x603F [0 = nessun errore]
+    Digital_Inputs               : UDINT;  // 0x60FD [bitmask DI]
+    TouchProbe_StatusWord        : UINT;   // 0x60B9
+    TouchProbe_Rising_Value      : DINT;   // 0x60BA [encoder counts]
+    TouchProbe_Falling_Value     : DINT;   // 0x60BB [encoder counts]
+END_STRUCT
+END_TYPE

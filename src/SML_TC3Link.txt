@@ -1,0 +1,84 @@
+(* ============================================================
+   SML_TC3Link — TwinCAT 3 Hardware I/O Bridge
+   SML v4 — Merged
+
+   Bridges the OpenSML_Axis software struct to the TwinCAT %Q*/%I*
+   hardware image.  All motion FBs work on the struct; this FB
+   copies outputs to hardware and reads hardware inputs back.
+
+   CALL ORDER — CRITICAL:
+   Call this FB LAST in every PLC task cycle, after all motion FBs.
+   Reason: motion FBs write commands into the struct; this FB flushes
+   them to %Q*. If called first, %Q* outputs are one cycle stale and
+   %I* feedback is read before motion FBs have processed it.
+
+   CORRECT usage in MAIN:
+       SML_Power(Axis := Axis_1, ...);
+       SML_Home(Axis := Axis_1, ...);
+       SML_MoveAbs(Axis := Axis_1, ...);
+       TC3Link(Axis := Axis_1);   // ALWAYS LAST
+
+   EXTENDED vs original:
+   Added Profile_Acceleration, Profile_Deceleration, Home_Offset,
+   TouchProbe_ControlWord (outputs) and Error_Code, Digital_Inputs,
+   TouchProbe_StatusWord, TouchProbe_Rising/Falling_Value (inputs).
+   ============================================================ *)
+
+FUNCTION_BLOCK SML_TC3Link
+VAR_INPUT
+    // ── Drive → PLC (%I*) — link to EtherCAT slave PDO inputs ─
+    StatusWord                   AT %I* : UINT;  // 0x6041
+    Modes_of_operation_display   AT %I* : SINT;  // 0x6061
+    Torque_Actual_Value          AT %I* : INT;   // 0x6077
+    Position_Actual_Value        AT %I* : DINT;  // 0x6064
+    Velocity_Actual_Value        AT %I* : DINT;  // 0x606C
+    Current_Actual_Value         AT %I* : INT;   // 0x6078
+    Following_Error_Actual_Value AT %I* : DINT;  // 0x60F4
+    Error_Code                   AT %I* : UINT;  // 0x603F
+    Digital_Inputs               AT %I* : UDINT; // 0x60FD
+    TouchProbe_StatusWord        AT %I* : UINT;  // 0x60B9
+    TouchProbe_Rising_Value      AT %I* : DINT;  // 0x60BA
+    TouchProbe_Falling_Value     AT %I* : DINT;  // 0x60BB
+END_VAR
+VAR_OUTPUT
+    // ── PLC → Drive (%Q*) — link to EtherCAT slave PDO outputs ─
+    ControlWord          AT %Q* : UINT;   // 0x6040
+    Modes_of_operation   AT %Q* : SINT;   // 0x6060
+    Target_Position      AT %Q* : DINT;   // 0x607A
+    Profile_Velocity     AT %Q* : UDINT;  // 0x6081
+    Target_Velocity      AT %Q* : DINT;   // 0x60FF
+    Target_Torque        AT %Q* : INT;    // 0x6071
+    Profile_Acceleration AT %Q* : UDINT;  // 0x6083
+    Profile_Deceleration AT %Q* : UDINT;  // 0x6084
+    Home_Offset          AT %Q* : DINT;   // 0x607C
+    TouchProbe_ControlWord AT %Q* : UINT; // 0x60B8
+END_VAR
+VAR_IN_OUT
+    Axis : OpenSML_Axis; // Shared axis struct — written by motion FBs
+END_VAR
+
+// ── Flush struct outputs → hardware %Q* image (PLC → drive) ──────────────
+ControlWord          := Axis.ControlWord;
+Modes_of_operation   := Axis.Modes_of_operation;
+Target_Position      := Axis.Target_Position;
+Profile_Velocity     := Axis.Profile_Velocity;
+Target_Velocity      := Axis.Target_Velocity;
+Target_Torque        := Axis.Target_Torque;
+Profile_Acceleration := Axis.Profile_Acceleration;
+Profile_Deceleration := Axis.Profile_Deceleration;
+Home_Offset          := Axis.Home_Offset;
+TouchProbe_ControlWord := Axis.TouchProbe_ControlWord;
+
+// ── Read hardware %I* feedback → struct (drive → PLC) ────────────────────
+Axis.StatusWord                   := StatusWord;
+Axis.Modes_of_operation_display   := Modes_of_operation_display;
+Axis.Torque_Actual_Value          := Torque_Actual_Value;
+Axis.Position_Actual_Value        := Position_Actual_Value;
+Axis.Velocity_Actual_Value        := Velocity_Actual_Value;
+Axis.Current_Actual_Value         := Current_Actual_Value;
+Axis.Following_Error_Actual_Value := Following_Error_Actual_Value;
+Axis.Error_Code                   := Error_Code;
+Axis.Digital_Inputs               := Digital_Inputs;
+Axis.TouchProbe_StatusWord        := TouchProbe_StatusWord;
+Axis.TouchProbe_Rising_Value      := TouchProbe_Rising_Value;
+Axis.TouchProbe_Falling_Value     := TouchProbe_Falling_Value;

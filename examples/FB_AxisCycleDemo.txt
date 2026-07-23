@@ -1,0 +1,118 @@
+(* ============================================================
+   FB_AxisCycleDemo — Esempio applicativo d'uso di SML
+   SML v9 — esempio (NON parte della libreria)
+
+   Mostra il pattern tipico "comando -> attesa State.xDone" su un
+   asse gestito dal Motion Layer. Fa un ciclo continuo:
+
+     ENABLE -> HOME (una volta) -> A -> dwell -> B -> dwell -> A -> ...
+
+   fino a xStop; su errore -> RESET automatico e ritorno a idle.
+
+   Comanda l'asse via GVL_AXIS[nAxis] (scrive Ctrl/Data, legge
+   State/Info). E' l'esempio di riferimento per un programmatore
+   che integra SML in una macchina reale.
+
+   NOTA sul re-trigger dei move PP (discreti): tra due AXIS_MOVE_ABS
+   si passa da AXIS_NULL (i passi di dwell) per creare il fronte che
+   ri-avvia il movimento successivo. Per re-targeting fluido usare
+   invece AXIS_MOVE_CSP.
+   ============================================================ *)
+
+FUNCTION_BLOCK FB_AxisCycleDemo
+VAR_INPUT
+    nAxis   : UINT  := 1;          // indice asse in GVL_AXIS [1..MAX_AXIS]
+    xStart  : BOOL;                // avvia il ciclo
+    xStop   : BOOL;                // ferma il ciclo (Halt + fine)
+    lrPosA  : LREAL := 0.0;        // posizione A [unita']
+    lrPosB  : LREAL := 100.0;      // posizione B [unita']
+    lrVel   : LREAL := 100.0;      // velocita' move [unita'/s]
+    tDwell  : TIME  := T#500MS;    // sosta a ogni estremo
+END_VAR
+VAR_OUTPUT
+    xBusy   : BOOL;                // ciclo in esecuzione
+    xDone   : BOOL;                // ciclo terminato (dopo xStop)
+    xError  : BOOL;                // errore asse
+    iStep   : INT;                 // passo corrente (diagnostica)
+    sDiag   : STRING(80);          // testo diagnostico dell'asse
+END_VAR
+VAR
+    tonDwell : TON;
+END_VAR
+
+// ── specchio stato asse ──────────────────────────────────────
+xError := GVL_AXIS.State[nAxis].xError;
+sDiag  := GVL_AXIS.State[nAxis].DiagText;
+
+// timer di sosta (attivo solo nei passi 40/60, auto-reset uscendo)
+tonDwell(IN := (iStep = 40) OR (iStep = 60), PT := tDwell);
+
+// ── supervisione: errore o stop mentre in ciclo ──────────────
+IF (iStep > 0) AND (iStep < 900) THEN
+    IF xError    THEN iStep := 900; END_IF
+    IF xStop     THEN iStep := 200; END_IF
+END_IF
+
+CASE iStep OF
+
+    0: // IDLE — asse fermo, abilitazione mantenuta se gia' on
+        GVL_AXIS.Ctrl[nAxis].eCmd := AXIS_NULL;
+        xBusy := FALSE;
+        IF xStart THEN
+            xDone := FALSE;
+            iStep := 10;
+        END_IF
+
+    10: // ENABLE — attende OperationEnabled
+        xBusy := TRUE;
+        GVL_AXIS.Ctrl[nAxis].eCmd := AXIS_ENABLE;
+        IF GVL_AXIS.Info[nAxis].xEnabled THEN
+            IF GVL_AXIS.Info[nAxis].xHomed THEN
+                iStep := 30;         // gia' azzerato: salta l'homing
+            ELSE
+                iStep := 20;
+            END_IF
+        END_IF
+
+    20: // HOME (una volta)
+        GVL_AXIS.Ctrl[nAxis].eCmd := AXIS_HOME;
+        IF GVL_AXIS.State[nAxis].xDone THEN iStep := 30; END_IF
+
+    30: // MOVE -> A
+        GVL_AXIS.Data[nAxis].lrTargetPosition := lrPosA;
+        GVL_AXIS.Data[nAxis].lrVelocity       := lrVel;
+        GVL_AXIS.Ctrl[nAxis].eCmd := AXIS_MOVE_ABS;
+        IF GVL_AXIS.State[nAxis].xDone THEN iStep := 40; END_IF
+
+    40: // sosta in A (NULL crea il fronte per il prossimo move)
+        GVL_AXIS.Ctrl[nAxis].eCmd := AXIS_NULL;
+        IF tonDwell.Q THEN iStep := 50; END_IF
+
+    50: // MOVE -> B
+        GVL_AXIS.Data[nAxis].lrTargetPosition := lrPosB;
+        GVL_AXIS.Data[nAxis].lrVelocity       := lrVel;
+        GVL_AXIS.Ctrl[nAxis].eCmd := AXIS_MOVE_ABS;
+        IF GVL_AXIS.State[nAxis].xDone THEN iStep := 60; END_IF
+
+    60: // sosta in B, poi ripete il ciclo (torna in A)
+        GVL_AXIS.Ctrl[nAxis].eCmd := AXIS_NULL;
+        IF tonDwell.Q THEN iStep := 30; END_IF
+
+    200: // STOP richiesto — Halt e fine
+        GVL_AXIS.Ctrl[nAxis].eCmd := AXIS_STOP;
+        IF NOT GVL_AXIS.Info[nAxis].xMoving THEN
+            GVL_AXIS.Ctrl[nAxis].eCmd := AXIS_NULL;
+            xBusy := FALSE;
+            xDone := TRUE;
+            iStep := 0;
+        END_IF
+
+    900: // ERRORE — reset automatico, poi idle (richiede nuovo xStart)
+        GVL_AXIS.Ctrl[nAxis].eCmd := AXIS_RESET;
+        xBusy := FALSE;
+        IF NOT xError THEN
+            GVL_AXIS.Ctrl[nAxis].eCmd := AXIS_NULL;
+            iStep := 0;
+        END_IF
+
+END_CASE

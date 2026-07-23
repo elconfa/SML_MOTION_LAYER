@@ -1,0 +1,22 @@
+(* ============================================================
+   GVL_SML_CONST — Costanti globali della libreria SML
+   SML v7 — Livello B (nuovo)
+
+   Riferimento qualificato: GVL_SML_CONST.MAX_AXIS, ...
+   ============================================================ *)
+
+{attribute 'qualified_only'}
+VAR_GLOBAL CONSTANT
+    MAX_AXIS      : UINT := 4;     // numero di assi gestiti dal MAIN
+    PROGRESS_SPAN : DINT := 100;   // ampiezza banda progress nello stato combinato
+                                   // (E_AXIS_STATE sono multipli di questo valore)
+
+    // ── MAPPING: dimensione fissa (byte) dei blocchi bus per le UNION ──
+    // Devono essere >= SIZEOF della struct corrispondente (verificato a
+    // runtime da MAPPING_in/out via Check). Fissi per stabilita' del
+    // process image sul fieldbus.
+    MAP_SIZE_CTRL  : UDINT := 64;    // >= SIZEOF(ST_AXIS_CTRL)
+    MAP_SIZE_DATA  : UDINT := 64;    // >= SIZEOF(ST_MOVE_DATA)
+    MAP_SIZE_STATE : UDINT := 256;   // >= SIZEOF(ST_AXIS_STATE) (contiene 2x STRING(80))
+    MAP_SIZE_INFO  : UDINT := 128;   // >= SIZEOF(ST_AXIS_INFO) (con Status + TouchProbe)
+END_VAR

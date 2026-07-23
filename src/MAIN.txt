@@ -1,0 +1,66 @@
+(* ============================================================
+   MAIN — Orchestratore multi-asse del Motion Layer SML
+   SML v7 — Livello B (nuovo)
+
+   Esegue tutti gli assi 1..MAX_AXIS. Per ciascun asse:
+     - aggiorna il riferimento a interfaccia (ItfSmlAxis[n] := Control[n])
+       cosi' coordinatori di alto livello possono manovrare l'asse via
+       I_SmlAxis[n];
+     - chiama ciclicamente FB_SmlAxisCtrl passando il contratto dati
+       per riferimento (VAR_IN_OUT).
+
+   L'applicazione comanda ogni asse scrivendo GVL_AXIS.Ctrl[n].eCmd (+
+   GVL_AXIS.Data[n]) e legge GVL_AXIS.State[n]/Info[n]. In produzione
+   collegare GVL_AXIS.Axis[n] all'I/O con SML_TC3Link (fuori da MAIN).
+
+   NB: nessuna macchina di INIT dedicata (a differenza di PLC_MOTION_LAYER):
+   l'abilitazione avviene per asse via eCmd = AXIS_ENABLE.
+
+   Bridge I/O opzionale: SML_IoLink_In()/SML_IoLink_Out() copiano da/verso
+   l'hardware (GVL_IO) solo se GVL_IO.IO_LINK_ENABLE = TRUE. In (drive->Axis)
+   prima del ciclo, Out (Axis->drive) dopo: zero ritardo. Su CoDeSys con link
+   diretto nella scheda I/O Mapping lasciarlo FALSE.
+
+   MAPPING opzionale: MAPPING_in()/MAPPING_out() copiano da/verso il bus
+   (GVL_AXIS_MAP) solo se GVL_AXIS_MAP.AXIS_MAP_ENABLE = TRUE; altrimenti
+   si auto-bypassano (comportamento identico a v7).
+
+   SIMULAZIONE: usare SML_MultiAxis_Test (banco con emulatore) AL POSTO di
+   MAIN; non eseguirli entrambi nello stesso task (doppia chiamata degli
+   stessi FB).
+   ============================================================ *)
+
+PROGRAM MAIN
+VAR
+    nAxis : UINT;
+END_VAR
+
+// /HW -> struct asse (bypass se IO_LINK_ENABLE = FALSE)
+SML_IoLink_In();
+// HW -> struct asse/
+
+// /bus -> interno (bypass se AXIS_MAP_ENABLE = FALSE)
+MAPPING_in();
+// bus -> interno/
+
+FOR nAxis := 1 TO GVL_SML_CONST.MAX_AXIS
+DO
+    // accesso a interfaccia per coordinatori di alto livello
+    GVL_AXIS.ItfSmlAxis[nAxis] := GVL_AXIS.Control[nAxis];
+
+    // esecuzione ciclica dell'asse (contratto dati per riferimento)
+    GVL_AXIS.Control[nAxis](
+        Axis  := GVL_AXIS.Axis[nAxis],
+        Ctrl  := GVL_AXIS.Ctrl[nAxis],
+        Data  := GVL_AXIS.Data[nAxis],
+        State := GVL_AXIS.State[nAxis],
+        Info  := GVL_AXIS.Info[nAxis]);
+END_FOR
+
+// /interno -> bus (bypass se AXIS_MAP_ENABLE = FALSE)
+MAPPING_out();
+// interno -> bus/
+
+// /struct asse -> HW (bypass se IO_LINK_ENABLE = FALSE)
+SML_IoLink_Out();
+// struct asse -> HW/

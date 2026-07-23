@@ -1,0 +1,29 @@
+(* ============================================================
+   E_AXIS_CTRL — Comando asse (eCmd) per FB_SmlAxisCtrl
+   SML v6 — Livello B (nuovo)
+
+   Enum di comando a livello (level-based): l'applicazione scrive
+   Ctrl.eCmd; FB_SmlAxisCtrl instrada il comando sul FB foglia
+   corrispondente. Un solo comando alla volta => nessun arbiter
+   esplicito (il valore singolo di eCmd E' l'arbiter).
+
+   Analogo di E_AXIS_CTRL di PLC_MOTION_LAYER, ma i comandi mappano
+   sugli FB CiA402 di SML al posto degli MC_* Beckhoff.
+   ============================================================ *)
+
+TYPE E_AXIS_CTRL :
+(
+    AXIS_NULL          := 0,    // nessun comando: mantiene lo stato corrente
+    AXIS_ENABLE        := 1,    // abilita drive (Power) e resta idle
+    AXIS_DISABLE       := 2,    // disabilita drive
+    AXIS_RESET         := 3,    // reset fault (drive + FB foglia)
+    AXIS_HOME          := 4,    // homing
+    AXIS_MOVE_ABS      := 5,    // Profile Position assoluto
+    AXIS_MOVE_REL      := 6,    // Profile Position relativo
+    AXIS_MOVE_VELOCITY := 7,    // Profile Velocity (velocita' con segno)
+    AXIS_JOG_POS       := 8,    // jog positivo (tenuto)
+    AXIS_JOG_NEG       := 9,    // jog negativo (tenuto)
+    AXIS_MOVE_CSP      := 10,   // CSP (modo 8) + OTG verso Data.lrTargetPosition
+    AXIS_STOP          := 11    // Halt (decelerazione controllata)
+) INT;
+END_TYPE

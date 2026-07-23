@@ -1,0 +1,97 @@
+(* ============================================================
+   SML_MultiAxis_Test — Banco di prova multi-asse (Livello B)
+   SML v7 — nuovo
+
+   Harness di simulazione per l'orchestrazione multi-asse. Usa gli
+   array reali di GVL_AXIS ed esegue la STESSA logica di MAIN, piu':
+     - configurazione/stimolo in xSimulation,
+     - mini-emulatore CiA402 inline sugli assi in prova,
+     - verifica di INDIPENDENZA (comandi diversi in parallelo).
+
+   Assi in prova: 1 (MOVE_CSP) e 2 (JOG_POS) contemporaneamente.
+   Attese:  asse 1 -> DONE (in posizione),  asse 2 -> BUSY (jog).
+
+   USO: eseguire QUESTO banco AL POSTO di MAIN in simulazione (non
+   entrambi nello stesso task). Banco di sviluppo, non parte della
+   libreria.
+   ============================================================ *)
+
+PROGRAM SML_MultiAxis_Test
+VAR
+    nAxis : UINT;
+    tStep : TON;
+    step  : INT;
+    xTestDone : BOOL;
+
+    // ── esiti ────────────────────────────────────────────────
+    xAx1CspDone  : BOOL;
+    xAx2JogBusy  : BOOL;
+    xIndependent : BOOL;   // comandi diversi attivi in parallelo
+    xTestPassed  : BOOL;
+END_VAR
+
+// ── configurazione assi in prova (1 e 2), ogni ciclo ─────────
+FOR nAxis := 1 TO 2 DO
+    GVL_AXIS.Ctrl[nAxis].xSimulation    := TRUE;
+    GVL_AXIS.Ctrl[nAxis].xEmergencyStop := TRUE;
+    GVL_AXIS.Ctrl[nAxis].Scale          := 1.0;
+    GVL_AXIS.Ctrl[nAxis].CycleTime      := 0.001;
+    GVL_AXIS.Ctrl[nAxis].PositionWindow := 0.5;
+    GVL_AXIS.Data[nAxis].lrAcceleration := 1000.0;
+    GVL_AXIS.Data[nAxis].lrDeceleration := 1000.0;
+    GVL_AXIS.Data[nAxis].lrJerk         := 10000.0;
+END_FOR
+
+// ── sequenza ~300 ms/passo ───────────────────────────────────
+tStep(IN := NOT xTestDone, PT := T#300MS);
+IF tStep.Q THEN
+    tStep(IN := FALSE);
+    step := step + 1;
+END_IF
+
+CASE step OF
+    0:  GVL_AXIS.Ctrl[1].eCmd := AXIS_ENABLE;
+        GVL_AXIS.Ctrl[2].eCmd := AXIS_ENABLE;
+    2:  // comandi DIVERSI in parallelo
+        GVL_AXIS.Data[1].lrTargetPosition := 30.0;
+        GVL_AXIS.Data[1].lrVelocity       := 50.0;
+        GVL_AXIS.Ctrl[1].eCmd := AXIS_MOVE_CSP;    // asse 1: follow (CSP+OTG)
+        GVL_AXIS.Data[2].lrVelocity       := 20.0;
+        GVL_AXIS.Ctrl[2].eCmd := AXIS_JOG_POS;     // asse 2: jog
+    7:  xTestDone := TRUE;
+END_CASE
+
+// ── esecuzione assi (identica a MAIN) ────────────────────────
+FOR nAxis := 1 TO GVL_SML_CONST.MAX_AXIS DO
+    GVL_AXIS.ItfSmlAxis[nAxis] := GVL_AXIS.Control[nAxis];
+    GVL_AXIS.Control[nAxis](
+        Axis  := GVL_AXIS.Axis[nAxis],
+        Ctrl  := GVL_AXIS.Ctrl[nAxis],
+        Data  := GVL_AXIS.Data[nAxis],
+        State := GVL_AXIS.State[nAxis],
+        Info  := GVL_AXIS.Info[nAxis]);
+END_FOR
+
+// ── mini-emulatore CiA402 per gli assi in prova ──────────────
+FOR nAxis := 1 TO 2 DO
+    GVL_AXIS.Axis[nAxis].Modes_of_operation_display := GVL_AXIS.Axis[nAxis].Modes_of_operation;
+    GVL_AXIS.Axis[nAxis].StatusWord.0  := GVL_AXIS.Axis[nAxis].ControlWord.1;
+    GVL_AXIS.Axis[nAxis].StatusWord.1  := GVL_AXIS.Axis[nAxis].ControlWord.0 AND GVL_AXIS.Axis[nAxis].ControlWord.1;
+    GVL_AXIS.Axis[nAxis].StatusWord.2  := GVL_AXIS.Axis[nAxis].ControlWord.3 AND GVL_AXIS.Axis[nAxis].StatusWord.1;
+    GVL_AXIS.Axis[nAxis].StatusWord.5  := TRUE;
+    GVL_AXIS.Axis[nAxis].StatusWord.10 := GVL_AXIS.Axis[nAxis].ControlWord.8;
+END_FOR
+
+// ── osservazione: indipendenza + esiti attesi ────────────────
+IF (GVL_AXIS.State[1].eCmdActive = AXIS_MOVE_CSP) AND (GVL_AXIS.State[1].eProgress = PROGRESS_DONE)
+    THEN xAx1CspDone := TRUE; END_IF
+
+IF (GVL_AXIS.State[2].eCmdActive = AXIS_JOG_POS) AND (GVL_AXIS.State[2].eProgress = PROGRESS_BUSY)
+    THEN xAx2JogBusy := TRUE; END_IF
+
+// comandi diversi attivi nello stesso ciclo => assi indipendenti
+IF (GVL_AXIS.State[1].eCmdActive = AXIS_MOVE_CSP)
+   AND (GVL_AXIS.State[2].eCmdActive = AXIS_JOG_POS)
+    THEN xIndependent := TRUE; END_IF
+
+xTestPassed := xAx1CspDone AND xAx2JogBusy AND xIndependent;

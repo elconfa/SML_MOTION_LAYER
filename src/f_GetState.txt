@@ -1,0 +1,18 @@
+(* ============================================================
+   f_GetState — Estrae la base di stato funzionale da uno stato combinato
+   SML v5 — Livello A (nuovo)
+
+   eCombined = stato_funzionale + E_PROGRESS
+   Ritorna stato_funzionale (multiplo di PROGRESS_SPAN).
+   In Livello B il tipo di ritorno diventera' un enum dedicato
+   (es. E_SML_AXIS_STATE).
+
+   Predisposizione Livello B: non usato dalla proiezione Livello A.
+   ============================================================ *)
+
+FUNCTION f_GetState : DINT
+VAR_INPUT
+    eCombined : DINT;
+END_VAR
+
+f_GetState := (eCombined / GVL_SML_CONST.PROGRESS_SPAN) * GVL_SML_CONST.PROGRESS_SPAN;

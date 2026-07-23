@@ -1,0 +1,159 @@
+(* ============================================================
+   SML_Power — CiA402 Drive Power-On / Power-Off Sequencer
+   SML v4 — Merged (best of OpenSML_Power + SML_Power/Confa)
+
+   Drives the CiA402 state machine:
+     SwitchOnDisabled → ReadyToSwitchOn → SwitchedOn → OperationEnabled
+
+   KEY DESIGN CHOICES (vs original OpenSML):
+   - xExecute (edge/level) instead of xEnable:
+     After a fault reset the drive returns to Idle and REQUIRES a
+     new xExecute pulse.  This prevents automatic re-enable after
+     any fault — the operator must consciously re-request power.
+   - Single tonTimeout instance with explicit IN management per state.
+   - Proper CiA402 Shutdown command on disable (bit3=0, bit0=0).
+   - All control bits forced low in error state.
+
+   EMERGENCY STOP:
+     xEmergencyStop = TRUE  → ControlWord bit 2 = 1 → normal run
+     xEmergencyStop = FALSE → ControlWord bit 2 = 0 → quick-stop
+   Applied every cycle regardless of state.
+   ============================================================ *)
+
+FUNCTION_BLOCK SML_Power
+VAR_IN_OUT
+    Axis : OpenSML_Axis;
+END_VAR
+VAR_INPUT
+    xExecute       : BOOL;           // Level/edge: request drive enable; drop to disable
+    xEmergencyStop : BOOL := TRUE;   // TRUE = normal run, FALSE = quick-stop (CiA402 bit 2)
+END_VAR
+VAR_OUTPUT
+    xDone  : BOOL; // Drive in OperationEnabled state, ready for motion FBs
+    xError : BOOL; // Fault present or power-up sequence timed out
+    eProgress : E_PROGRESS; // Livello A: avanzamento unificato (proiezione di iState)
+END_VAR
+VAR
+    iState     : INT;
+    tonTimeout : TON;
+    tTimeOut   : TIME := T#500MS; // Max time allowed per CiA402 state transition
+END_VAR
+
+// ── Quick-Stop line — written every scan regardless of state ──────────────
+// CiA402 bit 2: 1 = normal, 0 = quick-stop. Active-LOW — never invert here.
+Axis.ControlWord.2 := xEmergencyStop;
+
+// ── Single timer instance — IN assigned per state ─────────────────────────
+tonTimeout(PT := tTimeOut);
+
+CASE iState OF
+
+    0: // Idle — safe default; wait for execute request
+        xDone  := FALSE;
+        xError := FALSE;
+        tonTimeout.IN := FALSE;
+        Axis.ControlWord.0 := FALSE; // Switch On
+        Axis.ControlWord.1 := FALSE; // Enable Voltage
+        Axis.ControlWord.3 := FALSE; // Enable Operation
+        Axis.ControlWord.7 := FALSE; // Fault Reset (pre-clear)
+        IF xExecute THEN
+            IF Axis.StatusWord.3 THEN
+                iState := 10; // Fault active → reset first
+            ELSE
+                iState := 20; // No fault → begin enable sequence
+            END_IF
+        END_IF
+
+    10: // Fault Reset — pulse bit 7 (rising edge 0→1 clears fault)
+        // On success: return to IDLE (not directly to enable).
+        // Operator must re-assert xExecute to intentionally re-enable.
+        Axis.ControlWord.7 := TRUE;
+        tonTimeout.IN := TRUE;
+        IF tonTimeout.Q AND NOT Axis.StatusWord.3 THEN
+            Axis.ControlWord.7 := FALSE;
+            tonTimeout.IN := FALSE;
+            iState := 0; // Back to idle — requires deliberate re-enable
+        ELSIF tonTimeout.Q THEN
+            tonTimeout.IN := FALSE;
+            iState := 999; // Drive did not clear fault within timeout
+        END_IF
+
+    20: // Enable Voltage — Shutdown command: bit1=1, bit0=0, bit3=0
+        // Transitions: SwitchOnDisabled → ReadyToSwitchOn
+        Axis.ControlWord.1 := TRUE;
+        tonTimeout.IN := TRUE;
+        IF Axis.StatusWord.0 THEN
+            // StatusWord bit 0 = Ready to Switch On confirmed
+            tonTimeout.IN := FALSE;
+            iState := 30;
+        ELSIF tonTimeout.Q THEN
+            tonTimeout.IN := FALSE;
+            iState := 999;
+        END_IF
+
+    30: // Switch On — command: bit1=1, bit0=1, bit3=0
+        // Transitions: ReadyToSwitchOn → SwitchedOn
+        Axis.ControlWord.0 := TRUE;
+        tonTimeout.IN := TRUE;
+        IF Axis.StatusWord.0 AND Axis.StatusWord.1 THEN
+            // StatusWord bits 0+1 = Switched On confirmed
+            tonTimeout.IN := FALSE;
+            iState := 40;
+        ELSIF tonTimeout.Q THEN
+            tonTimeout.IN := FALSE;
+            iState := 999;
+        END_IF
+
+    40: // Enable Operation — command: bit0=1, bit1=1, bit3=1
+        // Transitions: SwitchedOn → OperationEnabled
+        // Freeze target position BEFORE asserting bit3 to prevent a position jump
+        Axis.Target_Position := Axis.Position_Actual_Value;
+        Axis.ControlWord.3 := TRUE;
+        tonTimeout.IN := TRUE;
+        IF Axis.StatusWord.0 AND Axis.StatusWord.1 AND Axis.StatusWord.2 THEN
+            // OperationEnabled confirmed
+            tonTimeout.IN := FALSE;
+            iState := 50;
+        ELSIF tonTimeout.Q THEN
+            tonTimeout.IN := FALSE;
+            iState := 999;
+        END_IF
+
+    50: // Running — drive in OperationEnabled, accepting setpoints
+        xDone := TRUE;
+        IF NOT xExecute THEN
+            // CiA402 Shutdown: bit3=0 (Disable Operation) + bit0=0 (Switch Off)
+            Axis.ControlWord.3 := FALSE;
+            Axis.ControlWord.0 := FALSE;
+            iState := 0;
+        ELSIF Axis.StatusWord.3 THEN
+            // Drive fault while running
+            iState := 999;
+        ELSIF NOT Axis.StatusWord.5 AND xEmergencyStop THEN
+            // M3: QuickStopActive (StatusWord bit 5 = 0) but E-stop has been
+            // released (xEmergencyStop = TRUE). Depending on quick-stop option
+            // code 0x605A the drive may stay in QuickStopActive and NOT auto-
+            // recover. Re-run the enable sequence from Switch-On to bring the
+            // drive back to OperationEnabled. xDone drops until re-confirmed.
+            xDone := FALSE;
+            iState := 20;
+        END_IF
+
+    999: // Error — latched; reset by dropping xExecute
+        tonTimeout.IN := FALSE;
+        xDone  := FALSE;
+        xError := TRUE;
+        Axis.ControlWord.0 := FALSE; // Force low for safety
+        Axis.ControlWord.3 := FALSE;
+        IF NOT xExecute THEN
+            iState := 0;
+        END_IF
+
+END_CASE
+
+// ── Livello A: proiezione avanzamento unificato (E_PROGRESS) ──────────────
+IF    xError     THEN eProgress := PROGRESS_ERROR;
+ELSIF xDone      THEN eProgress := PROGRESS_DONE;      // OperationEnabled (iState 50)
+ELSIF iState = 0 THEN eProgress := PROGRESS_INVALID;   // idle
+ELSE                  eProgress := PROGRESS_BUSY;       // sequenza in corso
+END_IF

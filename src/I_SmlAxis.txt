@@ -1,0 +1,73 @@
+(* ============================================================
+   I_SmlAxis — Interfaccia asse (equivalente di I_McAxis)
+   SML v6 — Livello B (nuovo)
+
+   Facciata a metodi per pilotare un asse senza dipendere
+   dall'implementazione. Serve a coordinatori di alto livello
+   (in futuro: CAM/NCI/sincronismi) per manovrare gli assi.
+
+   SEMANTICA: i metodi sono SETTER. Impostano Ctrl.eCmd + Data e
+   ritornano l'avanzamento corrente (State.eProgress). L'esecuzione
+   vera avviene nel corpo ciclico di FB_SmlAxisCtrl, che DEVE essere
+   chiamato ogni ciclo. Usare O i metodi O la struct Ctrl, non
+   entrambi contemporaneamente sullo stesso asse.
+
+   Rappresentazione testuale: in CoDeSys ogni METHOD/PROPERTY qui
+   elencato e' un oggetto separato sotto l'INTERFACE I_SmlAxis.
+   ============================================================ *)
+
+INTERFACE I_SmlAxis
+
+// ── METHODS (ritornano E_PROGRESS) ─────────────────────────────
+
+METHOD Enable : E_PROGRESS
+// (nessun parametro)
+
+METHOD Disable : E_PROGRESS
+// (nessun parametro)
+
+METHOD Reset : E_PROGRESS
+// (nessun parametro)
+
+METHOD Home : E_PROGRESS
+// (nessun parametro; usa Ctrl.HomeOffset)
+
+METHOD MoveAbsolute : E_PROGRESS
+VAR_INPUT
+    lrPosition : LREAL;   // [unita']
+    lrVelocity : LREAL;   // [unita'/s]
+END_VAR
+
+METHOD MoveRelative : E_PROGRESS
+VAR_INPUT
+    lrDistance : LREAL;   // [unita']
+    lrVelocity : LREAL;   // [unita'/s]
+END_VAR
+
+METHOD MoveVelocity : E_PROGRESS
+VAR_INPUT
+    lrVelocity : LREAL;   // [unita'/s] con segno
+END_VAR
+
+METHOD Jog : E_PROGRESS
+VAR_INPUT
+    xForward   : BOOL;
+    xReverse   : BOOL;
+    lrVelocity : LREAL;   // magnitudo [unita'/s]
+END_VAR
+
+METHOD MoveFollow : E_PROGRESS   // CSP + OTG (jerk-limited)
+VAR_INPUT
+    lrPosition : LREAL;   // [unita'] — ri-targettabile online
+    lrVelocity : LREAL;   // [unita'/s]
+END_VAR
+
+METHOD Stop : E_PROGRESS
+// (nessun parametro)
+
+// ── PROPERTIES (get) ───────────────────────────────────────────
+
+PROPERTY Position : LREAL     // posizione attuale [unita']  (get)
+PROPERTY Enabled  : BOOL      // drive OperationEnabled       (get)
+
+END_INTERFACE

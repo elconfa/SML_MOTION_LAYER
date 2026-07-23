@@ -1,0 +1,403 @@
+(* ============================================================
+   FB_SmlAxisCtrl — FB di controllo asse a comandi (Livello B)
+   SML v6 — nuovo
+
+   Porta il pattern Motion Layer di PLC_MOTION_LAYER su SML: al posto
+   di wrappare gli MC_* Beckhoff, questo FB pilota DIRETTAMENTE gli FB
+   foglia CiA402 di SML (Power/Home/ProfilePosition/ProfileVelocity/
+   Jog/Stop) + il percorso CSP con FB_S7RTT_OTG.
+
+   SUPERSET di FB_SML (v9): integra anche il decoder di stato completo
+   SML_Status (-> Info.Status, tutti i bit CiA402) e SML_TouchProbe
+   (-> Info.xTouchProbe*, comando via Ctrl.xTouchProbe*). Il TouchProbe
+   e' PARALLELO al moto (non e' un eCmd) e il suo errore alimenta la
+   diagnostica ma NON lo stato di moto combinato (eState).
+
+   INGRESSI / USCITE via contratto dati (VAR_IN_OUT):
+     Axis  : OpenSML_Axis   immagine PDO del drive
+     Ctrl  : ST_AXIS_CTRL   comando (eCmd) + config           (app -> layer)
+     Data  : ST_MOVE_DATA   setpoint moto [unita' utente]     (app -> layer)
+     State : ST_AXIS_STATE  esito + stato combinato           (layer -> app)
+     Info  : ST_AXIS_INFO   valori attuali + bit              (layer -> app)
+
+   ARBITRAGGIO: eCmd e' un valore singolo => un solo comando di moto
+   attivo per ciclo. Nessun arbiter esplicito (a differenza di FB_SML).
+
+   ENTRY-POINT: chiamare ciclicamente. In alternativa alla scrittura di
+   Ctrl.eCmd, si possono usare i metodi di I_SmlAxis (setter equivalenti).
+
+   IMPLEMENTS I_SmlAxis.
+   ============================================================ *)
+
+FUNCTION_BLOCK FB_SmlAxisCtrl IMPLEMENTS I_SmlAxis
+VAR_IN_OUT
+    Axis  : OpenSML_Axis;
+    Ctrl  : ST_AXIS_CTRL;
+    Data  : ST_MOVE_DATA;
+    State : ST_AXIS_STATE;
+    Info  : ST_AXIS_INFO;
+END_VAR
+VAR
+    // ── FB foglia (livello esecuzione, al posto degli MC_*) ──
+    inst_Power   : SML_Power;
+    inst_Reset   : SML_Reset;
+    inst_Home    : SML_Home;
+    inst_MoveAbs : SML_ProfilePosition;
+    inst_MoveVel : SML_ProfileVelocity;
+    inst_Jog     : SML_ProfileVelocity_Jog;
+    inst_Stop       : SML_Stop;
+    inst_Diag       : SML_Diagnostics;
+    inst_Status     : SML_Status;         // decoder CiA402 completo (superset FB_SML)
+    inst_TouchProbe : SML_TouchProbe;     // TouchProbe (parallelo al moto)
+    otg          : FB_S7RTT_OTG;
+
+    // ── comando ──────────────────────────────────────────────
+    _eCmd, _eCmdOld : E_AXIS_CTRL;
+
+    // ── latch / pulse ────────────────────────────────────────
+    _bEnableReq  : BOOL;       // richiesta abilitazione (ENABLE/DISABLE)
+    _xReset      : BOOL;       // reset attivo (level)
+    _xHomedLatch : BOOL;       // homing eseguito almeno una volta
+    _eCspState   : INT;        // sotto-stato CSP: 0 seed, 1 run
+
+    // ── conversioni unita' (user -> raw drive) ───────────────
+    _diPos   : DINT;
+    _diVelSg : DINT;           // velocita' con segno (PV)
+    _diVelMg : DINT;           // magnitudo (Jog)
+    _udiVel  : UDINT;
+    _udiAcc  : UDINT;
+    _udiDec  : UDINT;
+
+    // ── gate ─────────────────────────────────────────────────
+    _xMotionEnable : BOOL;
+
+    // ── flag dai FB foglia ───────────────────────────────────
+    _xEnabled, _xPowerErr                          : BOOL;
+    _xResetDone, _xResetErr                        : BOOL;
+    _xHomeBusy, _xHomeDone, _xHomeErr              : BOOL;
+    _xMoveDone, _xMoveBusy, _xMoveMoving, _xMoveErr: BOOL;
+    _xAtVel, _xVelMoving, _xVelErr                 : BOOL;
+    _xJogMoving, _xJogErr                          : BOOL;
+    _xStopped                                      : BOOL;
+    _xTpErr                                        : BOOL;   // TouchProbe error (parallelo)
+    _xInPos, _xCspErr                              : BOOL;
+    _xActiveFault, _xAnyErr                        : BOOL;
+
+    // ── calcolo stato combinato ──────────────────────────────
+    _eBase : E_AXIS_STATE;
+    _eProg : E_PROGRESS;
+END_VAR
+
+//------------------------------------------------------------------------------
+// /input + guardie
+//------------------------------------------------------------------------------
+_eCmd := Ctrl.eCmd;
+
+IF Ctrl.Scale = 0.0 THEN Ctrl.Scale := 1.0; END_IF   // guardia divisione
+
+IF Ctrl.xSimulation THEN
+    Axis.Position_Actual_Value := Axis.Target_Position;  // specchio in simulazione
+END_IF
+
+// latch enable: qualsiasi comando != NULL/DISABLE implica abilitazione
+IF    _eCmd = AXIS_DISABLE THEN _bEnableReq := FALSE;
+ELSIF _eCmd <> AXIS_NULL   THEN _bEnableReq := TRUE;
+END_IF
+
+_xReset        := (_eCmd = AXIS_RESET);
+_xMotionEnable := _xEnabled AND Ctrl.xEmergencyStop;
+
+// conversioni unita' utente -> grezze del drive (vedi nota scaling in ST_MOVE_DATA)
+_diPos   := LREAL_TO_DINT (Data.lrTargetPosition * Ctrl.Scale);
+_diVelSg := LREAL_TO_DINT (Data.lrVelocity       * Ctrl.Scale);
+_diVelMg := LREAL_TO_DINT (ABS(Data.lrVelocity)  * Ctrl.Scale);
+_udiVel  := LREAL_TO_UDINT(ABS(Data.lrVelocity)  * Ctrl.Scale);
+_udiAcc  := LREAL_TO_UDINT(Data.lrAcceleration   * Ctrl.Scale);
+_udiDec  := LREAL_TO_UDINT(Data.lrDeceleration   * Ctrl.Scale);
+//------------------------------------------------------------------------------
+// input + guardie/
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+// /FB foglia — chiamati ogni ciclo, gate via eCmd (come FB_SML)
+//------------------------------------------------------------------------------
+inst_Power(
+    Axis           := Axis,
+    xExecute       := _bEnableReq,
+    xEmergencyStop := Ctrl.xEmergencyStop,
+    xDone          => _xEnabled,
+    xError         => _xPowerErr);
+
+inst_Reset(
+    Axis     := Axis,
+    xExecute := _xReset,
+    xDone    => _xResetDone,
+    xError   => _xResetErr);
+
+inst_Home(
+    Axis         := Axis,
+    xEnable      := _xMotionEnable,
+    xExecute     := (_eCmd = AXIS_HOME),
+    xReset       := _xReset,
+    diHomeOffset := Ctrl.HomeOffset,
+    xBusy        => _xHomeBusy,
+    xDone        => _xHomeDone,
+    xError       => _xHomeErr);
+IF _xHomeDone THEN _xHomedLatch := TRUE; END_IF
+
+inst_MoveAbs(
+    Axis                   := Axis,
+    xEnable                := _xMotionEnable,
+    xExecute               := (_eCmd = AXIS_MOVE_ABS) OR (_eCmd = AXIS_MOVE_REL),
+    xReset                 := _xReset,
+    xContinueMove          := FALSE,
+    xRelativeMode          := (_eCmd = AXIS_MOVE_REL),
+    diTargetPosition       := _diPos,
+    udiProfileVelocity     := _udiVel,
+    udiProfileAcceleration := _udiAcc,
+    udiProfileDeceleration := _udiDec,
+    xDone                  => _xMoveDone,
+    xBusy                  => _xMoveBusy,
+    xMoving                => _xMoveMoving,
+    xError                 => _xMoveErr);
+
+inst_MoveVel(
+    Axis                   := Axis,
+    xEnable                := _xMotionEnable,
+    xExecute               := (_eCmd = AXIS_MOVE_VELOCITY),
+    xReset                 := _xReset,
+    diTargetVelocity       := _diVelSg,
+    udiProfileAcceleration := _udiAcc,
+    udiProfileDeceleration := _udiDec,
+    xMoving                => _xVelMoving,
+    xAtVelocity            => _xAtVel,
+    xError                 => _xVelErr);
+
+inst_Jog(
+    Axis                   := Axis,
+    xEnable                := _xMotionEnable,
+    xExecute_Jog_F         := (_eCmd = AXIS_JOG_POS),
+    xExecute_Jog_R         := (_eCmd = AXIS_JOG_NEG),
+    xReset                 := _xReset,
+    diProfileVelocity      := _diVelMg,
+    udiProfileAcceleration := _udiAcc,
+    udiProfileDeceleration := _udiDec,
+    xMoving                => _xJogMoving,
+    xError                 => _xJogErr);
+
+inst_Stop(
+    Axis     := Axis,
+    xStop    := (_eCmd = AXIS_STOP),
+    xStopped => _xStopped);
+
+// decoder CiA402 completo (read-only) -> Info.Status
+inst_Status(
+    Axis                       := Axis,
+    xEnable                    := TRUE,
+    Status_NotReadyToSwitchOn  => Info.Status.NotReadyToSwitchOn,
+    Status_SwitchOnDisabled    => Info.Status.SwitchOnDisabled,
+    Status_ReadyToSwitchOn     => Info.Status.ReadyToSwitchOn,
+    Status_SwitchedOn          => Info.Status.SwitchedOn,
+    Status_OperationEnabled    => Info.Status.OperationEnabled,
+    Status_QuickStopActive     => Info.Status.QuickStopActive,
+    Status_FaultReactionActive => Info.Status.FaultReactionActive,
+    Status_Fault               => Info.Status.Fault,
+    Status_Warning             => Info.Status.Warning,
+    Status_TargetReached       => Info.Status.TargetReached,
+    Status_Halted              => Info.Status.Halted,
+    Status_VoltageEnabled      => Info.Status.VoltageEnabled,
+    Status_InternalLimit       => Info.Status.InternalLimit,
+    Status_ProfilePositionMode => Info.Status.ProfilePositionMode,
+    Status_ProfileVelocityMode => Info.Status.ProfileVelocityMode,
+    Status_VelocityMode        => Info.Status.VelocityMode,
+    Status_TorqueProfileMode   => Info.Status.TorqueProfileMode,
+    Status_HomingMode          => Info.Status.HomingMode,
+    Status_SyncPositionMode    => Info.Status.SyncPositionMode,
+    Status_SyncVelocityMode    => Info.Status.SyncVelocityMode,
+    Status_Moving              => Info.Status.Moving,
+    Status_StandStill          => Info.Status.StandStill,
+    Status_Homed               => Info.Status.Homed,
+    StatusErr                  => Info.Status.Err,
+    ErrId                      => Info.Status.ErrId,
+    ActPosition                => ,
+    ActSpeed                   => ,
+    ActTorque                  => Info.Status.ActTorque,
+    FollowingError             => Info.Status.FollowingError);
+
+// TouchProbe (parallelo al moto) -> Info.xTouchProbe*
+inst_TouchProbe(
+    Axis                     := Axis,
+    xEnable                  := _xMotionEnable,
+    xExecute                 := Ctrl.xTouchProbeEnable,
+    xRisingCapture           := Ctrl.xTouchProbeEnable AND Ctrl.xTouchProbeRising,
+    xFallingCapture          := Ctrl.xTouchProbeEnable AND Ctrl.xTouchProbeFalling,
+    xReset                   := _xReset,
+    xDone_R                  => Info.xTouchProbeDoneR,
+    xDone_F                  => Info.xTouchProbeDoneF,
+    xBusy                    => Info.xTouchProbeBusy,
+    xError                   => _xTpErr,
+    TouchProbe_Rising_Value  => Info.TouchProbeRisingValue,
+    TouchProbe_Falling_Value => Info.TouchProbeFallingValue);
+Info.xTouchProbeError := _xTpErr;
+//------------------------------------------------------------------------------
+// FB foglia/
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+// /CSP + OTG — attivo solo con eCmd = AXIS_MOVE_CSP
+//------------------------------------------------------------------------------
+_xInPos := FALSE;
+IF (_eCmd = AXIS_MOVE_CSP) AND _xMotionEnable THEN
+    Info.lrActualPosition := DINT_TO_LREAL(Axis.Position_Actual_Value) / Ctrl.Scale;
+    CASE _eCspState OF
+        0: // switch a CSP (modo 8) + seed OTG alla posizione attuale
+            Axis.Modes_of_operation := 8;
+            Axis.ControlWord.3      := (Axis.Modes_of_operation_display = 8);
+            otg(
+                xInit            := TRUE,
+                CurrentPosition  := Info.lrActualPosition,
+                ControlInterface := TRUE,
+                TargetPosition   := Data.lrTargetPosition,
+                TargetVelocity   := 0.0,
+                CycleTIme        := Ctrl.CycleTime,
+                MaxVelocity      := Data.lrVelocity,
+                MaxAcceleration  := Data.lrAcceleration,
+                MaxJerk          := Data.lrJerk);
+            IF (Axis.StatusWord.2 AND Axis.Modes_of_operation_display = 8) OR Ctrl.xSimulation THEN
+                _eCspState := 1;
+            END_IF
+
+        1: // loop di moto CSP
+            otg(
+                xInit            := FALSE,
+                ControlInterface := FALSE,
+                TargetPosition   := Data.lrTargetPosition,
+                TargetVelocity   := 0.0,
+                CycleTIme        := Ctrl.CycleTime,
+                MaxVelocity      := Data.lrVelocity,
+                MaxAcceleration  := Data.lrAcceleration,
+                MaxJerk          := Data.lrJerk);
+            Axis.Target_Position := LREAL_TO_DINT(otg.NewPosition * Ctrl.Scale);
+            _xInPos := ABS(otg.NewPosition - Data.lrTargetPosition) < Ctrl.PositionWindow;
+    END_CASE
+    _xCspErr := Axis.StatusWord.13 OR Axis.StatusWord.3 OR otg.xError OR _xPowerErr;
+ELSE
+    _eCspState := 0;      // reset del sotto-stato quando non in CSP
+    _xCspErr   := FALSE;
+END_IF
+//------------------------------------------------------------------------------
+// CSP + OTG/
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+// /diagnostica aggregata
+//------------------------------------------------------------------------------
+inst_Diag(
+    Axis             := Axis,
+    xReset           := _xReset,
+    xResetCount      := FALSE,
+    xPowerError      := _xPowerErr,
+    xHomeError       := _xHomeErr,
+    xMoveError       := _xMoveErr,
+    xVelError        := _xVelErr,
+    xJogError        := _xJogErr,
+    xTouchProbeError := _xTpErr,
+    xOtgError        := otg.xError,
+    DiagCode         => State.DiagCode,
+    DiagText         => State.DiagText,
+    xActiveFault     => _xActiveFault,
+    xActiveWarning   => ,
+    FirstFaultCode   => State.FirstFaultCode,
+    FirstFaultText   => State.FirstFaultText,
+    DriveErrorCode   => ,
+    FollowingError   => ,
+    FaultCount       => );
+//------------------------------------------------------------------------------
+// diagnostica aggregata/
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+// /Info (feedback) + errore aggregato
+//------------------------------------------------------------------------------
+Info.lrActualPosition := DINT_TO_LREAL(Axis.Position_Actual_Value) / Ctrl.Scale;
+Info.lrActualVelocity := DINT_TO_LREAL(Axis.Velocity_Actual_Value) / Ctrl.Scale;
+Info.xEnabled         := _xEnabled;
+Info.xHomed           := _xHomedLatch;
+Info.xMoving          := _xMoveMoving OR _xVelMoving OR _xJogMoving OR (_eCmd = AXIS_MOVE_CSP);
+Info.xInPosition      := _xInPos;
+
+_xAnyErr := _xPowerErr OR _xHomeErr OR _xMoveErr OR _xVelErr
+            OR _xJogErr OR _xCspErr OR _xResetErr;
+//------------------------------------------------------------------------------
+// Info + errore/
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+// /stato combinato  eState = E_AXIS_STATE + E_PROGRESS
+//------------------------------------------------------------------------------
+IF _xAnyErr THEN
+    _eBase := AXIS_STATE_ERROR;
+    _eProg := PROGRESS_ERROR;
+ELSE
+    CASE _eCmd OF
+        AXIS_NULL:
+            IF _xEnabled THEN _eBase := AXIS_STATE_IDLE; ELSE _eBase := AXIS_STATE_DISABLED; END_IF
+            _eProg := PROGRESS_INVALID;
+
+        AXIS_ENABLE:
+            _eBase := AXIS_STATE_IDLE;
+            IF _xEnabled THEN _eProg := PROGRESS_DONE; ELSE _eProg := PROGRESS_BUSY; END_IF
+
+        AXIS_DISABLE:
+            _eBase := AXIS_STATE_DISABLED;
+            IF _xEnabled THEN _eProg := PROGRESS_BUSY; ELSE _eProg := PROGRESS_DONE; END_IF
+
+        AXIS_RESET:
+            _eBase := AXIS_STATE_INIT;
+            IF _xResetDone THEN _eProg := PROGRESS_DONE; ELSE _eProg := PROGRESS_BUSY; END_IF
+
+        AXIS_HOME:
+            _eBase := AXIS_STATE_HOMING;
+            IF _xHomeDone THEN _eProg := PROGRESS_DONE; ELSE _eProg := PROGRESS_BUSY; END_IF
+
+        AXIS_MOVE_ABS, AXIS_MOVE_REL:
+            _eBase := AXIS_STATE_MOVING;
+            IF _xMoveDone THEN _eProg := PROGRESS_DONE; ELSE _eProg := PROGRESS_BUSY; END_IF
+
+        AXIS_MOVE_CSP:
+            _eBase := AXIS_STATE_MOVING;
+            IF _xInPos THEN _eProg := PROGRESS_DONE; ELSE _eProg := PROGRESS_BUSY; END_IF
+
+        AXIS_MOVE_VELOCITY:
+            _eBase := AXIS_STATE_VELOCITY;
+            IF _xAtVel THEN _eProg := PROGRESS_DONE; ELSE _eProg := PROGRESS_BUSY; END_IF
+
+        AXIS_JOG_POS, AXIS_JOG_NEG:
+            _eBase := AXIS_STATE_VELOCITY;
+            _eProg := PROGRESS_BUSY;      // jog continuo: nessun DONE discreto
+
+        AXIS_STOP:
+            _eBase := AXIS_STATE_STOPPING;
+            IF _xStopped THEN _eProg := PROGRESS_DONE; ELSE _eProg := PROGRESS_BUSY; END_IF
+    END_CASE
+END_IF
+
+State.eProgress  := _eProg;
+State.eState     := TO_INT(_eBase) + TO_INT(_eProg);   // stato combinato
+State.eCmdActive := _eCmd;
+State.xError     := _xAnyErr;
+State.xDone      := (_eProg = PROGRESS_DONE);
+
+_eCmdOld := _eCmd;
+//------------------------------------------------------------------------------
+// stato combinato/
+//------------------------------------------------------------------------------
+
+
+(* ============================================================
+   METODI / PROPRIETA' di I_SmlAxis
+   Codice reale in  FB_SmlAxisCtrl_METHODS.txt  (da creare come
+   oggetti METHOD/PROPERTY sotto questo FB in CoDeSys).
+   Sono setter: impostano Ctrl.eCmd (+ Data) e ritornano
+   State.eProgress.
+   ============================================================ *)

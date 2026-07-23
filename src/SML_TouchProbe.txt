@@ -1,0 +1,196 @@
+(* ============================================================
+   SML_TouchProbe — CiA402 Touch Probe (high-speed position latch)
+   SML v4 — Merged (from Confa; added capture timeout)
+
+   Objects used:
+     0x60B8  TouchProbe_ControlWord  (output)
+     0x60B9  TouchProbe_StatusWord   (input)
+     0x60BA  TouchProbe_Rising_Value  [encoder counts] (input)
+     0x60BB  TouchProbe_Falling_Value [encoder counts] (input)
+
+   ControlWord 0x60B8:
+     Bit 0  Enable Touch Probe 1
+     Bit 1  Capture mode (0=single, 1=continuous)
+     Bit 2  Trigger source (0=DI13, 1=encoder Z-pulse)
+     Bit 4  Enable rising-edge capture → 0x60BA
+     Bit 5  Enable falling-edge capture → 0x60BB
+
+   StatusWord 0x60B9:
+     Bit 0  Touch Probe 1 enabled
+     Bit 1  Rising-edge data captured
+     Bit 2  Falling-edge data captured
+
+   IMPROVEMENT vs Confa: added tCaptureTimeout so states 20/30
+   don't wait forever if the trigger never fires.
+   ============================================================ *)
+
+FUNCTION_BLOCK SML_TouchProbe
+VAR_IN_OUT
+    Axis : OpenSML_Axis;
+END_VAR
+VAR_INPUT
+    xEnable          : BOOL;
+    xExecute         : BOOL;          // Level: enable Touch Probe hardware
+    xRisingCapture   : BOOL;          // Level: arm rising-edge latch; hold to keep result
+    xFallingCapture  : BOOL;          // Level: arm falling-edge latch; hold to keep result
+    xReset           : BOOL;
+    tEnableTimeout   : TIME := T#200MS; // Max wait for TouchProbe_StatusWord.0 to confirm
+    tCaptureTimeout  : TIME := T#5S;    // Max wait for trigger edge to arrive (0=no timeout)
+END_VAR
+VAR_OUTPUT
+    xDone_R                  : BOOL;
+    xDone_F                  : BOOL;
+    xBusy                    : BOOL;
+    xError                   : BOOL;
+    TouchProbe_Rising_Value  : DINT; // Latched position at rising edge [encoder counts]
+    TouchProbe_Falling_Value : DINT; // Latched position at falling edge [encoder counts]
+    eProgress                : E_PROGRESS; // Livello A: avanzamento unificato (proiezione di iState)
+END_VAR
+VAR
+    iState     : INT;
+    tonEnable  : TON; // Waits for probe hardware to confirm enabled
+    tonCapture : TON; // Guards against trigger never arriving
+END_VAR
+
+// ── Enable/disable Touch Probe hardware every cycle ───────────────────────
+IF xExecute AND NOT xError THEN
+    Axis.TouchProbe_ControlWord.0 := TRUE;  // Enable
+    Axis.TouchProbe_ControlWord.1 := FALSE; // Single-shot
+    Axis.TouchProbe_ControlWord.2 := FALSE; // Trigger: DI13
+ELSE
+    Axis.TouchProbe_ControlWord.0 := FALSE;
+    Axis.TouchProbe_ControlWord.1 := FALSE;
+    Axis.TouchProbe_ControlWord.2 := FALSE;
+END_IF
+
+CASE iState OF
+
+    0: // Idle — wait for drive ready and probe hardware enabled
+        xDone_R := FALSE; xDone_F := FALSE;
+        xBusy   := FALSE; xError  := FALSE;
+        TouchProbe_Rising_Value  := 0;
+        TouchProbe_Falling_Value := 0;
+
+        // Timer: guard in case drive never confirms TouchProbe enabled
+        tonEnable(
+            IN := xExecute AND Axis.StatusWord.1 AND Axis.StatusWord.2
+                  AND NOT Axis.StatusWord.3 AND Axis.StatusWord.4
+                  AND NOT Axis.TouchProbe_StatusWord.0,
+            PT := tEnableTimeout);
+
+        IF xEnable THEN
+            IF xExecute AND Axis.StatusWord.1 AND Axis.StatusWord.2
+               AND NOT Axis.StatusWord.3 AND Axis.StatusWord.4
+               AND Axis.TouchProbe_StatusWord.0 THEN
+                // Drive confirmed Touch Probe 1 enabled
+                tonEnable.IN := FALSE;
+                iState := 10;
+            ELSIF (xExecute AND tonEnable.Q) OR Axis.StatusWord.3 THEN
+                iState := 999;
+            END_IF
+        END_IF
+
+    10: // Armed — wait for rising or falling capture request
+        IF Axis.StatusWord.3 OR NOT xEnable THEN
+            iState := 999;
+        ELSIF xRisingCapture THEN
+            Axis.TouchProbe_ControlWord.4 := TRUE; // Arm rising-edge latch
+            xBusy := TRUE;
+            tonCapture.IN := FALSE;
+            iState := 20;
+        ELSIF xFallingCapture THEN
+            Axis.TouchProbe_ControlWord.5 := TRUE; // Arm falling-edge latch
+            xBusy := TRUE;
+            tonCapture.IN := FALSE;
+            iState := 30;
+        ELSIF NOT xExecute OR NOT Axis.TouchProbe_StatusWord.0 THEN
+            Axis.TouchProbe_ControlWord.4 := FALSE;
+            Axis.TouchProbe_ControlWord.5 := FALSE;
+            iState := 0;
+        END_IF
+
+    20: // Wait for rising-edge trigger
+        // Capture timeout: if trigger never arrives, error (skip if tCaptureTimeout=0)
+        tonCapture(IN := TRUE,
+                   PT := SEL(tCaptureTimeout = T#0S, tCaptureTimeout, T#999999S));
+
+        IF Axis.StatusWord.3 OR NOT xEnable THEN
+            iState := 999;
+        ELSIF tonCapture.Q THEN
+            // Trigger did not arrive within timeout
+            tonCapture.IN := FALSE;
+            iState := 999;
+        ELSIF Axis.TouchProbe_StatusWord.1 THEN
+            // Rising edge captured
+            TouchProbe_Rising_Value       := Axis.TouchProbe_Rising_Value;
+            Axis.TouchProbe_ControlWord.4 := FALSE;
+            tonCapture.IN := FALSE;
+            xDone_R := TRUE;
+            iState := 40; // Hold result until xRisingCapture drops
+        ELSIF NOT xExecute OR NOT Axis.TouchProbe_StatusWord.0 THEN
+            Axis.TouchProbe_ControlWord.4 := FALSE;
+            Axis.TouchProbe_ControlWord.5 := FALSE;
+            tonCapture.IN := FALSE;
+            iState := 0;
+        END_IF
+
+    30: // Wait for falling-edge trigger
+        tonCapture(IN := TRUE,
+                   PT := SEL(tCaptureTimeout = T#0S, tCaptureTimeout, T#999999S));
+
+        IF Axis.StatusWord.3 OR NOT xEnable THEN
+            iState := 999;
+        ELSIF tonCapture.Q THEN
+            tonCapture.IN := FALSE;
+            iState := 999;
+        ELSIF Axis.TouchProbe_StatusWord.2 THEN
+            // Falling edge captured
+            TouchProbe_Falling_Value      := Axis.TouchProbe_Falling_Value;
+            Axis.TouchProbe_ControlWord.5 := FALSE;
+            tonCapture.IN := FALSE;
+            xDone_F := TRUE;
+            iState := 50;
+        ELSIF NOT xExecute OR NOT Axis.TouchProbe_StatusWord.0 THEN
+            Axis.TouchProbe_ControlWord.4 := FALSE;
+            Axis.TouchProbe_ControlWord.5 := FALSE;
+            tonCapture.IN := FALSE;
+            iState := 0;
+        END_IF
+
+    40: // Rising result hold — wait for application to drop xRisingCapture
+        IF Axis.StatusWord.3 OR NOT xEnable THEN
+            iState := 999;
+        ELSIF NOT xRisingCapture THEN
+            TouchProbe_Rising_Value := 0;
+            xBusy := FALSE; xDone_R := FALSE;
+            iState := 10;
+        END_IF
+
+    50: // Falling result hold — wait for application to drop xFallingCapture
+        IF Axis.StatusWord.3 OR NOT xEnable THEN
+            iState := 999;
+        ELSIF NOT xFallingCapture THEN
+            TouchProbe_Falling_Value := 0;
+            xBusy := FALSE; xDone_F := FALSE;
+            iState := 10;
+        END_IF
+
+    999:
+        tonEnable.IN  := FALSE; tonCapture.IN := FALSE;
+        tonEnable(PT := tEnableTimeout); tonCapture(PT := tCaptureTimeout);
+        Axis.TouchProbe_ControlWord.4 := FALSE;
+        Axis.TouchProbe_ControlWord.5 := FALSE;
+        xBusy := FALSE; xError := TRUE;
+        IF NOT xExecute OR xReset THEN
+            xError := FALSE;
+            iState := 0;
+        END_IF
+
+END_CASE
+
+// ── Livello A: proiezione avanzamento unificato (E_PROGRESS) ──────────────
+IF    xError               THEN eProgress := PROGRESS_ERROR;
+ELSIF xDone_R OR xDone_F    THEN eProgress := PROGRESS_DONE;   // almeno un latch acquisito
+ELSIF iState = 0            THEN eProgress := PROGRESS_INVALID;
+ELSE                            eProgress := PROGRESS_BUSY;
+END_IF

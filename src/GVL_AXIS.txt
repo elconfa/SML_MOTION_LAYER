@@ -1,0 +1,28 @@
+(* ============================================================
+   GVL_AXIS — Array per-asse del Motion Layer SML
+   SML v7 — Livello B (nuovo)
+
+   Equivalente di GVL_AXIS di PLC_MOTION_LAYER, ma:
+     - il livello di esecuzione e' FB_SmlAxisCtrl (FB foglia SML),
+       non FB_McAxisCtrl (MC_*);
+     - il cablaggio e' via VAR_IN_OUT (nessun array di puntatori):
+       MAIN passa Axis/Ctrl/Data/State/Info[nAxis] nella chiamata.
+
+   Axis[]  : immagini PDO del drive; collegare all'I/O con SML_TC3Link.
+   Ctrl[]/Data[]  : comando + setpoint  (app -> layer)
+   State[]/Info[] : esito + valori attuali (layer -> app)
+   Control[]      : FB di controllo per asse
+   ItfSmlAxis[]   : accesso a interfaccia per coordinatori di alto livello
+   ============================================================ *)
+
+{attribute 'qualified_only'}
+VAR_GLOBAL
+    Axis       : ARRAY[1..GVL_SML_CONST.MAX_AXIS] OF OpenSML_Axis;    // immagine PDO (link I/O)
+    Ctrl       : ARRAY[1..GVL_SML_CONST.MAX_AXIS] OF ST_AXIS_CTRL;    // comando + config
+    Data       : ARRAY[1..GVL_SML_CONST.MAX_AXIS] OF ST_MOVE_DATA;    // setpoint moto
+    State      : ARRAY[1..GVL_SML_CONST.MAX_AXIS] OF ST_AXIS_STATE;   // esito + stato combinato
+    Info       : ARRAY[1..GVL_SML_CONST.MAX_AXIS] OF ST_AXIS_INFO;    // valori attuali
+
+    Control    : ARRAY[1..GVL_SML_CONST.MAX_AXIS] OF FB_SmlAxisCtrl;  // FB di controllo per asse
+    ItfSmlAxis : ARRAY[1..GVL_SML_CONST.MAX_AXIS] OF I_SmlAxis;       // accesso a interfaccia (I_SmlAxis)
+END_VAR

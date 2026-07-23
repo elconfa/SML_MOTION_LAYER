@@ -1,0 +1,79 @@
+(* ============================================================
+   OpenSML_Control — Control & Status Structure for SML_AxisController
+   SML v4 — Merged
+
+   Shared by reference (VAR_IN_OUT) between the application and
+   SML_AxisController.  Commands flow in; status flows out.
+
+   SCALING:
+     Scale [counts/unit] converts encoder counts ↔ user units.
+     Position_Actual_Value [counts] / Scale = lrActualPosition [units]
+     lrTarget [units] * Scale = Target_Position [counts]
+     Example: 4096 counts/mm → Scale = 4096.0
+     WARNING: must never be zero (division-by-zero guard is in AxisController).
+
+   EMERGENCY STOP CONVENTION:
+     xEmergencyStop = TRUE  → ControlWord bit 2 = 1 → normal run
+     xEmergencyStop = FALSE → ControlWord bit 2 = 0 → quick-stop active
+   ============================================================ *)
+
+TYPE OpenSML_Control :
+STRUCT
+    // ── Command inputs (written by the application) ──────────
+
+    xAxisEnable    : BOOL;               // Request drive hardware enable (Power FB)
+    xEmergencyStop : BOOL := TRUE;       // TRUE = normal run / FALSE = quick-stop
+                                         // Maps directly to ControlWord bit 2
+
+    xMoveEnable    : BOOL;               // Permit motion (jog / follow)
+    xHomeEnable    : BOOL;               // Trigger homing sequence
+    xSimulation    : BOOL;               // Mirror Target_Position → Position_Actual_Value
+
+    // Jog — hold inputs while running
+    JogPos         : BOOL;               // Jog positive direction
+    JogNeg         : BOOL;               // Jog negative direction
+    JogVelocity    : LREAL := 10.0;      // Jog speed [user units/s]
+
+    // Follow / position target (updatable every cycle)
+    xFollowEnable       : BOOL;          // Use lrFollowPosition instead of jog
+    lrFollowPosition    : LREAL;         // Follow target [user units]; online re-targetable
+    lrFollowVelocity    : LREAL := 20.0; // Max speed toward follow target [user units/s]
+
+    // ── Motion limits ─────────────────────────────────────────
+    MaxVelocity     : LREAL := 100.0;    // Absolute velocity ceiling [user units/s]
+    MaxAcceleration : LREAL := 1000.0;   // Max acceleration [user units/s²]
+    MaxJerk         : LREAL := 10000.0;  // Max jerk [user units/s³]
+
+    // ── Scaling & timing ─────────────────────────────────────
+    Scale           : LREAL := 4096.0;   // [counts/unit] — must be > 0
+    CycleTime       : LREAL := 0.001;    // PLC task cycle time [s] — must match actual task
+
+    // ── In-position window ────────────────────────────────────
+    PositionWindow  : LREAL := 0.01;     // In-position deadband [user units]
+
+    // ── Homing ────────────────────────────────────────────────
+    HomeOffset      : DINT := 0;         // Home offset [encoder counts] → 0x607C (B3: was hardcoded)
+
+    // ── Diagnostics command ──────────────────────────────────
+    xDiagReset      : BOOL;              // Pulse: acknowledge/clear the latched first-fault
+
+    // ── Status outputs (written by SML_AxisController) ───────
+    lrActualPosition : LREAL;            // Actual position [user units]
+    xEnabled         : BOOL;             // Power FB reports OperationEnabled
+    xHomeDone        : BOOL;             // Homing completed successfully
+    xInPosition      : BOOL;             // Within PositionWindow of commanded position
+    xBusy            : BOOL;             // State machine active (not idle or error)
+    xError           : BOOL;             // Latched — drop xMoveEnable to reset
+
+    // ── Diagnostics status (written by SML_AxisController via SML_Diagnostics) ──
+    DiagCode         : SML_DiagCode;     // Live highest-priority condition
+    DiagText         : STRING(80);       // Human-readable text for DiagCode
+    xActiveFault     : BOOL;             // Any fault present now
+    xActiveWarning   : BOOL;             // Warning present (no fault)
+    FirstFaultCode   : SML_DiagCode;     // Latched first cause (clear via xDiagReset)
+    FirstFaultText   : STRING(80);
+    DriveErrorCode   : UINT;             // 0x603F raw drive error number
+    FollowingError   : DINT;             // 0x60F4 [encoder counts]
+    FaultCount       : UINT;             // Cumulative fault events
+END_STRUCT
+END_TYPE

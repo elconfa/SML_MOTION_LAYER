@@ -1,0 +1,40 @@
+(* ============================================================
+   MAPPING_in — Copia comando/setpoint dal bus verso GVL_AXIS
+   SML v8 — Livello B / MAPPING (nuovo)
+
+   Percorso: GVL_AXIS_MAP.Ctrl/Data (fieldbus)  ->  GVL_AXIS.Ctrl/Data
+   Chiamare all'INIZIO di MAIN, prima del loop assi.
+
+   GATE: attivo solo se GVL_AXIS_MAP.AXIS_MAP_ENABLE = TRUE; altrimenti
+   bypass immediato (comportamento = v7). Flag runtime al posto di una
+   pragma {IF defined(...)}: quest'ultima non e' portabile nella parte
+   dichiarazione su CoDeSys. Per l'esclusione a COMPILE-TIME, in
+   alternativa, racchiudere il CORPO tra {IF defined (AXIS_MAP)} ...
+   {END_IF} nella parte IMPLEMENTAZIONE (non nella dichiarazione).
+
+   Check di dimensione a runtime: se una struct supera il blocco bus
+   (MAP_SIZE_*), il mapping viene bloccato per sicurezza.
+
+   Copia via assegnazione strutturata (portabile, nessuna dipendenza
+   da libreria memcpy). Per linkare la vista GREZZA usare .aRaw sul
+   fieldbus: la copia .stData resta corretta.
+   ============================================================ *)
+
+PROGRAM MAPPING_in
+VAR
+    i       : UINT;
+    bSizeOk : BOOL;
+END_VAR
+
+IF NOT GVL_AXIS_MAP.AXIS_MAP_ENABLE THEN RETURN; END_IF
+
+// ── Check dimensione blocchi bus (sicurezza) ─────────────────
+bSizeOk := (SIZEOF(ST_AXIS_CTRL) <= GVL_SML_CONST.MAP_SIZE_CTRL)
+       AND (SIZEOF(ST_MOVE_DATA) <= GVL_SML_CONST.MAP_SIZE_DATA);
+IF NOT bSizeOk THEN RETURN; END_IF   // blocco: ridimensionare MAP_SIZE_*
+
+// ── Copia bus -> interno ─────────────────────────────────────
+FOR i := 1 TO GVL_SML_CONST.MAX_AXIS DO
+    GVL_AXIS.Ctrl[i] := GVL_AXIS_MAP.Ctrl[i].stData;
+    GVL_AXIS.Data[i] := GVL_AXIS_MAP.Data[i].stData;
+END_FOR

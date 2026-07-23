@@ -1,0 +1,23 @@
+(* ============================================================
+   ST_MOVE_DATA — Setpoint e vincoli dinamici (app -> layer)
+   SML v6 — Livello B (nuovo)
+
+   Contratto dati "Data". Tutti i valori sono in UNITA' UTENTE (LREAL).
+   FB_SmlAxisCtrl converte in unita' grezze del drive tramite Ctrl.Scale
+   prima di passarle agli FB foglia (PP/PV/Jog); il percorso CSP/OTG
+   lavora direttamente in unita' utente.
+
+   NOTA scaling: si assume scala velocita'/accelerazione = scala
+   posizione (moltiplicazione per Scale). Per drive con unita' di
+   velocita' 0x6081/0x60FF diverse, raffinare la conversione nel FB.
+   ============================================================ *)
+
+TYPE ST_MOVE_DATA :
+STRUCT
+    lrTargetPosition : LREAL;              // target [unita'] per MOVE_ABS/REL/CSP
+    lrVelocity       : LREAL := 10.0;      // velocita' [unita'/s]; con segno per MOVE_VELOCITY
+    lrAcceleration   : LREAL := 1000.0;    // [unita'/s^2]
+    lrDeceleration   : LREAL := 1000.0;    // [unita'/s^2]
+    lrJerk           : LREAL := 10000.0;   // [unita'/s^3] — solo CSP/OTG
+END_STRUCT
+END_TYPE

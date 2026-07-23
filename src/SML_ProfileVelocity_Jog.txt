@@ -1,0 +1,127 @@
+(* ============================================================
+   SML_ProfileVelocity_Jog — Dedicated Jog FB (PV mode 3)
+   SML v4 — Merged (from Confa; improved state machine)
+
+   Provides separate hold-to-run forward/reverse inputs.
+   FB stays in state 20 as long as xEnable is TRUE, avoiding
+   a mode-switch cycle every time the jog button is released.
+   Returns to idle only on xEnable drop.
+
+   Velocity is always derived from ABS(diProfileVelocity) and
+   negated for reverse — eliminates double-negation risk.
+   ============================================================ *)
+
+FUNCTION_BLOCK SML_ProfileVelocity_Jog
+VAR_IN_OUT
+    Axis : OpenSML_Axis;
+END_VAR
+VAR_INPUT
+    xEnable                : BOOL;   // Level: keep FB active
+    xExecute_Jog_F         : BOOL;   // Hold: jog forward (positive velocity)
+    xExecute_Jog_R         : BOOL;   // Hold: jog reverse (negative velocity)
+    xReset                 : BOOL;   // Pulse: acknowledge error
+    diProfileVelocity      : DINT;   // Speed magnitude [drive units]; must be > 0
+    udiProfileAcceleration : UDINT;  // Acceleration [drive accel units]
+    udiProfileDeceleration : UDINT;  // Deceleration [drive accel units]
+END_VAR
+VAR_OUTPUT
+    xMoving : BOOL; // TRUE when axis velocity ≠ 0 in either direction
+    xError  : BOOL; // Drive fault detected
+    eProgress : E_PROGRESS; // Livello A: avanzamento unificato (proiezione di iState)
+END_VAR
+VAR
+    xAnyJog : BOOL; // Internal: TRUE if either direction is active
+    iState  : INT;
+END_VAR
+
+// ── Internal execute: jog active if either direction AND enabled ──────────
+xAnyJog := (xExecute_Jog_F OR xExecute_Jog_R) AND xEnable;
+
+// ── xMoving: detect motion in both directions ─────────────────────────────
+xMoving := NOT Axis.StatusWord.14
+           AND ABS(Axis.Target_Velocity) > 0
+           AND Axis.Modes_of_operation = 3
+           AND Axis.ControlWord.3;
+
+// ── Write ramp params only when jogging ───────────────────────────────────
+IF xAnyJog THEN
+    Axis.Profile_Acceleration := udiProfileAcceleration;
+    Axis.Profile_Deceleration := udiProfileDeceleration;
+END_IF
+
+CASE iState OF
+
+    0: // Idle
+        xError := FALSE;
+        IF xEnable THEN
+            IF xAnyJog AND Axis.StatusWord.1 AND NOT Axis.StatusWord.3 THEN
+                IF Axis.StatusWord.2 AND Axis.Modes_of_operation_display = 3 THEN
+                    // M4: fast path — already enabled in PV mode, jog immediately.
+                    Axis.Target_Velocity := 0;
+                    iState := 20;
+                ELSIF NOT Axis.StatusWord.2 THEN
+                    iState := 10; // SwitchedOn but not OperationEnabled → mode switch
+                ELSE
+                    // OperationEnabled but wrong mode — drop bit3 to allow mode switch
+                    Axis.ControlWord.3 := FALSE;
+                    // State stays 0; StatusWord.2 drops next cycle → mode-switch branch fires
+                END_IF
+            ELSIF xAnyJog OR Axis.StatusWord.3 THEN
+                iState := 999;
+            END_IF
+        END_IF
+
+    10: // Mode Switch — request PV (mode 3)
+        Axis.Modes_of_operation := 3;
+        Axis.ControlWord.3 := (Axis.Modes_of_operation_display = 3);
+
+        IF Axis.StatusWord.3 OR NOT xEnable THEN
+            iState := 999;
+        ELSIF Axis.StatusWord.2 AND Axis.ControlWord.3 THEN
+            Axis.Target_Velocity := 0; // Zero on entry
+            iState := 20;
+        END_IF
+
+    20: // Jog active — stays here while xEnable is TRUE
+        IF Axis.Modes_of_operation_display = 3 THEN
+            IF Axis.StatusWord.3 OR NOT xEnable THEN
+                // Fault or operator disable
+                Axis.Target_Velocity := 0;
+                iState := 999;
+
+            ELSIF xExecute_Jog_F AND NOT xExecute_Jog_R THEN
+                // Forward: always positive (ABS prevents sign surprises)
+                Axis.Target_Velocity := ABS(diProfileVelocity);
+
+            ELSIF xExecute_Jog_R AND NOT xExecute_Jog_F THEN
+                // Reverse: negate magnitude
+                Axis.Target_Velocity := -ABS(diProfileVelocity);
+
+            ELSE
+                // No jog or both simultaneously → decelerate and hold in mode
+                // STAY in state 20: no mode-switch latency on next jog press
+                Axis.Target_Velocity := 0;
+            END_IF
+        ELSE
+            // Drive changed mode unexpectedly
+            Axis.Target_Velocity := 0;
+            iState := 0;
+        END_IF
+
+    999: // Error
+        Axis.Target_Velocity  := 0;
+        Axis.Profile_Velocity := 0;
+        xError := TRUE;
+        IF NOT xAnyJog OR xReset THEN
+            xError := FALSE;
+            iState := 0;
+        END_IF
+
+END_CASE
+
+// ── Livello A: proiezione avanzamento unificato (E_PROGRESS) ──────────────
+// Jog e' un moto continuo tenuto: nessun "DONE" discreto.
+IF    xError     THEN eProgress := PROGRESS_ERROR;
+ELSIF iState = 0 THEN eProgress := PROGRESS_INVALID;
+ELSE                  eProgress := PROGRESS_BUSY;      // jog in corso
+END_IF

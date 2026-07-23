@@ -1,0 +1,97 @@
+(* ============================================================
+   SML_LevelB_Test — Test di FB_SmlAxisCtrl (Livello B)
+   SML v6 — nuovo
+
+   Guida FB_SmlAxisCtrl in xSimulation con un mini-emulatore CiA402
+   inline (StatusWord derivato da ControlWord) attraverso una
+   sequenza di comandi eCmd, e verifica:
+     - il routing dei comandi sui FB foglia,
+     - i valori di State.eProgress attesi,
+     - la decomposizione dello STATO COMBINATO con f_GetState /
+       f_GetProgress (funzioni del Livello A, ora usate).
+
+   Sequenza:  ENABLE -> MOVE_CSP -> JOG_POS -> STOP -> DISABLE
+   Attese:    ENABLE->DONE, CSP->DONE, JOG->BUSY, STOP->DONE
+
+   ESITO: xTestPassed = TRUE quando tutte le attese sono osservate.
+   Banco di prova di sviluppo, non parte della libreria.
+   ============================================================ *)
+
+PROGRAM SML_LevelB_Test
+VAR
+    // ── contratto dati + FB sotto test ───────────────────────
+    Axis  : OpenSML_Axis;
+    Ctrl  : ST_AXIS_CTRL;
+    Data  : ST_MOVE_DATA;
+    State : ST_AXIS_STATE;
+    Info  : ST_AXIS_INFO;
+    Ax    : FB_SmlAxisCtrl;
+
+    // ── sequenziatore ────────────────────────────────────────
+    step  : INT;
+    tStep : TON;
+
+    // ── osservazione ─────────────────────────────────────────
+    eProg   : E_PROGRESS;   // State.eProgress
+    eStBase : DINT;         // f_GetState(State.eState)
+    eStProg : E_PROGRESS;   // f_GetProgress(State.eState)
+
+    xSeenEnableDone : BOOL;
+    xSeenCspDone    : BOOL;
+    xSeenJogBusy    : BOOL;
+    xSeenStopDone   : BOOL;
+    xTestPassed     : BOOL;
+    xTestDone       : BOOL;
+END_VAR
+
+// ── configurazione (ogni ciclo) ──────────────────────────────
+Ctrl.xSimulation    := TRUE;
+Ctrl.xEmergencyStop := TRUE;
+Ctrl.Scale          := 1.0;      // 1 count/unita' per semplicita'
+Ctrl.CycleTime      := 0.001;
+Ctrl.PositionWindow := 0.5;
+Data.lrAcceleration := 1000.0;
+Data.lrDeceleration := 1000.0;
+Data.lrJerk         := 10000.0;
+
+// ── sequenziatore ~300 ms/passo ──────────────────────────────
+tStep(IN := NOT xTestDone, PT := T#300MS);
+IF tStep.Q THEN
+    tStep(IN := FALSE);
+    step := step + 1;
+END_IF
+
+CASE step OF
+    0:  Ctrl.eCmd := AXIS_ENABLE;                                  // -> DONE
+    2:  Data.lrTargetPosition := 50.0;
+        Data.lrVelocity       := 100.0;
+        Ctrl.eCmd := AXIS_MOVE_CSP;                                // -> DONE (xInPosition)
+    5:  Data.lrVelocity := 20.0;
+        Ctrl.eCmd := AXIS_JOG_POS;                                 // -> BUSY (continuo)
+    7:  Ctrl.eCmd := AXIS_STOP;                                    // -> DONE (standstill)
+    9:  Ctrl.eCmd := AXIS_DISABLE;                                 // -> DONE
+    11: xTestDone := TRUE;
+END_CASE
+
+// ── FB sotto test ────────────────────────────────────────────
+Ax(Axis := Axis, Ctrl := Ctrl, Data := Data, State := State, Info := Info);
+
+// ── mini-emulatore CiA402 (dopo il FB) ───────────────────────
+Axis.Modes_of_operation_display := Axis.Modes_of_operation;      // il drive echeggia il modo
+Axis.StatusWord.0  := Axis.ControlWord.1;                        // ReadyToSwitchOn
+Axis.StatusWord.1  := Axis.ControlWord.0 AND Axis.ControlWord.1; // SwitchedOn
+Axis.StatusWord.2  := Axis.ControlWord.3 AND Axis.StatusWord.1;  // OperationEnabled
+Axis.StatusWord.5  := TRUE;                                      // QuickStop non attivo
+Axis.StatusWord.10 := Axis.ControlWord.8;                        // standstill quando Halt
+
+// ── osservazione: decomposizione stato combinato ─────────────
+eProg   := State.eProgress;
+eStBase := f_GetState(State.eState);      // base funzionale (E_AXIS_STATE)
+eStProg := f_GetProgress(State.eState);   // avanzamento (E_PROGRESS)
+
+IF (State.eCmdActive = AXIS_ENABLE)   AND (eProg = PROGRESS_DONE) THEN xSeenEnableDone := TRUE; END_IF
+IF (State.eCmdActive = AXIS_MOVE_CSP) AND (eProg = PROGRESS_DONE) THEN xSeenCspDone    := TRUE; END_IF
+IF (State.eCmdActive = AXIS_JOG_POS)  AND (eProg = PROGRESS_BUSY) THEN xSeenJogBusy    := TRUE; END_IF
+IF (State.eCmdActive = AXIS_STOP)     AND (eProg = PROGRESS_DONE) THEN xSeenStopDone   := TRUE; END_IF
+
+xTestPassed := xSeenEnableDone AND xSeenCspDone AND xSeenJogBusy AND xSeenStopDone;

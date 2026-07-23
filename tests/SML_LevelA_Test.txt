@@ -1,0 +1,117 @@
+(* ============================================================
+   SML_LevelA_Test — Test di proiezione E_PROGRESS (Livello A)
+   SML v5 — nuovo
+
+   Verifica, SENZA hardware, che l'output eProgress introdotto in
+   Livello A segua le transizioni attese. Guida SML_Power con un
+   mini-emulatore CiA402 inline (StatusWord derivato da ControlWord)
+   e registra i valori di E_PROGRESS osservati.
+
+   Sequenza attesa su Power.eProgress:
+     idle            -> PROGRESS_INVALID
+     abilitazione    -> PROGRESS_BUSY (transitorio, pochi cicli)
+     OperationEnabled-> PROGRESS_DONE
+     fault iniettato -> PROGRESS_ERROR
+     drop execute    -> PROGRESS_INVALID
+
+   ESITO: xTestPassed = TRUE quando tutti e quattro i valori sono
+   stati osservati. Nessuna dipendenza oltre OpenSML_Axis, SML_Power,
+   E_PROGRESS e TON (Tc2_Standard).
+
+   NOTA: e' un banco di prova di sviluppo, non parte della libreria.
+   ============================================================ *)
+
+PROGRAM SML_LevelA_Test
+VAR
+    Axis  : OpenSML_Axis;   // struct condivisa app <-> FB (nessun mapping I/O)
+    Power : SML_Power;      // FB sotto test
+
+    // ── sequenziatore di test ────────────────────────────────
+    step  : INT;
+    tStep : TON;
+
+    // ── stimoli ──────────────────────────────────────────────
+    xEnable      : BOOL;    // richiesta abilitazione drive
+    xInjectFault : BOOL;    // inietta un fault (StatusWord bit 3)
+
+    // ── osservazione ─────────────────────────────────────────
+    ePwr : E_PROGRESS;      // eProgress corrente di Power
+
+    xSeenInvalid : BOOL;    // flag "valore osservato almeno una volta"
+    xSeenBusy    : BOOL;
+    xSeenDone    : BOOL;
+    xSeenError   : BOOL;
+    xTestPassed  : BOOL;    // TRUE quando la sequenza completa e' stata vista
+    xTestDone    : BOOL;    // sequenza terminata
+END_VAR
+
+// ─────────────────────────────────────────────────────────────
+//  Sequenziatore: ~200 ms per passo
+// ─────────────────────────────────────────────────────────────
+tStep(IN := NOT xTestDone, PT := T#200MS);
+IF tStep.Q THEN
+    tStep(IN := FALSE);
+    step := step + 1;
+END_IF
+
+CASE step OF
+    0:  // riposo -> atteso PROGRESS_INVALID
+        xEnable      := FALSE;
+        xInjectFault := FALSE;
+
+    1:  // richiesta enable -> BUSY (transitorio) poi DONE
+        xEnable := TRUE;
+
+    // 2..4: mantiene enable, atteso PROGRESS_DONE
+
+    5:  // inietta fault -> PROGRESS_ERROR (Power stato 50 -> 999)
+        xInjectFault := TRUE;
+
+    6:  // rilascia enable e fault -> ritorno a PROGRESS_INVALID
+        xEnable      := FALSE;
+        xInjectFault := FALSE;
+
+    7:  // fine
+        xTestDone := TRUE;
+END_CASE
+
+// ─────────────────────────────────────────────────────────────
+//  FB sotto test
+// ─────────────────────────────────────────────────────────────
+Power(
+    Axis           := Axis,
+    xExecute       := xEnable,
+    xEmergencyStop := TRUE);       // 1 = run (nessun quick-stop)
+
+ePwr := Power.eProgress;
+
+// ─────────────────────────────────────────────────────────────
+//  Mini-emulatore CiA402 (chiamato DOPO Power: risponde alle
+//  ControlWord scritte da Power nel ciclo corrente)
+//    bit1 EnableVoltage  -> StatusWord.0 ReadyToSwitchOn
+//    bit0 SwitchOn       -> StatusWord.1 SwitchedOn (richiede voltage)
+//    bit3 EnableOp       -> StatusWord.2 OperationEnabled (richiede SwitchedOn)
+//    bit7 FaultReset     -> azzera StatusWord.3
+// ─────────────────────────────────────────────────────────────
+IF xInjectFault THEN
+    Axis.StatusWord.3 := TRUE;                 // Fault
+ELSIF Axis.ControlWord.7 THEN
+    Axis.StatusWord.3 := FALSE;                // Fault Reset
+END_IF
+
+Axis.StatusWord.0 := Axis.ControlWord.1;                          // ReadyToSwitchOn
+Axis.StatusWord.1 := Axis.ControlWord.0 AND Axis.ControlWord.1;   // SwitchedOn
+Axis.StatusWord.2 := Axis.ControlWord.3 AND Axis.StatusWord.1;    // OperationEnabled
+Axis.StatusWord.5 := TRUE;                                        // QuickStop non attivo
+
+// ─────────────────────────────────────────────────────────────
+//  Raccolta esito
+// ─────────────────────────────────────────────────────────────
+CASE ePwr OF
+    PROGRESS_INVALID: xSeenInvalid := TRUE;
+    PROGRESS_BUSY:    xSeenBusy    := TRUE;
+    PROGRESS_DONE:    xSeenDone    := TRUE;
+    PROGRESS_ERROR:   xSeenError   := TRUE;
+END_CASE
+
+xTestPassed := xSeenInvalid AND xSeenBusy AND xSeenDone AND xSeenError;

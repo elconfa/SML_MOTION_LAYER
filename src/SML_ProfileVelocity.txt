@@ -1,0 +1,130 @@
+(* ============================================================
+   SML_ProfileVelocity — CiA402 Profile Velocity Mode (PV, mode 3)
+   SML v4 — Merged (OpenSML_ProfileVelocity + SML_ProfileVelocity/Confa)
+
+   Profile Acceleration and Deceleration per-call via PDO.
+   Drive ramps to diTargetVelocity using its internal planner.
+   Signed velocity: positive = forward, negative = reverse, 0 = stop.
+
+   Both following error (bit 13) and fault (bit 3) are monitored
+   in the active state.
+   ============================================================ *)
+
+FUNCTION_BLOCK SML_ProfileVelocity
+VAR_IN_OUT
+    Axis : OpenSML_Axis;
+END_VAR
+VAR_INPUT
+    xEnable                : BOOL;   // Level: keep FB active
+    xExecute               : BOOL;   // Level/edge: activate velocity mode
+    xReset                 : BOOL;   // Pulse: acknowledge error
+    diTargetVelocity       : DINT;   // Target velocity [drive units]; signed; 0 = decelerate to stop
+    udiProfileAcceleration : UDINT;  // Acceleration [drive accel units]
+    udiProfileDeceleration : UDINT;  // Deceleration [drive accel units]
+END_VAR
+VAR_OUTPUT
+    xMoving     : BOOL; // TRUE when axis velocity ≠ 0 in either direction
+    xAtVelocity : BOOL; // TRUE when drive reports target velocity reached (bit 10)
+    xError      : BOOL; // Fault or following error
+    eProgress   : E_PROGRESS; // Livello A: avanzamento unificato (proiezione di iState)
+END_VAR
+VAR
+    iState : INT;
+END_VAR
+
+// ── xMoving: detect motion in BOTH forward and reverse ────────────────────
+// ABS() is required — Target_Velocity < 0 during reverse would miss a plain > 0 check
+xMoving := NOT Axis.StatusWord.14         // Standstill bit = 0 means moving
+           AND ABS(Axis.Target_Velocity) > 0
+           AND Axis.Modes_of_operation = 3
+           AND Axis.ControlWord.3;
+
+// ── Write ramp params only when a velocity command is active ──────────────
+IF xExecute THEN
+    Axis.Profile_Acceleration := udiProfileAcceleration;
+    Axis.Profile_Deceleration := udiProfileDeceleration;
+END_IF
+
+CASE iState OF
+
+    0: // Idle
+        xError      := FALSE;
+        xAtVelocity := FALSE;
+
+        IF xEnable THEN
+            IF xExecute AND Axis.StatusWord.1          // SwitchedOn
+                        AND Axis.StatusWord.2           // Already OperationEnabled
+                        AND Axis.Modes_of_operation_display = 3 // Already in PV mode
+                        AND NOT Axis.StatusWord.3 THEN
+                // M4: fast path — already enabled in PV mode, skip the
+                // disable/enable cycle that v3 forced on every start.
+                Axis.Target_Velocity := 0;
+                iState := 20;
+            ELSIF xExecute AND Axis.StatusWord.1       // SwitchedOn
+                        AND NOT Axis.StatusWord.2       // Not yet OperationEnabled (needs mode switch)
+                        AND NOT Axis.StatusWord.3 THEN
+                iState := 10;
+            ELSIF xExecute AND Axis.StatusWord.2 THEN
+                // OperationEnabled but wrong mode — drop bit3 for switch
+                Axis.ControlWord.3 := FALSE;
+                // State stays 0: StatusWord.2 drops next cycle, mode-switch branch fires
+            ELSIF xExecute OR Axis.StatusWord.3 THEN
+                iState := 999;
+            END_IF
+        END_IF
+
+    10: // Mode Switch — request PV (mode 3)
+        Axis.Modes_of_operation := 3;
+        Axis.ControlWord.3 := (Axis.Modes_of_operation_display = 3);
+
+        IF Axis.StatusWord.3 OR NOT xEnable THEN
+            iState := 999;
+        ELSIF Axis.StatusWord.2 AND Axis.ControlWord.3 THEN
+            // OperationEnabled in PV mode — zero velocity on entry
+            Axis.Target_Velocity := 0;
+            iState := 20;
+        END_IF
+
+    20: // Active — write velocity every cycle
+        IF Axis.Modes_of_operation_display = 3 THEN
+            Axis.Target_Velocity := diTargetVelocity;
+            xAtVelocity := Axis.StatusWord.10; // "Target velocity reached" in PV mode
+
+            IF Axis.StatusWord.3 THEN
+                // Drive fault
+                Axis.Target_Velocity := 0;
+                iState := 999;
+            ELSIF Axis.StatusWord.13 THEN
+                // Following error
+                Axis.Target_Velocity := 0;
+                iState := 999;
+            ELSIF NOT xEnable THEN
+                // Normal stop: write 0 → drive decelerates using Profile_Deceleration
+                Axis.Target_Velocity := 0;
+                iState := 0;
+            END_IF
+        ELSE
+            // Drive changed mode unexpectedly
+            Axis.Target_Velocity := 0;
+            iState := 0;
+        END_IF
+
+    999: // Error
+        Axis.Target_Velocity  := 0;
+        Axis.Profile_Velocity := 0; // Also clear PP speed register
+        xError      := TRUE;
+        xAtVelocity := FALSE;
+        IF NOT xExecute OR xReset THEN
+            xError := FALSE;
+            iState := 0;
+        END_IF
+
+END_CASE
+
+// ── Livello A: proiezione avanzamento unificato (E_PROGRESS) ──────────────
+// Modo continuo: "DONE" = velocita' target raggiunta (regime).
+IF    xError       THEN eProgress := PROGRESS_ERROR;
+ELSIF xAtVelocity  THEN eProgress := PROGRESS_DONE;
+ELSIF iState = 0   THEN eProgress := PROGRESS_INVALID;
+ELSE                    eProgress := PROGRESS_BUSY;
+END_IF

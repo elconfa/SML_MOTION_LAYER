@@ -1,0 +1,27 @@
+(* ============================================================
+   E_AXIS_STATE — Stato funzionale asse
+   SML v6 — Livello B (nuovo)
+
+   Valori multipli di 100 (= PROGRESS_SPAN) per comporre lo STATO
+   COMBINATO con E_PROGRESS:
+       State.eState = E_AXIS_STATE + E_PROGRESS
+   Es.: AXIS_STATE_MOVING (500) + PROGRESS_BUSY (2) = 502.
+   Decomposizione con f_GetState(502)=500, f_GetProgress(502)=2.
+
+   Qui il Livello B USA finalmente le funzioni f_GetState /
+   f_GetProgress introdotte in Livello A.
+   ============================================================ *)
+
+TYPE E_AXIS_STATE :
+(
+    AXIS_STATE_NULL     := 0,     // non inizializzato
+    AXIS_STATE_INIT     := 100,   // init / reset in corso
+    AXIS_STATE_DISABLED := 200,   // drive disabilitato
+    AXIS_STATE_IDLE     := 300,   // abilitato, fermo, pronto
+    AXIS_STATE_HOMING   := 400,   // homing
+    AXIS_STATE_MOVING   := 500,   // Profile Position / CSP
+    AXIS_STATE_VELOCITY := 600,   // Profile Velocity / Jog
+    AXIS_STATE_STOPPING := 700,   // Halt
+    AXIS_STATE_ERROR    := 900    // errore
+) INT;
+END_TYPE

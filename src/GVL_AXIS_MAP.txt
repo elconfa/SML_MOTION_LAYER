@@ -1,0 +1,27 @@
+(* ============================================================
+   GVL_AXIS_MAP — Lato bus del Motion Layer (UNION per asse)
+   SML v8 — Livello B / MAPPING (nuovo)
+
+   Array di UNION da collegare al process image del fieldbus (o da
+   esporre via ADS). MAPPING_in/out copiano tra questi e GVL_AXIS.
+
+   Direzione tipica (dal punto di vista del PLC):
+     Ctrl[] , Data[]   : INGRESSI  (comando dall'esterno)  -> %I* / RD
+     State[], Info[]   : USCITE    (stato verso l'esterno)  -> %Q* / WR
+
+   Ogni elemento e' una UNION: linkabile come struct (.stData) o come
+   blocco grezzo (.aRaw). Presente sempre; il MAPPING e' attivo solo se
+   AXIS_MAP_ENABLE = TRUE (flag runtime; niente pragma di compilazione
+   condizionale, non portabili nella parte dichiarazione su CoDeSys).
+   ============================================================ *)
+
+{attribute 'qualified_only'}
+VAR_GLOBAL
+    // flag di abilitazione del MAPPING (design-time o runtime)
+    AXIS_MAP_ENABLE : BOOL := FALSE;   // TRUE = attiva MAPPING_in / MAPPING_out
+
+    Ctrl  : ARRAY[1..GVL_SML_CONST.MAX_AXIS] OF U_AXIS_CTRL;    // comando   (bus -> plc)
+    Data  : ARRAY[1..GVL_SML_CONST.MAX_AXIS] OF U_MOVE_DATA;    // setpoint  (bus -> plc)
+    State : ARRAY[1..GVL_SML_CONST.MAX_AXIS] OF U_AXIS_STATE;   // stato     (plc -> bus)
+    Info  : ARRAY[1..GVL_SML_CONST.MAX_AXIS] OF U_AXIS_INFO;    // info      (plc -> bus)
+END_VAR

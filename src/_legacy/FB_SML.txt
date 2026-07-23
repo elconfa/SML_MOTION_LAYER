@@ -1,0 +1,387 @@
+(* ============================================================
+   FB_SML — Top-Level Axis Facade (PP/PV/Jog mode)
+   SML v4 — Merged (Confa FB_SML fully revised and bug-fixed)
+
+   Single-call interface for applications using Profile Position,
+   Profile Velocity, and Jog modes.
+   For CSP + OTG mode, use SML_AxisController directly.
+
+   CRITICAL BUGS FIXED vs Confa original (v3):
+   1. E-stop polarity: was NOT xEmergencyStop → drive never ran.
+      Now: xEmergencyStop passed directly (1=OK = bit2=1 = run).
+   2. Jog error wired to MovAbsError: fixed → MovJogError.
+   3. Power error wired to PwrBusy: fixed → PwrError (new output).
+   4. Home xEnable had "OR Axis.Homed" (unsafe): removed.
+
+   v4 ADDITIONS:
+   - A1: RstEx now also resets every motion sub-FB (Home/MoveHome/MoveAbs/
+     MoveVel/Jog/TouchProbe). In v3 a following-error stayed latched until
+     power dropped.
+   - A2: command arbiter — only ONE motion class is armed per cycle (fixed
+     priority Jog > Vel > MoveAbs > MoveHome) so simultaneous commands cannot
+     corrupt the shared Axis struct. Halt may coexist (only touches bit 8).
+   - M5: extra diagnostics exposed (FollowingError, Status_InternalLimit,
+     Status_VelocityMode, Status_SyncVelocityMode).
+   - Integrated SML_Diagnostics → one DiagCode/DiagText + latched first fault.
+
+   COMMAND ARBITER NOTE (A2):
+   If two motion commands are requested at once, the higher-priority one wins
+   and the lower-priority request is ignored (its xExecute is masked). Issuing
+   a Jog while a MoveAbs is running will abort the MoveAbs.
+
+   EMERGENCY STOP CONVENTION (ALL FBs in this library):
+     xEmergencyStop input  : 0 = E-stop pressed (alarm), 1 = OK
+     SML_Power/ControlWord : 0 = quick-stop active, 1 = run
+     These have the SAME polarity — assign directly, no inversion.
+
+   POWER TIMING:
+   TOF (off-delay) holds power enable for 1 s after PwrEn drops,
+   allowing an orderly stop before the drive is de-energized.
+   ============================================================ *)
+
+FUNCTION_BLOCK FB_SML
+VAR_IN_OUT
+    Axis : OpenSML_Axis;
+END_VAR
+VAR_INPUT
+    xEmergencyStop   : BOOL;   // 0=E-stop/alarm, 1=OK — same polarity as CiA402 bit 2
+
+    // Power
+    PwrEn            : BOOL;   // Level: request drive enable (TOF-delayed off)
+    RstEx            : BOOL;   // Pulse: fault reset
+
+    // Homing
+    HomeEx           : BOOL;   // Pulse: start homing
+    HomePos          : DINT;   // Home offset [encoder counts → 0x607C] (B2: unit clarified)
+
+    // Profile Velocity (continuous speed control)
+    MovVelEx         : BOOL;
+    MovVelSpeed      : DINT;   // Signed velocity [raw units/s]
+    MovVelAcc        : UDINT;
+    MovVelDec        : UDINT;
+
+    // Jog
+    Jog_F_Ex         : BOOL;   // Hold: jog forward
+    Jog_R_Ex         : BOOL;   // Hold: jog reverse
+    JogSpeed         : DINT;   // Speed magnitude [raw units/s]
+    JogAcc           : UDINT;
+    JogDec           : UDINT;
+
+    // Move to named position (PP instance 1)
+    MovHomeEx        : BOOL;
+    MovHomePos       : DINT;
+    MovHomeSpeed     : UDINT;
+    MovHomeAcc       : UDINT;
+    MovHomeDec       : UDINT;
+    MovHomeContinue  : BOOL;
+    MovHomeRelative  : BOOL;
+
+    // Move Absolute (PP instance 2)
+    MovAbsEx         : BOOL;
+    MovAbsPos        : DINT;
+    MovAbsSpeed      : UDINT;
+    MovAbsAcc        : UDINT;
+    MovAbsDec        : UDINT;
+    MovAbsContinue   : BOOL;
+    MovAbsRelative   : BOOL;
+
+    // Halt
+    HaltEx           : BOOL;
+
+    // Touch Probe
+    EnTouchProbe     : BOOL;
+    TProbe_R_Start   : BOOL;
+    TProbe_F_Start   : BOOL;
+
+    // Diagnostics
+    DiagReset        : BOOL;   // Pulse: acknowledge/clear the latched first-fault
+END_VAR
+
+VAR_OUTPUT
+    PwrStatus : BOOL;  // Drive in OperationEnabled
+    PwrBusy   : BOOL;  // Off-delay timer counting (drive still enabled after PwrEn drop)
+    PwrError  : BOOL;  // Power sequence error
+
+    HomeDone  : BOOL;
+    HomeBusy  : BOOL;
+    HomeError : BOOL;
+
+    MovVelInVel : BOOL; // At target velocity
+    MovVelError : BOOL;
+
+    MovJogError : BOOL; // Jog-specific error (separate from MoveAbs)
+
+    MovHomeDone  : BOOL;
+    MovHomeBusy  : BOOL;
+    MovHomeError : BOOL;
+
+    MovAbsDone  : BOOL;
+    MovAbsBusy  : BOOL;
+    MovAbsError : BOOL;
+
+    ResetDone  : BOOL;
+    ResetError : BOOL;
+
+    ActPosition : DINT;
+    ActSpeed    : DINT;
+    ActTorque   : INT;
+    ErrId       : UINT;
+    StatusErr   : BOOL;
+
+    // Full CiA402 state flags
+    Status_NotReadyToSwitchOn  : BOOL;
+    Status_SwitchOnDisabled    : BOOL;
+    Status_ReadyToSwitchOn     : BOOL;
+    Status_SwitchedOn          : BOOL;
+    Status_OperationEnabled    : BOOL;
+    Status_QuickStopActive     : BOOL;
+    Status_FaultReactionActive : BOOL;
+    Status_Fault               : BOOL;
+    Status_Warning             : BOOL;
+    Status_TargetReached       : BOOL;
+    Status_Halted              : BOOL;
+    Status_VoltageEnabled      : BOOL;
+    Status_ProfilePositionMode : BOOL;
+    Status_ProfileVelocityMode : BOOL;
+    Status_VelocityMode        : BOOL;  // M5: legacy Velocity mode (2)
+    Status_HomingMode          : BOOL;
+    Status_SyncPositionMode    : BOOL;
+    Status_SyncVelocityMode    : BOOL;  // M5: CSV mode (9)
+    Status_InternalLimit       : BOOL;  // M5: software limit active (bit 11)
+    Status_Moving              : BOOL;
+    Status_StandStill          : BOOL;
+    Status_Homed               : BOOL;
+    FollowingError             : DINT;  // M5: 0x60F4 [encoder counts]
+
+    // Aggregated diagnostics (SML_Diagnostics)
+    DiagCode       : SML_DiagCode; // Live highest-priority condition
+    DiagText       : STRING(80);   // Human-readable text for DiagCode
+    xActiveFault   : BOOL;         // Any fault present now
+    xActiveWarning : BOOL;         // Warning present (no fault)
+    FirstFaultCode : SML_DiagCode; // Latched first cause (clear via DiagReset)
+    FirstFaultText : STRING(80);
+    DriveErrorCode : UINT;         // 0x603F raw drive error number
+    FaultCount     : UINT;         // Cumulative fault events
+
+    // Touch Probe
+    TProbe_R_Done  : BOOL;
+    TProbe_F_Done  : BOOL;
+    TProbe_Busy    : BOOL;
+    TProbe_Error   : BOOL;
+    TProbe_R_Value : DINT;
+    TProbe_F_Value : DINT;
+
+    // Halt stopped confirmation
+    HaltStopped : BOOL;
+
+    // Livello A: avanzamento aggregato del facade
+    eProgress   : E_PROGRESS;
+END_VAR
+
+VAR
+    inst_Power      : SML_Power;
+    inst_Reset      : SML_Reset;
+    inst_Home       : SML_Home;
+    inst_MoveHome   : SML_ProfilePosition;
+    inst_MoveAbs    : SML_ProfilePosition;
+    inst_MoveVel    : SML_ProfileVelocity;
+    inst_Jog        : SML_ProfileVelocity_Jog;
+    inst_Stop       : SML_Stop;
+    inst_TouchProbe : SML_TouchProbe;
+    inst_Status     : SML_Status;
+    inst_Diag       : SML_Diagnostics;
+    TOFDelayEnable  : TOF; // Off-delay: holds enable 1s after PwrEn drops
+
+    // ── Command arbiter (A2) — gated execute flags, one class at a time ──
+    gJogF    : BOOL;
+    gJogR    : BOOL;
+    gJog     : BOOL;
+    gMovVel  : BOOL;
+    gMovAbs  : BOOL;
+    gMovHome : BOOL;
+END_VAR
+
+// ── Command arbiter (A2): fixed priority Jog > Vel > MoveAbs > MoveHome ─────
+// A higher-priority active request masks the lower ones so only one motion FB
+// commands the shared Axis struct in any cycle. Halt is independent (bit 8 only).
+gJogF    := Jog_F_Ex AND NOT Jog_R_Ex;
+gJogR    := Jog_R_Ex AND NOT Jog_F_Ex;
+gJog     := gJogF OR gJogR;
+gMovVel  := MovVelEx  AND NOT gJog;
+gMovAbs  := MovAbsEx  AND NOT gJog AND NOT MovVelEx;
+gMovHome := MovHomeEx AND NOT gJog AND NOT MovVelEx AND NOT MovAbsEx;
+
+// ── Off-delay: power stays enabled for 1 s after PwrEn drops ─────────────
+TOFDelayEnable(IN := PwrEn, PT := T#1000MS);
+PwrBusy := TOFDelayEnable.Q AND NOT PwrStatus;
+
+// ── Power ─────────────────────────────────────────────────────────────────
+inst_Power(
+    Axis           := Axis,
+    xExecute       := TOFDelayEnable.Q,
+    xEmergencyStop := xEmergencyStop, // Direct assignment — same polarity (no NOT)
+    xDone          => PwrStatus,
+    xError         => PwrError);      // FIXED: was incorrectly wired to PwrBusy
+
+// ── Fault Reset ───────────────────────────────────────────────────────────
+inst_Reset(
+    Axis     := Axis,
+    xExecute := RstEx,
+    xDone    => ResetDone,
+    xError   => ResetError);
+
+// ── Status decoder (read-only — call early so HMI is always fresh) ────────
+inst_Status(
+    Axis                       := Axis,
+    xEnable                    := TRUE,
+    Status_NotReadyToSwitchOn  => Status_NotReadyToSwitchOn,
+    Status_SwitchOnDisabled    => Status_SwitchOnDisabled,
+    Status_ReadyToSwitchOn     => Status_ReadyToSwitchOn,
+    Status_SwitchedOn          => Status_SwitchedOn,
+    Status_OperationEnabled    => Status_OperationEnabled,
+    Status_QuickStopActive     => Status_QuickStopActive,
+    Status_FaultReactionActive => Status_FaultReactionActive,
+    Status_Fault               => Status_Fault,
+    Status_Warning             => Status_Warning,
+    Status_TargetReached       => Status_TargetReached,
+    Status_Halted              => Status_Halted,
+    Status_VoltageEnabled      => Status_VoltageEnabled,
+    Status_ProfilePositionMode => Status_ProfilePositionMode,
+    Status_ProfileVelocityMode => Status_ProfileVelocityMode,
+    Status_VelocityMode        => Status_VelocityMode,
+    Status_HomingMode          => Status_HomingMode,
+    Status_SyncPositionMode    => Status_SyncPositionMode,
+    Status_SyncVelocityMode    => Status_SyncVelocityMode,
+    Status_InternalLimit       => Status_InternalLimit,
+    Status_Moving              => Status_Moving,
+    Status_StandStill          => Status_StandStill,
+    Status_Homed               => Status_Homed,
+    StatusErr                  => StatusErr,
+    ActPosition                => ActPosition,
+    ActSpeed                   => ActSpeed,
+    ActTorque                  => ActTorque,
+    FollowingError             => FollowingError,
+    ErrId                      => ErrId);
+
+// ── Homing ────────────────────────────────────────────────────────────────
+// xEnable: power confirmed AND no emergency — removed unsafe "OR Axis.Homed"
+inst_Home(
+    Axis         := Axis,
+    xEnable      := PwrStatus AND xEmergencyStop,
+    xExecute     := HomeEx AND xEmergencyStop,
+    xReset       := RstEx,                  // A1: granular reset of homing fault
+    diHomeOffset := HomePos,
+    xBusy        => HomeBusy,
+    xDone        => HomeDone,
+    xError       => HomeError);
+
+// ── Move to named position (PP instance 1) ────────────────────────────────
+inst_MoveHome(
+    Axis                   := Axis,
+    xEnable                := PwrStatus AND xEmergencyStop,
+    xExecute               := gMovHome,       // A2: arbitered (lowest priority)
+    xReset                 := RstEx,          // A1: granular reset
+    xContinueMove          := MovHomeContinue,
+    xRelativeMode          := MovHomeRelative,
+    diTargetPosition       := MovHomePos,
+    udiProfileVelocity     := MovHomeSpeed,
+    udiProfileAcceleration := MovHomeAcc,
+    udiProfileDeceleration := MovHomeDec,
+    xDone                  => MovHomeDone,
+    xBusy                  => MovHomeBusy,
+    xError                 => MovHomeError);
+
+// ── Move Absolute (PP instance 2) ────────────────────────────────────────
+inst_MoveAbs(
+    Axis                   := Axis,
+    xEnable                := PwrStatus AND xEmergencyStop,
+    xExecute               := gMovAbs,        // A2: arbitered
+    xReset                 := RstEx,          // A1: granular reset
+    xContinueMove          := MovAbsContinue,
+    xRelativeMode          := MovAbsRelative,
+    diTargetPosition       := MovAbsPos,
+    udiProfileVelocity     := MovAbsSpeed,
+    udiProfileAcceleration := MovAbsAcc,
+    udiProfileDeceleration := MovAbsDec,
+    xDone                  => MovAbsDone,
+    xBusy                  => MovAbsBusy,
+    xError                 => MovAbsError);
+
+// ── Profile Velocity ──────────────────────────────────────────────────────
+inst_MoveVel(
+    Axis                   := Axis,
+    xEnable                := PwrStatus AND xEmergencyStop,
+    xExecute               := gMovVel,        // A2: arbitered
+    xReset                 := RstEx,          // A1: granular reset
+    diTargetVelocity       := MovVelSpeed,
+    udiProfileAcceleration := MovVelAcc,
+    udiProfileDeceleration := MovVelDec,
+    xAtVelocity            => MovVelInVel,
+    xError                 => MovVelError);
+
+// ── Jog ───────────────────────────────────────────────────────────────────
+// A2: highest motion priority; gJogF/gJogR already enforce F/R mutual exclusion.
+inst_Jog(
+    Axis                   := Axis,
+    xEnable                := PwrStatus AND xEmergencyStop,
+    xExecute_Jog_F         := gJogF,
+    xExecute_Jog_R         := gJogR,
+    xReset                 := RstEx,          // A1: granular reset
+    diProfileVelocity      := JogSpeed,
+    udiProfileAcceleration := JogAcc,
+    udiProfileDeceleration := JogDec,
+    xError                 => MovJogError); // FIXED: was incorrectly => MovAbsError
+
+// ── Halt ──────────────────────────────────────────────────────────────────
+inst_Stop(
+    Axis     := Axis,
+    xStop    := HaltEx,
+    xStopped => HaltStopped);
+
+// ── Touch Probe ───────────────────────────────────────────────────────────
+inst_TouchProbe(
+    Axis                     := Axis,
+    xEnable                  := PwrStatus AND xEmergencyStop,
+    xExecute                 := EnTouchProbe,
+    xReset                   := RstEx,        // B1: granular reset (was unconnected)
+    xRisingCapture           := EnTouchProbe AND TProbe_R_Start,
+    xFallingCapture          := EnTouchProbe AND TProbe_F_Start,
+    xDone_R                  => TProbe_R_Done,
+    xDone_F                  => TProbe_F_Done,
+    xBusy                    => TProbe_Busy,
+    xError                   => TProbe_Error,
+    TouchProbe_Rising_Value  => TProbe_R_Value,
+    TouchProbe_Falling_Value => TProbe_F_Value);
+
+// ── Aggregated diagnostics ──────────────────────────────────────────────────
+// Collapses drive bits + every sub-FB error into one DiagCode/DiagText, with a
+// latched first-cause. MovHomeError and MovAbsError both feed xMoveError (both
+// are ProfilePosition). Clear the latch with DiagReset.
+inst_Diag(
+    Axis             := Axis,
+    xReset           := DiagReset,
+    xResetCount      := FALSE,
+    xPowerError      := PwrError,
+    xHomeError       := HomeError,
+    xMoveError       := MovHomeError OR MovAbsError,
+    xVelError        := MovVelError,
+    xJogError        := MovJogError,
+    xTouchProbeError := TProbe_Error,
+    DiagCode         => DiagCode,
+    DiagText         => DiagText,
+    xActiveFault     => xActiveFault,
+    xActiveWarning   => xActiveWarning,
+    FirstFaultCode   => FirstFaultCode,
+    FirstFaultText   => FirstFaultText,
+    DriveErrorCode   => DriveErrorCode,
+    FollowingError   =>,
+    FaultCount       => FaultCount);
+
+// ── Livello A: proiezione avanzamento aggregato (E_PROGRESS) ──────────────
+// Non c'e' un iState unico: l'avanzamento riassume lo stato dei sotto-FB.
+IF    xActiveFault OR PwrError THEN eProgress := PROGRESS_ERROR;
+ELSIF NOT PwrStatus            THEN eProgress := PROGRESS_INVALID; // drive non abilitato
+ELSIF Status_Moving OR HomeBusy OR MovHomeBusy OR MovAbsBusy
+                               THEN eProgress := PROGRESS_BUSY;
+ELSE                                eProgress := PROGRESS_DONE;    // abilitato, fermo, nessun fault
+END_IF

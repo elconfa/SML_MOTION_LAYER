@@ -1,0 +1,94 @@
+(* ============================================================
+   OpenSML_Axis — Extended CiA402 PDO Data Structure
+   SML v4 — Merged from OpenSML + Confa variants
+
+   SOFTWARE STRUCT — no AT %Q*/%I* mapping.
+   Use SML_TC3Link to bridge this struct to the TwinCAT I/O tree.
+   This keeps the library portable across runtimes and testable
+   in simulation without hardware.
+
+   COMPLETE PDO SET (all standard CiA402 objects + Touch Probe):
+
+   OUTPUTS (PLC → Drive):
+     0x6040  ControlWord
+     0x6060  Modes_of_operation
+     0x607A  Target_Position          [encoder counts]
+     0x6081  Profile_Velocity         [drive velocity units — PP mode]
+     0x60FF  Target_Velocity          [drive velocity units — PV/CSV mode]
+     0x6071  Target_Torque            [0.1 % of rated]
+     0x6083  Profile_Acceleration     [drive accel units — PP/PV mode]
+     0x6084  Profile_Deceleration     [drive accel units — PP/PV mode]
+     0x607C  Home_Offset              [encoder counts — set before homing]
+     0x60B8  TouchProbe_ControlWord   [latch trigger control]
+
+   INPUTS (Drive → PLC):
+     0x6041  StatusWord
+     0x6061  Modes_of_operation_display
+     0x6077  Torque_Actual_Value      [0.1 % of rated]
+     0x6064  Position_Actual_Value    [encoder counts]
+     0x606C  Velocity_Actual_Value    [drive velocity units]
+     0x6078  Current_Actual_Value     [0.1 % of rated]
+     0x60F4  Following_Error_Actual_Value [encoder counts]
+     0x603F  Error_Code               [drive-specific error number]
+     0x60FD  Digital_Inputs           [bitmask of physical digital inputs]
+     0x60B9  TouchProbe_StatusWord
+     0x60BA  TouchProbe_Rising_Value  [encoder counts — latched on rising edge]
+     0x60BB  TouchProbe_Falling_Value [encoder counts — latched on falling edge]
+
+   ControlWord key bits (CiA402 §8.1.3):
+     Bit 0  Switch On
+     Bit 1  Enable Voltage
+     Bit 2  Quick Stop     (1 = run, 0 = activate quick-stop — ACTIVE LOW)
+     Bit 3  Enable Operation
+     Bit 4  Mode-specific  (New Setpoint in PP / Start Homing in HM)
+     Bit 5  Change Setpoint Immediately — blend moves (PP)
+     Bit 6  Relative mode  (PP: 0 = absolute, 1 = relative)
+     Bit 7  Fault Reset    (rising edge 0→1 clears fault)
+     Bit 8  Halt           (1 = decelerate and hold, stay in OperationEnabled)
+
+   StatusWord key bits (CiA402 §8.1.3):
+     Bit 0   Ready to Switch On
+     Bit 1   Switched On
+     Bit 2   Operation Enabled
+     Bit 3   Fault
+     Bit 4   Voltage Enabled
+     Bit 5   Quick Stop     (0 = quick-stop active)
+     Bit 6   Switch On Disabled
+     Bit 7   Warning
+     Bit 9   Remote
+     Bit 10  Target Reached / At Velocity / Setpoint Ack (mode-dependent)
+     Bit 11  Internal Limit Active
+     Bit 12  Mode-specific  (Setpoint Acknowledge in PP / Home Attained in HM)
+     Bit 13  Following Error
+     Bit 14  Drive-specific (Standstill on many drives)
+   ============================================================ *)
+
+TYPE OpenSML_Axis :
+STRUCT
+    // --- Outputs: PLC → Drive --------------------------------
+    ControlWord          : UINT;   // 0x6040
+    Modes_of_operation   : SINT;   // 0x6060
+    Target_Position      : DINT;   // 0x607A [encoder counts]
+    Profile_Velocity     : UDINT;  // 0x6081 [drive velocity units — PP move speed]
+    Target_Velocity      : DINT;   // 0x60FF [drive velocity units — PV/CSV]
+    Target_Torque        : INT;    // 0x6071 [0.1 % of rated]
+    Profile_Acceleration : UDINT;  // 0x6083 [drive accel units]
+    Profile_Deceleration : UDINT;  // 0x6084 [drive accel units]
+    Home_Offset          : DINT;   // 0x607C [encoder counts — offset after homing]
+    TouchProbe_ControlWord : UINT; // 0x60B8
+
+    // --- Inputs: Drive → PLC ---------------------------------
+    StatusWord                   : UINT;  // 0x6041
+    Modes_of_operation_display   : SINT;  // 0x6061
+    Torque_Actual_Value          : INT;   // 0x6077 [0.1 % of rated]
+    Position_Actual_Value        : DINT;  // 0x6064 [encoder counts]
+    Velocity_Actual_Value        : DINT;  // 0x606C [drive velocity units]
+    Current_Actual_Value         : INT;   // 0x6078 [0.1 % of rated]
+    Following_Error_Actual_Value : DINT;  // 0x60F4 [encoder counts]
+    Error_Code                   : UINT;  // 0x603F [drive error number, 0 = no error]
+    Digital_Inputs               : UDINT; // 0x60FD [bitmask of physical DI]
+    TouchProbe_StatusWord        : UINT;  // 0x60B9
+    TouchProbe_Rising_Value      : DINT;  // 0x60BA [encoder counts]
+    TouchProbe_Falling_Value     : DINT;  // 0x60BB [encoder counts]
+END_STRUCT
+END_TYPE

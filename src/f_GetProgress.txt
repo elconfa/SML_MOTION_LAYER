@@ -1,0 +1,17 @@
+(* ============================================================
+   f_GetProgress — Estrae l'avanzamento da uno stato combinato
+   SML v5 — Livello A (nuovo)
+
+   eCombined = stato_funzionale + E_PROGRESS  (banda progress = 0..99)
+   Ritorna la sola parte di avanzamento.
+
+   Predisposizione Livello B: non usato dalla proiezione Livello A,
+   fornito come infrastruttura per lo stato combinato.
+   ============================================================ *)
+
+FUNCTION f_GetProgress : E_PROGRESS
+VAR_INPUT
+    eCombined : DINT;   // stato combinato = stato_funzionale + progress
+END_VAR
+
+f_GetProgress := TO_INT(eCombined MOD GVL_SML_CONST.PROGRESS_SPAN);

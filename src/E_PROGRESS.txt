@@ -1,0 +1,33 @@
+(* ============================================================
+   E_PROGRESS — Avanzamento unificato per tutti gli FB SML
+   SML v5 — Livello A (nuovo)
+
+   Vocabolario comune di avanzamento, leggibile da applicazione /
+   HMI / diagnostica, in sostituzione della semantica ad-hoc di
+   iState:INT usata dai singoli FB.
+
+   PROIEZIONE (Livello A):
+     Ogni FB mantiene la propria macchina a stati iState invariata
+     e, in coda al ciclo, espone eProgress:E_PROGRESS derivandolo
+     da iState e dai propri flag (xError / xDone / ...).
+     Nessuna macchina a stati viene riscritta.
+
+   STATO COMBINATO (predisposizione Livello B):
+     Uno stato macchina si potra' codificare come
+       stato_funzionale + E_PROGRESS
+     con stato_funzionale multiplo di 100 (vedi f_GetState /
+     f_GetProgress). Non usato ancora in Livello A.
+   ============================================================ *)
+
+TYPE E_PROGRESS :
+(
+    PROGRESS_INVALID := 0,   // non inizializzato / idle, nessuna richiesta
+    PROGRESS_INIT    := 1,   // richiesta di avvio ricevuta
+    PROGRESS_BUSY    := 2,   // in elaborazione
+    PROGRESS_PREPARE := 3,   // preparazione parametri / precondizioni
+    PROGRESS_STARTUP := 4,   // esecuzione fase di startup
+    PROGRESS_CHECK   := 5,   // verifica esito / avanzamento indice
+    PROGRESS_DONE    := 6,   // completato con successo
+    PROGRESS_ERROR   := 7    // errore (terminale finche' non resettato)
+) INT;
+END_TYPE

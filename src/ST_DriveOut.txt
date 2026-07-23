@@ -1,0 +1,27 @@
+(* ============================================================
+   ST_DriveOut — Immagine di processo OUTPUT (PLC -> Drive)
+   SML v9 — bridge I/O (nuovo)
+
+   Meta' "output" di OpenSML_Axis, STESSO ordine e stessi tipi.
+   Usata per il bridge I/O: si dichiara AT %Q* (mappata ai RxPDO
+   del drive) e si copia da GVL_AXIS.Axis[n] dopo il calcolo.
+
+   Vale sia per CoDeSys sia per TwinCAT (ST generico IEC 61131-3).
+   Su CoDeSys, in alternativa, si puo' linkare direttamente
+   GVL_AXIS.Axis[n].<membro> nella scheda I/O Mapping (senza bridge).
+   ============================================================ *)
+
+TYPE ST_DriveOut :
+STRUCT
+    ControlWord            : UINT;   // 0x6040
+    Modes_of_operation     : SINT;   // 0x6060
+    Target_Position        : DINT;   // 0x607A [encoder counts]
+    Profile_Velocity       : UDINT;  // 0x6081 [drive velocity units — PP]
+    Target_Velocity        : DINT;   // 0x60FF [drive velocity units — PV/CSV]
+    Target_Torque          : INT;    // 0x6071 [0.1 % rated]
+    Profile_Acceleration   : UDINT;  // 0x6083 [drive accel units]
+    Profile_Deceleration   : UDINT;  // 0x6084 [drive accel units]
+    Home_Offset            : DINT;   // 0x607C [encoder counts]
+    TouchProbe_ControlWord : UINT;   // 0x60B8
+END_STRUCT
+END_TYPE

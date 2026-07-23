@@ -1,0 +1,104 @@
+(* ============================================================
+   FB_SmlAxisCtrl — Metodi e proprieta' di I_SmlAxis
+   SML v6 — Livello B (nuovo)
+
+   Codice REALE (non commentato) dei metodi/proprieta' che
+   FB_SmlAxisCtrl deve implementare per soddisfare I_SmlAxis.
+   In CoDeSys: creare un oggetto METHOD / PROPERTY sotto
+   FB_SmlAxisCtrl per ciascun blocco seguente.
+
+   Sono SETTER: impostano Ctrl.eCmd (+ Data) e ritornano lo stato
+   corrente State.eProgress; il moto avviene al successivo richiamo
+   ciclico del corpo del FB.
+   ============================================================ *)
+
+//============================================================ METHODS
+METHOD Enable : E_PROGRESS
+Ctrl.eCmd := AXIS_ENABLE;
+Enable    := State.eProgress;
+
+//------------------------------------------------------------
+METHOD Disable : E_PROGRESS
+Ctrl.eCmd := AXIS_DISABLE;
+Disable   := State.eProgress;
+
+//------------------------------------------------------------
+METHOD Reset : E_PROGRESS
+Ctrl.eCmd := AXIS_RESET;
+Reset     := State.eProgress;
+
+//------------------------------------------------------------
+METHOD Home : E_PROGRESS
+Ctrl.eCmd := AXIS_HOME;
+Home      := State.eProgress;
+
+//------------------------------------------------------------
+METHOD MoveAbsolute : E_PROGRESS
+VAR_INPUT
+    lrPosition : LREAL;
+    lrVelocity : LREAL;
+END_VAR
+Ctrl.eCmd             := AXIS_MOVE_ABS;
+Data.lrTargetPosition := lrPosition;
+Data.lrVelocity       := lrVelocity;
+MoveAbsolute          := State.eProgress;
+
+//------------------------------------------------------------
+METHOD MoveRelative : E_PROGRESS
+VAR_INPUT
+    lrDistance : LREAL;
+    lrVelocity : LREAL;
+END_VAR
+Ctrl.eCmd             := AXIS_MOVE_REL;
+Data.lrTargetPosition := lrDistance;
+Data.lrVelocity       := lrVelocity;
+MoveRelative          := State.eProgress;
+
+//------------------------------------------------------------
+METHOD MoveVelocity : E_PROGRESS
+VAR_INPUT
+    lrVelocity : LREAL;   // con segno
+END_VAR
+Ctrl.eCmd       := AXIS_MOVE_VELOCITY;
+Data.lrVelocity := lrVelocity;
+MoveVelocity    := State.eProgress;
+
+//------------------------------------------------------------
+METHOD Jog : E_PROGRESS
+VAR_INPUT
+    xForward   : BOOL;
+    xReverse   : BOOL;
+    lrVelocity : LREAL;   // magnitudo
+END_VAR
+IF    xForward THEN Ctrl.eCmd := AXIS_JOG_POS;
+ELSIF xReverse THEN Ctrl.eCmd := AXIS_JOG_NEG;
+ELSE               Ctrl.eCmd := AXIS_NULL;
+END_IF
+Data.lrVelocity := lrVelocity;
+Jog             := State.eProgress;
+
+//------------------------------------------------------------
+METHOD MoveFollow : E_PROGRESS   // CSP + OTG
+VAR_INPUT
+    lrPosition : LREAL;
+    lrVelocity : LREAL;
+END_VAR
+Ctrl.eCmd             := AXIS_MOVE_CSP;
+Data.lrTargetPosition := lrPosition;
+Data.lrVelocity       := lrVelocity;
+MoveFollow            := State.eProgress;
+
+//------------------------------------------------------------
+METHOD Stop : E_PROGRESS
+Ctrl.eCmd := AXIS_STOP;
+Stop      := State.eProgress;
+
+//============================================================ PROPERTIES
+PROPERTY Position : LREAL
+// GET:
+Position := Info.lrActualPosition;
+
+//------------------------------------------------------------
+PROPERTY Enabled : BOOL
+// GET:
+Enabled := Info.xEnabled;
