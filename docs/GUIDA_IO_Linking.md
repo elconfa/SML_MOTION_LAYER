@@ -92,14 +92,18 @@ scheda I/O e usi lo stesso codice bridge del §5.
 TwinCAT non ama linkare una struct a direzione mista. Approccio pulito
 (quello di `SML_TC3Link`): **due immagini separate** + copia ciclica.
 
-1. Dichiara le due metà come immagini mappabili (i DUT sono in `ST_DriveOut.txt`
-   / `ST_DriveIn.txt`, stesso ordine/tipi della struct):
+1. Le due metà sono già in `GVL_IO` come **array semplici** (DUT `ST_DriveOut`/
+   `ST_DriveIn`, stesso ordine/tipi della struct):
    ```pascal
    VAR_GLOBAL
-       DriveOut AT %Q* : ARRAY[1..GVL_SML_CONST.MAX_AXIS] OF ST_DriveOut; // RxPDO
-       DriveIn  AT %I* : ARRAY[1..GVL_SML_CONST.MAX_AXIS] OF ST_DriveIn;   // TxPDO
+       DriveOut : ARRAY[1..GVL_SML_CONST.MAX_AXIS] OF ST_DriveOut; // -> RxPDO
+       DriveIn  : ARRAY[1..GVL_SML_CONST.MAX_AXIS] OF ST_DriveIn;   // <- TxPDO
    END_VAR
    ```
+   > **Niente `AT %Q*/%I*`**: in un GVL l'indirizzo incompleto richiede un
+   > VAR_CONFIG/mappatura, altrimenti CoDeSys da' errore **C0128**. Con array
+   > semplici il codice compila e si mappa nel configuratore. Su TwinCAT puoi
+   > riaggiungere `AT %Q*`/`AT %I*` se vuoi l'immagine di processo esplicita.
 2. Nel drive EtherCAT: **Change Link** su ogni oggetto PDO → collega a
    `DriveOut[1].ControlWord`, `DriveIn[1].StatusWord`, … (blocchi contigui →
    link rapido; oppure "one-to-one" se i tipi combaciano).
