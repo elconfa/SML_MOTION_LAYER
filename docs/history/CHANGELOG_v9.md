@@ -55,7 +55,7 @@ prossima versione (con i FB non piu' usati: SyncPosition/Velocity, ecc.).
   `SML_Status` ha un set di output diverso, allineare i `=>`.
 - `ST_AXIS_INFO` con sotto-struct `Status`: accesso `Info.Status.OperationEnabled`.
   In `U_AXIS_INFO` la UNION contiene il nuovo Info piu' grande: `MAP_SIZE_INFO`
-  portato a 128 (Check di MAPPING_out lo verifica).
+  portato a 128 (Check di PRG_Mapping_Out lo verifica).
 - Restano i caveat precedenti (enum non-strict; scaling velocita'=posizione;
   metodi I_Axis come oggetti; MAPPING via flag runtime AXIS_MAP_ENABLE).
 

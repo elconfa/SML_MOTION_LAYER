@@ -1,15 +1,15 @@
 (* ============================================================
-   MAPPING_out — Copia stato/info da GVL_AXIS verso il bus
+   PRG_Mapping_Out — Copia stato/info da GVL_AXIS verso il bus
    SML v8 — Livello B / MAPPING (nuovo)
 
    Percorso: GVL_AXIS.State/Info  ->  GVL_AXIS_MAP.State/Info (fieldbus)
    Chiamare alla FINE di MAIN, dopo il loop assi.
 
    GATE: attivo solo se GVL_AXIS_MAP.AXIS_MAP_ENABLE = TRUE; altrimenti
-   bypass (flag runtime; vedi nota in MAPPING_in).
+   bypass (flag runtime; vedi nota in PRG_Mapping_In).
    ============================================================ *)
 
-PROGRAM MAPPING_out
+PROGRAM PRG_Mapping_Out
 VAR
     i       : UINT;
     bSizeOk : BOOL;

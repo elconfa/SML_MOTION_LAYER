@@ -7,7 +7,7 @@
      - aRaw   : blocco byte     (vista grezza per il mapping fieldbus)
 
    Dimensione fissa = MAP_SIZE_CTRL (>= SIZEOF(ST_AXIS_CTRL), verificato
-   da MAPPING_in). Consente di linkare l'elemento al process image come
+   da PRG_Mapping_In). Consente di linkare l'elemento al process image come
    struct o come blocco grezzo senza cambiare la dimensione mappata.
    ============================================================ *)
 

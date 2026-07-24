@@ -23,8 +23,8 @@ Riferimenti: `CHANGELOG_v7.md` (multi-asse), `../NOTA_Pattern_MotionLayer.md`.
   `State`/`Info` (plc->bus). Da collegare al process image / esporre via ADS.
 
 ### Programmi di mapping (gate runtime)
-- `MAPPING_in.txt` — `GVL_AXIS_MAP.Ctrl/Data -> GVL_AXIS.Ctrl/Data`.
-- `MAPPING_out.txt` — `GVL_AXIS.State/Info -> GVL_AXIS_MAP.State/Info`.
+- `PRG_Mapping_In.txt` — `GVL_AXIS_MAP.Ctrl/Data -> GVL_AXIS.Ctrl/Data`.
+- `PRG_Mapping_Out.txt` — `GVL_AXIS.State/Info -> GVL_AXIS_MAP.State/Info`.
 - Entrambi gate da `GVL_AXIS_MAP.AXIS_MAP_ENABLE` (BOOL): FALSE = bypass
   immediato (comportamento = v7). **Flag runtime al posto della pragma
   `{IF defined(AXIS_MAP)}`**: quest'ultima non e' supportata nella parte
@@ -36,7 +36,7 @@ Riferimenti: `CHANGELOG_v7.md` (multi-asse), `../NOTA_Pattern_MotionLayer.md`.
   dei blocchi bus; devono essere >= SIZEOF della struct).
 
 ### MAIN
-- Chiama `MAPPING_in()` prima del loop assi e `MAPPING_out()` dopo. Senza
+- Chiama `PRG_Mapping_In()` prima del loop assi e `PRG_Mapping_Out()` dopo. Senza
   `AXIS_MAP` i due si auto-bypassano.
 
 ---
@@ -64,7 +64,7 @@ Riferimenti: `CHANGELOG_v7.md` (multi-asse), `../NOTA_Pattern_MotionLayer.md`.
 - **MAPPING via flag runtime** `GVL_AXIS_MAP.AXIS_MAP_ENABLE` (BOOL), NON via
   pragma di compilazione condizionale: `{IF defined(...)}` non e' supportata
   nella parte dichiarazione su CoDeSys. Per esclusione a compile-time,
-  opzionale, spostare la pragma nel CORPO di MAPPING_in/out.
+  opzionale, spostare la pragma nel CORPO di PRG_Mapping_In/Out.
 - Bound array UNION da costante globale (`MAP_SIZE_*`): supportato.
 - `SIZEOF` (UDINT) confrontato con `MAP_SIZE_*` (UDINT): coerente.
 - `GVL_AXIS_MAP` presente sempre (anche senza AXIS_MAP): memoria inutilizzata,
@@ -73,7 +73,7 @@ Riferimenti: `CHANGELOG_v7.md` (multi-asse), `../NOTA_Pattern_MotionLayer.md`.
   creare i METHOD/PROPERTY di I_Axis all'import).
 
 ## Verifica
-1. Build con `AXIS_MAP_ENABLE = FALSE`: compila; MAPPING_in/out bypassano;
+1. Build con `AXIS_MAP_ENABLE = FALSE`: compila; PRG_Mapping_In/Out bypassano;
    comportamento = v7.
 2. Mettere `GVL_AXIS_MAP.AXIS_MAP_ENABLE := TRUE`, collegare `GVL_AXIS_MAP` al
    bus (o forzare in online), scrivere `GVL_AXIS_MAP.Ctrl[n].stData.eCmd` e

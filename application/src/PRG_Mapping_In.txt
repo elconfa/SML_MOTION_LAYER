@@ -1,5 +1,5 @@
 (* ============================================================
-   MAPPING_in — Copia comando/setpoint dal bus verso GVL_AXIS
+   PRG_Mapping_In — Copia comando/setpoint dal bus verso GVL_AXIS
    SML v8 — Livello B / MAPPING (nuovo)
 
    Percorso: GVL_AXIS_MAP.Ctrl/Data (fieldbus)  ->  GVL_AXIS.Ctrl/Data
@@ -20,7 +20,7 @@
    fieldbus: la copia .stData resta corretta.
    ============================================================ *)
 
-PROGRAM MAPPING_in
+PROGRAM PRG_Mapping_In
 VAR
     i       : UINT;
     bSizeOk : BOOL;

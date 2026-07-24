@@ -17,7 +17,7 @@ le istanze, l'orchestratore, il bridge I/O e gli esempi.
 | `GVL_AXIS` | array `[1..MAX_AXIS]` di Axis/Ctrl/Data/State/Info + `Control` (FB) + `ItfSmlAxis` |
 | `MAIN` | esegue tutti gli assi ogni ciclo; chiama I/O bridge + MAPPING |
 | `GVL_IO`, `PRG_IoLink_In/_Out` | bridge I/O verso i PDO del drive (opzionale) |
-| `GVL_AXIS_MAP`, `MAPPING_in/_out` | esporre Ctrl/State su bus/ADS (opzionale) |
+| `GVL_AXIS_MAP`, `PRG_Mapping_In/_out` | esporre Ctrl/State su bus/ADS (opzionale) |
 
 ## `examples/`
 - `FB_AxisCycleDemo` — ciclo A↔B di un asse (pattern comando→attesa).

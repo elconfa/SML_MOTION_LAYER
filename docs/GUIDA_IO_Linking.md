@@ -125,7 +125,7 @@ Oggetti forniti (import da `.txt`):
 - **`PRG_IoLink_Out`** — PROGRAM: `Axis[n] -> DriveOut[n]` (output).
 
 **Timing corretto (zero ritardo):** `MAIN` chiama già `PRG_IoLink_In()` **prima**
-del ciclo assi e `PRG_IoLink_Out()` **dopo** (accanto a MAPPING_in/out). Non c'è
+del ciclo assi e `PRG_IoLink_Out()` **dopo** (accanto a PRG_Mapping_In/Out). Non c'è
 il ritardo di 1 ciclo del bridge singolo. Entrambi si auto-bypassano se
 `GVL_IO.IO_LINK_ENABLE = FALSE`.
 

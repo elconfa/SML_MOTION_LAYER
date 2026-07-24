@@ -83,7 +83,7 @@ esplicitamente, es. il bridge TwinCAT `SML_TC3Link`):
 ### 1j. GVL e orchestrazione
 - [ ] `GVL_AXIS`      (usa FB_AxisCtrl, I_Axis, ST_*, OpenSML_Axis, MAX_AXIS)
 - [ ] `GVL_AXIS_MAP`  (usa le UNION)
-- [ ] `MAPPING_in`, `MAPPING_out`  (POU → Program)
+- [ ] `PRG_Mapping_In`, `PRG_Mapping_Out`  (POU → Program)
 - [ ] `MAIN`         (POU → Program; chiama IoLink + MAPPING + ciclo assi)
 
 ### 1j. Banchi di prova (POU → Program) — sviluppo
@@ -118,7 +118,7 @@ metodi/proprieta' dell'interfaccia non esistono come oggetti figli del FB.
       Per attivare il mapping poi: metterlo TRUE (design-time o online). Nessuna
       pragma di compilazione condizionale (`{IF defined(...)}` non e' supportata
       nella parte dichiarazione su CoDeSys). Per esclusione a compile-time,
-      opzionale: racchiudere il CORPO di MAPPING_in/out tra
+      opzionale: racchiudere il CORPO di PRG_Mapping_In/Out tra
       `{IF defined (AXIS_MAP)} ... {END_IF}` nell'IMPLEMENTAZIONE.
 - [ ] Librerie: nessuna dipendenza da `memcpy` (copia via assegnazione). Servono
       solo Standard + eventuale lib dell'OTG.
@@ -152,7 +152,7 @@ metodi/proprieta' dell'interfaccia non esistono come oggetti figli del FB.
 ## 6. Verifica (dopo Build pulito)
 
 1. [ ] **Build**: zero errori nuovi; `E_*`, `ST_*`, `U_*`, `I_Axis`, `GVL_*`,
-       `FB_AxisCtrl`, `MAIN`, `MAPPING_*` risolti.
+       `FB_AxisCtrl`, `MAIN`, `PRG_Mapping_*` risolti.
 2. [ ] **Livello A** — task con `PRG_LevelA_Test`: `xTestPassed → TRUE`
        (`eProgress` INVALID→BUSY→DONE→ERROR→INVALID).
 3. [ ] **Livello B mono-asse** — `PRG_LevelB_Test`: `xTestPassed → TRUE`;

@@ -21,7 +21,7 @@
    prima del ciclo, Out (Axis->drive) dopo: zero ritardo. Su CoDeSys con link
    diretto nella scheda I/O Mapping lasciarlo FALSE.
 
-   MAPPING opzionale: MAPPING_in()/MAPPING_out() copiano da/verso il bus
+   MAPPING opzionale: PRG_Mapping_In()/PRG_Mapping_Out() copiano da/verso il bus
    (GVL_AXIS_MAP) solo se GVL_AXIS_MAP.AXIS_MAP_ENABLE = TRUE; altrimenti
    si auto-bypassano (comportamento identico a v7).
 
@@ -40,7 +40,7 @@ PRG_IoLink_In();
 // HW -> struct asse/
 
 // /bus -> interno (bypass se AXIS_MAP_ENABLE = FALSE)
-MAPPING_in();
+PRG_Mapping_In();
 // bus -> interno/
 
 FOR nAxis := 1 TO GVL_App.MAX_AXIS
@@ -58,7 +58,7 @@ DO
 END_FOR
 
 // /interno -> bus (bypass se AXIS_MAP_ENABLE = FALSE)
-MAPPING_out();
+PRG_Mapping_Out();
 // interno -> bus/
 
 // /struct asse -> HW (bypass se IO_LINK_ENABLE = FALSE)

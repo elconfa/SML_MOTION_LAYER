@@ -84,7 +84,7 @@ identico per assi, CNC, camming, ecc.
 `MAX_AXIS` è una costante globale → scala senza toccare la logica.
 
 ### 2.6 Layer di MAPPING opzionale (bus-agnostico)
-- `MAPPING_in` / `MAPPING_out`: `memcpy` GVL ↔ strutture bus, con **UNION**
+- `PRG_Mapping_In` / `PRG_Mapping_Out`: `memcpy` GVL ↔ strutture bus, con **UNION**
   (`U_AXIS_CTRL`…) per reinterpretare gli stessi byte come struct o blocco grezzo.
 - Attivazione via **compilazione condizionale** (`{IF defined (AXIS_MAP)}`):
   se il define manca, il mapping è bypassato → paghi solo ciò che usi.

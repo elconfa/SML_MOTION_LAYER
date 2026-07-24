@@ -266,7 +266,7 @@ Un errore TouchProbe va nella **diagnostica** e in `Info.xTouchProbeError`, ma
 |---|---|
 | `U_AXIS_CTRL` / `U_MOVE_DATA` / `U_AXIS_STATE` / `U_AXIS_INFO` | UNION struct/grezzo |
 | `GVL_AXIS_MAP` | array UNION lato bus + flag `AXIS_MAP_ENABLE` |
-| `MAPPING_in` / `MAPPING_out` | copia bus↔interno (gate dal flag) |
+| `PRG_Mapping_In` / `PRG_Mapping_Out` | copia bus↔interno (gate dal flag) |
 
 ### Utility / Test
 | File | Ruolo |
