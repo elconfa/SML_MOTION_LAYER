@@ -1,5 +1,5 @@
 (* ============================================================
-   SML_LevelA_Test — Test di proiezione E_PROGRESS (Livello A)
+   PRG_LevelA_Test — Test di proiezione E_PROGRESS (Livello A)
    SML v5 — nuovo
 
    Verifica, SENZA hardware, che l'output eProgress introdotto in
@@ -21,7 +21,7 @@
    NOTA: e' un banco di prova di sviluppo, non parte della libreria.
    ============================================================ *)
 
-PROGRAM SML_LevelA_Test
+PROGRAM PRG_LevelA_Test
 VAR
     Axis  : OpenSML_Axis;   // struct condivisa app <-> FB (nessun mapping I/O)
     Power : SML_Power;      // FB sotto test

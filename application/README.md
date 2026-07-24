@@ -6,7 +6,7 @@ le istanze, l'orchestratore, il bridge I/O e gli esempi.
 
 > **Namespace**: se la libreria è pubblicata con namespace `SML`, aggiungi il
 > prefisso `SML.` alle referenze di libreria dove il compilatore lo richiede
-> (es. `SML.FB_SmlAxisCtrl`, `SML.AXIS_MOVE_ABS`). I sorgenti qui sono senza
+> (es. `SML.FB_AxisCtrl`, `SML.AXIS_MOVE_ABS`). I sorgenti qui sono senza
 > prefisso (uso come progetto unico o namespace non forzato).
 
 ## `src/` — configurazione + orchestrazione
@@ -16,7 +16,7 @@ le istanze, l'orchestratore, il bridge I/O e gli esempi.
 | `GVL_App` | **configurazione macchina**: `MAX_AXIS` (cambia solo qui per scalare) |
 | `GVL_AXIS` | array `[1..MAX_AXIS]` di Axis/Ctrl/Data/State/Info + `Control` (FB) + `ItfSmlAxis` |
 | `MAIN` | esegue tutti gli assi ogni ciclo; chiama I/O bridge + MAPPING |
-| `GVL_IO`, `SML_IoLink_In/_Out` | bridge I/O verso i PDO del drive (opzionale) |
+| `GVL_IO`, `PRG_IoLink_In/_Out` | bridge I/O verso i PDO del drive (opzionale) |
 | `GVL_AXIS_MAP`, `MAPPING_in/_out` | esporre Ctrl/State su bus/ADS (opzionale) |
 
 ## `examples/`

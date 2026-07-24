@@ -56,7 +56,7 @@ Riferimenti: `CHANGELOG_v7.md` (multi-asse), `../NOTA_Pattern_MotionLayer.md`.
 | Contratto Ctrl/State/Info/Data | ✅ v6 |
 | Base esecuzione (FB foglia diretti) + CSP/OTG | ✅ v6 |
 | FB comando eCmd + E_PROGRESS combinato | ✅ v6 |
-| Interfaccia I_SmlAxis | ✅ v6 |
+| Interfaccia I_Axis | ✅ v6 |
 | Orchestrazione ARRAY[1..MAX_AXIS] + MAIN | ✅ v7 |
 | MAPPING/UNION + define | ✅ v8 |
 
@@ -70,7 +70,7 @@ Riferimenti: `CHANGELOG_v7.md` (multi-asse), `../NOTA_Pattern_MotionLayer.md`.
 - `GVL_AXIS_MAP` presente sempre (anche senza AXIS_MAP): memoria inutilizzata,
   innocua.
 - Restano i caveat precedenti (enum non-strict; scaling velocita'=posizione;
-  creare i METHOD/PROPERTY di I_SmlAxis all'import).
+  creare i METHOD/PROPERTY di I_Axis all'import).
 
 ## Verifica
 1. Build con `AXIS_MAP_ENABLE = FALSE`: compila; MAPPING_in/out bypassano;

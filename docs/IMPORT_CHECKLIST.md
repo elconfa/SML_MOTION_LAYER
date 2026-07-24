@@ -56,19 +56,20 @@ Creare gli oggetti in QUEST'ORDINE (Add Object → tipo indicato):
 - [ ] `f_GetState`
 
 ### 1e. Interfaccia (POU → Interface) — vedi §2
-- [ ] `I_SmlAxis` + i suoi METHOD/PROPERTY figli
+- [ ] `I_Axis` + i suoi METHOD/PROPERTY figli
 
 ### 1f. FB foglia CiA402 (livello esecuzione) — base della libreria
-Set **minimo** richiesto da `FB_SmlAxisCtrl` (v9 include Status + TouchProbe):
+Set **minimo** richiesto da `FB_AxisCtrl` (v9 include Status + TouchProbe):
 - [ ] `SML_Power`, `SML_Reset`, `SML_Home`, `SML_ProfilePosition`,
       `SML_ProfileVelocity`, `SML_ProfileVelocity_Jog`, `SML_Stop`,
       `SML_Diagnostics`, `SML_Status`, `SML_TouchProbe`, `FB_S7RTT_OTG`
-Resto della libreria (non richiesto dalla catena Livello B, importare se serve):
+Oggetti **legacy** (in `legacy/`, non istanziati — importare solo se ti servono
+esplicitamente, es. il bridge TwinCAT `SML_TC3Link`):
 - [ ] `SML_SyncPosition`, `SML_SyncVelocity`, `FB_SML`, `SML_AxisController`,
       `SML_TC3Link`
 
 ### 1g. FB di controllo (POU → Function Block) — vedi §2
-- [ ] `FB_SmlAxisCtrl` (`IMPLEMENTS I_SmlAxis`) + i suoi METHOD/PROPERTY
+- [ ] `FB_AxisCtrl` (`IMPLEMENTS I_Axis`) + i suoi METHOD/PROPERTY
 
 ### 1h. UNION (DUT → Union)
 - [ ] `U_AXIS_CTRL`, `U_MOVE_DATA`, `U_AXIS_STATE`, `U_AXIS_INFO`
@@ -77,32 +78,32 @@ Resto della libreria (non richiesto dalla catena Livello B, importare se serve):
 ### 1i. Bridge I/O hardware (opzionale — solo se usi il bridge, vedi GUIDA_IO_Linking)
 - [ ] `ST_DriveOut`, `ST_DriveIn`  (DUT → Structure)
 - [ ] `GVL_IO`  (GVL; contiene `DriveOut AT %Q*` / `DriveIn AT %I*` + `IO_LINK_ENABLE`)
-- [ ] `SML_IoLink_In`, `SML_IoLink_Out`  (POU → Program)
+- [ ] `PRG_IoLink_In`, `PRG_IoLink_Out`  (POU → Program)
 
 ### 1j. GVL e orchestrazione
-- [ ] `GVL_AXIS`      (usa FB_SmlAxisCtrl, I_SmlAxis, ST_*, OpenSML_Axis, MAX_AXIS)
+- [ ] `GVL_AXIS`      (usa FB_AxisCtrl, I_Axis, ST_*, OpenSML_Axis, MAX_AXIS)
 - [ ] `GVL_AXIS_MAP`  (usa le UNION)
 - [ ] `MAPPING_in`, `MAPPING_out`  (POU → Program)
 - [ ] `MAIN`         (POU → Program; chiama IoLink + MAPPING + ciclo assi)
 
 ### 1j. Banchi di prova (POU → Program) — sviluppo
-- [ ] `SML_LevelA_Test`, `SML_LevelB_Test`, `SML_MultiAxis_Test`
+- [ ] `PRG_LevelA_Test`, `PRG_LevelB_Test`, `PRG_MultiAxis_Test`
 
 ---
 
-## 2. I metodi di I_SmlAxis (punto critico)
+## 2. I metodi di I_Axis (punto critico)
 
-`FB_SmlAxisCtrl` dichiara `IMPLEMENTS I_SmlAxis`: **non compila** finche' tutti i
+`FB_AxisCtrl` dichiara `IMPLEMENTS I_Axis`: **non compila** finche' tutti i
 metodi/proprieta' dell'interfaccia non esistono come oggetti figli del FB.
 
-1. [ ] Creare l'INTERFACE `I_SmlAxis`. Per ogni voce in `I_SmlAxis.txt` aggiungere
+1. [ ] Creare l'INTERFACE `I_Axis`. Per ogni voce in `I_Axis.txt` aggiungere
        un **Method** figlio (Enable/Disable/Reset/Home/MoveAbsolute/MoveRelative/
        MoveVelocity/Jog/MoveFollow/Stop) e una **Property** figlia con **Get**
        (Position, Enabled). Incollare le firme (tipo di ritorno + VAR_INPUT).
-2. [ ] Su `FB_SmlAxisCtrl`: tasto destro → **Implement interfaces…** (genera gli
+2. [ ] Su `FB_AxisCtrl`: tasto destro → **Implement interfaces…** (genera gli
        stub dei metodi/proprieta') **oppure** aggiungerli a mano come Method/
        Property figli.
-3. [ ] Incollare i **corpi reali** da `FB_SmlAxisCtrl_METHODS.txt` in ciascun
+3. [ ] Incollare i **corpi reali** da `FB_AxisCtrl_METHODS.txt` in ciascun
        metodo/Get corrispondente.
 
 ---
@@ -128,7 +129,7 @@ metodi/proprieta' dell'interfaccia non esistono come oggetti figli del FB.
 
 - [ ] Aggiungere **UN SOLO** program-chiamante al task ciclico:
       - produzione/HW: `MAIN` (+ bridge I/O per `GVL_AXIS.Axis[]`);
-      - simulazione: **uno** dei banchi (`SML_MultiAxis_Test` o `SML_LevelB_Test`).
+      - simulazione: **uno** dei banchi (`PRG_MultiAxis_Test` o `PRG_LevelB_Test`).
       **NON** mettere MAIN e un banco insieme (doppia chiamata degli stessi FB).
 - [ ] Impostare il tempo di ciclo del task e allineare `Ctrl.CycleTime`
       (o `GVL_AXIS.Ctrl[n].CycleTime`) allo **stesso** valore (correttezza OTG).
@@ -139,7 +140,7 @@ metodi/proprieta' dell'interfaccia non esistono come oggetti figli del FB.
 
 | Sintomo | Causa | Rimedio |
 |---|---|---|
-| `FB_SmlAxisCtrl` non implementa I_SmlAxis | metodi/proprieta' mancanti | creare i Method/Property (§2) |
+| `FB_AxisCtrl` non implementa I_Axis | metodi/proprieta' mancanti | creare i Method/Property (§2) |
 | `FB_S7RTT_OTG` non trovato | OTG non importato/licenza | importare il FB/libreria OTG |
 | conversione INT→E_PROGRESS non consentita | enum in modalita' strict | vedi §3 (adattare) |
 | `GVL_SML_CONST.MAX_AXIS` non valido come bound | costante non risolta | importare `GVL_SML_CONST` per primo |
@@ -150,14 +151,14 @@ metodi/proprieta' dell'interfaccia non esistono come oggetti figli del FB.
 
 ## 6. Verifica (dopo Build pulito)
 
-1. [ ] **Build**: zero errori nuovi; `E_*`, `ST_*`, `U_*`, `I_SmlAxis`, `GVL_*`,
-       `FB_SmlAxisCtrl`, `MAIN`, `MAPPING_*` risolti.
-2. [ ] **Livello A** — task con `SML_LevelA_Test`: `xTestPassed → TRUE`
+1. [ ] **Build**: zero errori nuovi; `E_*`, `ST_*`, `U_*`, `I_Axis`, `GVL_*`,
+       `FB_AxisCtrl`, `MAIN`, `MAPPING_*` risolti.
+2. [ ] **Livello A** — task con `PRG_LevelA_Test`: `xTestPassed → TRUE`
        (`eProgress` INVALID→BUSY→DONE→ERROR→INVALID).
-3. [ ] **Livello B mono-asse** — `SML_LevelB_Test`: `xTestPassed → TRUE`;
+3. [ ] **Livello B mono-asse** — `PRG_LevelB_Test`: `xTestPassed → TRUE`;
        osservare `State.eState` (es. 306 = IDLE+DONE, 502 = MOVING+BUSY) e
        `eStProg = eProgress`.
-4. [ ] **Multi-asse** — `SML_MultiAxis_Test`: `xTestPassed → TRUE`, `xIndependent`
+4. [ ] **Multi-asse** — `PRG_MultiAxis_Test`: `xTestPassed → TRUE`, `xIndependent`
        TRUE (asse 1 CSP e asse 2 JOG in parallelo).
 5. [ ] **MAPPING** — mettere `GVL_AXIS_MAP.AXIS_MAP_ENABLE := TRUE`, collegare/
        forzare `GVL_AXIS_MAP.Ctrl[n].stData.eCmd` e verificare la propagazione a

@@ -1,5 +1,5 @@
 (* ============================================================
-   SML_MultiAxis_Test — Banco di prova multi-asse (Livello B)
+   PRG_MultiAxis_Test — Banco di prova multi-asse (Livello B)
    SML v7 — nuovo
 
    Harness di simulazione per l'orchestrazione multi-asse. Usa gli
@@ -16,7 +16,7 @@
    libreria.
    ============================================================ *)
 
-PROGRAM SML_MultiAxis_Test
+PROGRAM PRG_MultiAxis_Test
 VAR
     nAxis : UINT;
     tStep : TON;

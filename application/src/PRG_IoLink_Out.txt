@@ -1,5 +1,5 @@
 (* ============================================================
-   SML_IoLink_Out — Bridge I/O: struct asse -> immagine OUTPUT
+   PRG_IoLink_Out — Bridge I/O: struct asse -> immagine OUTPUT
    SML v9 — bridge I/O (nuovo)
 
    Copia GVL_AXIS.Axis[n] (campi output) in GVL_IO.DriveOut[n]
@@ -9,7 +9,7 @@
    GATE: attivo solo se GVL_IO.IO_LINK_ENABLE = TRUE; altrimenti bypass.
    ============================================================ *)
 
-PROGRAM SML_IoLink_Out
+PROGRAM PRG_IoLink_Out
 VAR
     n : UINT;
 END_VAR

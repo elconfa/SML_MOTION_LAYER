@@ -3,7 +3,7 @@
 **Base:** SML_v6
 **Date:** 2026-07-22
 **Scope:** Livello B — **orchestrazione multi-asse** `ARRAY[1..MAX_AXIS]`.
-Aggiunge il `MAIN` che esegue N istanze di `FB_SmlAxisCtrl`, con GVL
+Aggiunge il `MAIN` che esegue N istanze di `FB_AxisCtrl`, con GVL
 degli array di contratto dati e accesso a interfaccia.
 
 Riferimenti: `CHANGELOG_v6.md` (core mono-asse Livello B),
@@ -22,13 +22,13 @@ Riferimenti: `CHANGELOG_v6.md` (core mono-asse Livello B),
 
 ### Orchestrazione
 - `GVL_AXIS.txt` — array `[1..MAX_AXIS]` di: `Axis` (immagini PDO), `Ctrl`,
-  `Data`, `State`, `Info`, `Control` (FB_SmlAxisCtrl) e `ItfSmlAxis` (I_SmlAxis).
+  `Data`, `State`, `Info`, `Control` (FB_AxisCtrl) e `ItfSmlAxis` (I_Axis).
 - `MAIN.txt` — `FOR nAxis := 1 TO MAX_AXIS`: aggiorna `ItfSmlAxis[n] := Control[n]`
   e chiama `Control[n](Axis/Ctrl/Data/State/Info[n])`. Nessuna macchina di INIT
   dedicata (abilitazione per asse via `eCmd = AXIS_ENABLE`).
 
 ### Test
-- `SML_MultiAxis_Test.txt` — harness in `xSimulation`: usa gli array reali di
+- `PRG_MultiAxis_Test.txt` — harness in `xSimulation`: usa gli array reali di
   `GVL_AXIS`, esegue la stessa logica di MAIN + emulatore CiA402, guida l'asse 1
   in CSP e l'asse 2 in JOG **contemporaneamente** e verifica l'indipendenza.
 
@@ -53,18 +53,18 @@ il MAIN e' molto piu' semplice: nessun cablaggio a puntatori, nessun INIT.
 - Bound array da costante globale (`GVL_SML_CONST.MAX_AXIS`): supportato
   (VAR_GLOBAL CONSTANT).
 - `ItfSmlAxis[n] := Control[n]`: assegnazione FB->interfaccia (FB implementa
-  I_SmlAxis): valida.
-- MAIN e SML_MultiAxis_Test **non** vanno nello stesso task (doppia chiamata
+  I_Axis): valida.
+- MAIN e PRG_MultiAxis_Test **non** vanno nello stesso task (doppia chiamata
   degli stessi FB). In produzione: MAIN + `SML_TC3Link` per l'I/O; in
   simulazione: il banco.
 - Assi non comandati (eCmd = AXIS_NULL) restano idle senza errore.
 - Restano i caveat v6 (enum non-strict, scaling velocita'=posizione, creare i
-  METHOD/PROPERTY di I_SmlAxis all'import).
+  METHOD/PROPERTY di I_Axis all'import).
 
 ## Verifica
 1. Build: `GVL_SML_CONST`/`GVL_AXIS`/`MAIN` risolti; array dimensionati da
    `MAX_AXIS`.
-2. `SML_MultiAxis_Test` in un task (senza MAIN): `xTestPassed` -> TRUE;
+2. `PRG_MultiAxis_Test` in un task (senza MAIN): `xTestPassed` -> TRUE;
    osservare `GVL_AXIS.State[1]` e `[2]` con comandi diversi in parallelo
    (`xIndependent`).
 3. Cambiare `GVL_SML_CONST.MAX_AXIS` e verificare che gli array e il MAIN

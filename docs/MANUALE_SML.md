@@ -11,7 +11,7 @@ struct e leggi lo **stato** in un'altra. Un solo FB per asse fa tutto.
 
 ## 1. Concetto in 1 minuto
 
-Ogni asse è gestito da un'istanza di **`FB_SmlAxisCtrl`**. Tu interagisci con
+Ogni asse è gestito da un'istanza di **`FB_AxisCtrl`**. Tu interagisci con
 **quattro strutture** (il "contratto dati"):
 
 ```
@@ -19,7 +19,7 @@ Ogni asse è gestito da un'istanza di **`FB_SmlAxisCtrl`**. Tu interagisci con
       │  scrive Ctrl (comando) + Data (setpoint)
       ▼
    ┌───────────────────────────────┐
-   │  FB_SmlAxisCtrl  (un per asse) │  ← esegue, pilota gli FB CiA402
+   │  FB_AxisCtrl  (un per asse) │  ← esegue, pilota gli FB CiA402
    └───────────────────────────────┘
       │  scrive State (esito) + Info (valori attuali)
       ▼
@@ -33,7 +33,7 @@ Ogni asse è gestito da un'istanza di **`FB_SmlAxisCtrl`**. Tu interagisci con
 
 Comandi in **due modi equivalenti**:
 1. **Struct**: `GVL_AXIS.Ctrl[1].eCmd := AXIS_MOVE_ABS;`
-2. **Metodi** (interfaccia `I_SmlAxis`): `GVL_AXIS.ItfSmlAxis[1].MoveAbsolute(50.0, 100.0);`
+2. **Metodi** (interfaccia `I_Axis`): `GVL_AXIS.ItfSmlAxis[1].MoveAbsolute(50.0, 100.0);`
 
 Il comando **`eCmd` è "a livello"** (level): resta attivo finché non lo cambi.
 Un solo `eCmd` per asse → un solo movimento alla volta (niente conflitti).
@@ -64,7 +64,7 @@ GVL_AXIS.Ctrl[1].eCmd := AXIS_MOVE_ABS;
 // attendi: GVL_AXIS.State[1].xDone = TRUE
 ```
 
-Nota: `MAIN` chiama già `FB_SmlAxisCtrl` per tutti gli assi ogni ciclo. Tu tocchi
+Nota: `MAIN` chiama già `FB_AxisCtrl` per tutti gli assi ogni ciclo. Tu tocchi
 solo `GVL_AXIS.Ctrl[]`/`Data[]` e leggi `State[]`/`Info[]`.
 
 ---
@@ -101,14 +101,14 @@ Imposti `Ctrl.eCmd` al valore voluto. La colonna "DONE quando" dice quando
 
 ---
 
-## 4. Comandare via interfaccia `I_SmlAxis` (metodi)
+## 4. Comandare via interfaccia `I_Axis` (metodi)
 
 Alternativa alla struct, utile per coordinatori/librerie. I metodi sono **setter**:
 impostano `Ctrl.eCmd`+`Data` e ritornano l'avanzamento (`E_PROGRESS`). L'esecuzione
 avviene al normale ciclo del FB.
 
 ```pascal
-VAR ax : I_SmlAxis; END_VAR
+VAR ax : I_Axis; END_VAR
 ax := GVL_AXIS.ItfSmlAxis[1];
 
 ax.Enable();
@@ -227,11 +227,11 @@ Un errore TouchProbe va nella **diagnostica** e in `Info.xTouchProbeError`, ma
 ### Controllo
 | File | Ruolo |
 |---|---|
-| `FB_SmlAxisCtrl` | **il FB di controllo asse**: traduce `eCmd` in chiamate ai FB foglia + CSP/OTG; popola State/Info; implementa `I_SmlAxis` |
-| `FB_SmlAxisCtrl_METHODS` | corpo dei metodi/proprietà di `I_SmlAxis` (oggetti figli del FB) |
-| `I_SmlAxis` | interfaccia a metodi (Enable/Home/MoveAbsolute/…) |
+| `FB_AxisCtrl` | **il FB di controllo asse**: traduce `eCmd` in chiamate ai FB foglia + CSP/OTG; popola State/Info; implementa `I_Axis` |
+| `FB_AxisCtrl_METHODS` | corpo dei metodi/proprietà di `I_Axis` (oggetti figli del FB) |
+| `I_Axis` | interfaccia a metodi (Enable/Home/MoveAbsolute/…) |
 
-### Esecuzione (FB foglia CiA402 — pilotati da FB_SmlAxisCtrl)
+### Esecuzione (FB foglia CiA402 — pilotati da FB_AxisCtrl)
 | File | Ruolo (≈ PLCopen) |
 |---|---|
 | `SML_Power` | abilitazione drive (≈ MC_Power) |
@@ -259,7 +259,7 @@ Un errore TouchProbe va nella **diagnostica** e in `Info.xTouchProbeError`, ma
 | `OpenSML_Axis` | immagine PDO CiA402 dell'asse (ControlWord/StatusWord/…); `GVL_AXIS.Axis[n]` |
 | `ST_DriveOut` / `ST_DriveIn` | metà output / input di OpenSML_Axis, per il bridge |
 | `GVL_IO` | immagini `AT %Q*/%I*` + flag `IO_LINK_ENABLE` |
-| `SML_IoLink_In` / `_Out` | copia drive↔struct (In prima di MAIN, Out dopo) |
+| `PRG_IoLink_In` / `_Out` | copia drive↔struct (In prima di MAIN, Out dopo) |
 
 ### MAPPING bus (esporre Ctrl/State su ADS/fieldbus — opzionale)
 | File | Ruolo |
@@ -272,7 +272,7 @@ Un errore TouchProbe va nella **diagnostica** e in `Info.xTouchProbeError`, ma
 | File | Ruolo |
 |---|---|
 | `f_GetProgress` / `f_GetState` | scompongono lo stato combinato |
-| `SML_LevelA_Test` / `SML_LevelB_Test` / `SML_MultiAxis_Test` | banchi in simulazione |
+| `PRG_LevelA_Test` / `PRG_LevelB_Test` / `PRG_MultiAxis_Test` | banchi in simulazione |
 
 ---
 
@@ -307,7 +307,7 @@ END_IF
 ## 10. Integrazione nel progetto
 
 1. **Import** dei file (ordine e passi in `IMPORT_CHECKLIST.md`). Ricorda di creare
-   i METHOD/PROPERTY di `I_SmlAxis` sotto `FB_SmlAxisCtrl` (`FB_SmlAxisCtrl_METHODS`).
+   i METHOD/PROPERTY di `I_Axis` sotto `FB_AxisCtrl` (`FB_AxisCtrl_METHODS`).
 2. **Numero assi**: imposta `GVL_SML_CONST.MAX_AXIS`.
 3. **Task**: metti **`MAIN`** in un task ciclico. (In simulazione usa un banco di
    test AL POSTO di MAIN.)
@@ -320,7 +320,7 @@ END_IF
 ## 11. Simulazione (senza drive)
 
 Metti `Ctrl.xSimulation := TRUE` (specchia posizione). I banchi
-`SML_LevelB_Test` / `SML_MultiAxis_Test` includono un mini-emulatore CiA402 e
+`PRG_LevelB_Test` / `PRG_MultiAxis_Test` includono un mini-emulatore CiA402 e
 provano la sequenza comandi: metti UN banco nel task (non MAIN) e verifica
 `xTestPassed = TRUE`.
 

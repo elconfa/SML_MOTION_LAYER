@@ -15,7 +15,7 @@ istanze né configurazione di macchina**. Da impacchettare come *CoDeSys Library
 | Licenza | GPL-3.0 (vedi `../LICENSE`) |
 
 > **Namespace**: dopo aver creato la libreria con namespace `SML`, dall'applicazione
-> le referenze possono richiedere il prefisso — es. `SML.FB_SmlAxisCtrl`,
+> le referenze possono richiedere il prefisso — es. `SML.FB_AxisCtrl`,
 > `SML.AXIS_MOVE_ABS`, `SML.E_PROGRESS.PROGRESS_DONE`. Vedi i sorgenti applicativi
 > in `../application/` (senza prefisso): aggiungi `SML.` dove il compilatore
 > segnala simboli non risolti/ambigui.
@@ -33,10 +33,10 @@ istanze né configurazione di macchina**. Da impacchettare come *CoDeSys Library
 |---|---|
 | Enum | `E_PROGRESS`, `E_AXIS_CTRL`, `E_AXIS_STATE`, `SML_DiagCode` |
 | Contratto dati (DUT) | `ST_AXIS_CTRL`, `ST_MOVE_DATA`, `ST_AXIS_STATE`, `ST_AXIS_INFO`, `ST_CiA402_Status` |
-| Interfaccia | `I_SmlAxis` |
-| FB di controllo | `FB_SmlAxisCtrl` (+ `FB_SmlAxisCtrl_METHODS`) |
+| Interfaccia | `I_Axis` |
+| FB di controllo | `FB_AxisCtrl` (+ `FB_AxisCtrl_METHODS`) |
 | FB foglia CiA402 | `SML_Power`, `SML_Reset`, `SML_Home`, `SML_ProfilePosition`, `SML_ProfileVelocity`, `SML_ProfileVelocity_Jog`, `SML_Stop`, `SML_Status`, `SML_Diagnostics`, `SML_TouchProbe` |
-| I/O (tipi + utility) | `OpenSML_Axis`, `ST_DriveIn`, `ST_DriveOut`, `SML_TC3Link` |
+| I/O (tipi) | `OpenSML_Axis`, `ST_DriveIn`, `ST_DriveOut` |
 | MAPPING (UNION) | `U_AXIS_CTRL`, `U_MOVE_DATA`, `U_AXIS_STATE`, `U_AXIS_INFO` |
 | Funzioni | `f_GetProgress`, `f_GetState` |
 | Costanti libreria | `GVL_SML_CONST` (`PROGRESS_SPAN`, `MAP_SIZE_*`) |
@@ -49,8 +49,8 @@ stanno in `../application/`.
 ## Come creare la libreria in CoDeSys
 
 1. *New Project → Library*. Imposta Title/Namespace/Version/Company come sopra.
-2. Importa/incolla gli oggetti di `src/` (crea i METHOD/PROPERTY di `I_SmlAxis`
-   sotto `FB_SmlAxisCtrl` da `FB_SmlAxisCtrl_METHODS.txt`).
+2. Importa/incolla gli oggetti di `src/` (crea i METHOD/PROPERTY di `I_Axis`
+   sotto `FB_AxisCtrl` da `FB_AxisCtrl_METHODS.txt`).
 3. Aggiungi le dipendenze (Standard; OTG se esternalizzato).
 4. *Save Project as Library* / *Install* nel Library Repository.
 5. Nell'applicazione: *Library Manager → Add* e referenzia `SML`.

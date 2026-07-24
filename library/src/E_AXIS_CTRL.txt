@@ -1,9 +1,9 @@
 (* ============================================================
-   E_AXIS_CTRL — Comando asse (eCmd) per FB_SmlAxisCtrl
+   E_AXIS_CTRL — Comando asse (eCmd) per FB_AxisCtrl
    SML v6 — Livello B (nuovo)
 
    Enum di comando a livello (level-based): l'applicazione scrive
-   Ctrl.eCmd; FB_SmlAxisCtrl instrada il comando sul FB foglia
+   Ctrl.eCmd; FB_AxisCtrl instrada il comando sul FB foglia
    corrispondente. Un solo comando alla volta => nessun arbiter
    esplicito (il valore singolo di eCmd E' l'arbiter).
 

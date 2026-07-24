@@ -1,5 +1,5 @@
 (* ============================================================
-   FB_SmlAxisCtrl — FB di controllo asse a comandi (Livello B)
+   FB_AxisCtrl — FB di controllo asse a comandi (Livello B)
    SML v6 — nuovo
 
    Porta il pattern Motion Layer di PLC_MOTION_LAYER su SML: al posto
@@ -24,12 +24,12 @@
    attivo per ciclo. Nessun arbiter esplicito (a differenza di FB_SML).
 
    ENTRY-POINT: chiamare ciclicamente. In alternativa alla scrittura di
-   Ctrl.eCmd, si possono usare i metodi di I_SmlAxis (setter equivalenti).
+   Ctrl.eCmd, si possono usare i metodi di I_Axis (setter equivalenti).
 
-   IMPLEMENTS I_SmlAxis.
+   IMPLEMENTS I_Axis.
    ============================================================ *)
 
-FUNCTION_BLOCK FB_SmlAxisCtrl IMPLEMENTS I_SmlAxis
+FUNCTION_BLOCK FB_AxisCtrl IMPLEMENTS I_Axis
 VAR_IN_OUT
     Axis  : OpenSML_Axis;
     Ctrl  : ST_AXIS_CTRL;
@@ -395,8 +395,8 @@ _eCmdOld := _eCmd;
 
 
 (* ============================================================
-   METODI / PROPRIETA' di I_SmlAxis
-   Codice reale in  FB_SmlAxisCtrl_METHODS.txt  (da creare come
+   METODI / PROPRIETA' di I_Axis
+   Codice reale in  FB_AxisCtrl_METHODS.txt  (da creare come
    oggetti METHOD/PROPERTY sotto questo FB in CoDeSys).
    Sono setter: impostano Ctrl.eCmd (+ Data) e ritornano
    State.eProgress.

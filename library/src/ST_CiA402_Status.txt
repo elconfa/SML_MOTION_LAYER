@@ -4,7 +4,7 @@
 
    Replica gli output del decoder SML_Status, resi disponibili nel
    contratto dati come sotto-struct di ST_AXIS_INFO (Info.Status).
-   Porta in FB_SmlAxisCtrl i bit di stato granulari che prima erano
+   Porta in FB_AxisCtrl i bit di stato granulari che prima erano
    esposti solo da FB_SML.
    ============================================================ *)
 

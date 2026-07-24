@@ -1,5 +1,5 @@
 (* ============================================================
-   I_SmlAxis — Interfaccia asse (equivalente di I_McAxis)
+   I_Axis — Interfaccia asse (equivalente di I_McAxis)
    SML v6 — Livello B (nuovo)
 
    Facciata a metodi per pilotare un asse senza dipendere
@@ -8,15 +8,15 @@
 
    SEMANTICA: i metodi sono SETTER. Impostano Ctrl.eCmd + Data e
    ritornano l'avanzamento corrente (State.eProgress). L'esecuzione
-   vera avviene nel corpo ciclico di FB_SmlAxisCtrl, che DEVE essere
+   vera avviene nel corpo ciclico di FB_AxisCtrl, che DEVE essere
    chiamato ogni ciclo. Usare O i metodi O la struct Ctrl, non
    entrambi contemporaneamente sullo stesso asse.
 
    Rappresentazione testuale: in CoDeSys ogni METHOD/PROPERTY qui
-   elencato e' un oggetto separato sotto l'INTERFACE I_SmlAxis.
+   elencato e' un oggetto separato sotto l'INTERFACE I_Axis.
    ============================================================ *)
 
-INTERFACE I_SmlAxis
+INTERFACE I_Axis
 
 // ── METHODS (ritornano E_PROGRESS) ─────────────────────────────
 

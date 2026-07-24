@@ -11,7 +11,7 @@ PDO CiA402) ai PDO reali del drive EtherCAT — su **CoDeSys** e su **TwinCAT**.
 
 `GVL_AXIS.Axis[n]` è una **struct software** (senza `AT %I*/%Q*`): così il codice
 resta **portabile** e **testabile in simulazione**. Il codice della libreria
-(`MAIN`, `FB_SmlAxisCtrl`, `GVL_AXIS`) è **identico** su CoDeSys e TwinCAT.
+(`MAIN`, `FB_AxisCtrl`, `GVL_AXIS`) è **identico** su CoDeSys e TwinCAT.
 Cambia **solo il sottile strato di aggancio I/O**.
 
 I campi di `OpenSML_Axis` sono **già ordinati output-poi-input**:
@@ -121,11 +121,11 @@ Oggetti forniti (import da `.txt`):
 - **`ST_DriveIn`**  = restanti 12 campi (input), stesso ordine/tipi.
 - **`GVL_IO`** — `DriveOut AT %Q*` / `DriveIn AT %I*` (`ARRAY[1..MAX_AXIS]`) +
   flag `IO_LINK_ENABLE : BOOL`.
-- **`SML_IoLink_In`** — PROGRAM: `DriveIn[n] -> Axis[n]` (input).
-- **`SML_IoLink_Out`** — PROGRAM: `Axis[n] -> DriveOut[n]` (output).
+- **`PRG_IoLink_In`** — PROGRAM: `DriveIn[n] -> Axis[n]` (input).
+- **`PRG_IoLink_Out`** — PROGRAM: `Axis[n] -> DriveOut[n]` (output).
 
-**Timing corretto (zero ritardo):** `MAIN` chiama già `SML_IoLink_In()` **prima**
-del ciclo assi e `SML_IoLink_Out()` **dopo** (accanto a MAPPING_in/out). Non c'è
+**Timing corretto (zero ritardo):** `MAIN` chiama già `PRG_IoLink_In()` **prima**
+del ciclo assi e `PRG_IoLink_Out()` **dopo** (accanto a MAPPING_in/out). Non c'è
 il ritardo di 1 ciclo del bridge singolo. Entrambi si auto-bypassano se
 `GVL_IO.IO_LINK_ENABLE = FALSE`.
 

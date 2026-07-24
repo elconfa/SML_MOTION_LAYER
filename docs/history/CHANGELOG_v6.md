@@ -33,23 +33,23 @@ Riferimenti: `../NOTA_Pattern_MotionLayer.md`, `BOZZA_LevelA_CtrlState.md`,
   `f_GetState`/`f_GetProgress` del Livello A.
 
 ### Interfaccia
-- `I_SmlAxis.txt` — equivalente di `I_McAxis`: metodi (Enable/Disable/Reset/Home/
+- `I_Axis.txt` — equivalente di `I_McAxis`: metodi (Enable/Disable/Reset/Home/
   MoveAbsolute/MoveRelative/MoveVelocity/Jog/MoveFollow/Stop) + proprieta'
   (Position/Enabled). I metodi sono **setter** (impostano `Ctrl.eCmd`+`Data`,
   ritornano `State.eProgress`).
 
 ### FB di controllo
-- `FB_SmlAxisCtrl.txt` — `IMPLEMENTS I_SmlAxis`. Macchina a comandi `eCmd` che
+- `FB_AxisCtrl.txt` — `IMPLEMENTS I_Axis`. Macchina a comandi `eCmd` che
   pilota **direttamente** gli FB foglia CiA402 di SML (Power/Reset/Home/
   ProfilePosition/ProfileVelocity/Jog/Stop) + percorso **CSP con FB_S7RTT_OTG**,
   con diagnostica aggregata (SML_Diagnostics). Popola State/Info e lo stato
   combinato. Un solo `eCmd` per ciclo => nessun arbiter esplicito.
   Converte unita' utente -> grezze del drive via `Ctrl.Scale`.
-- `FB_SmlAxisCtrl_METHODS.txt` — codice reale dei metodi/proprieta' di I_SmlAxis
+- `FB_AxisCtrl_METHODS.txt` — codice reale dei metodi/proprieta' di I_Axis
   (da creare come oggetti METHOD/PROPERTY sotto il FB in CoDeSys).
 
 ### Test
-- `SML_LevelB_Test.txt` — guida `FB_SmlAxisCtrl` in `xSimulation` con emulatore
+- `PRG_LevelB_Test.txt` — guida `FB_AxisCtrl` in `xSimulation` con emulatore
   CiA402 inline: ENABLE->CSP->JOG->STOP->DISABLE; verifica `eProgress` e la
   decomposizione dello stato combinato.
 
@@ -59,8 +59,8 @@ Riferimenti: `../NOTA_Pattern_MotionLayer.md`, `BOZZA_LevelA_CtrlState.md`,
 
 | PLC_MOTION_LAYER | SML v6 |
 |---|---|
-| `FB_McAxisCtrl` (eCmd, wrappa MC_*) | `FB_SmlAxisCtrl` (eCmd, wrappa FB foglia SML) |
-| `I_McAxis` | `I_SmlAxis` |
+| `FB_McAxisCtrl` (eCmd, wrappa MC_*) | `FB_AxisCtrl` (eCmd, wrappa FB foglia SML) |
+| `I_McAxis` | `I_Axis` |
 | `MC_Power` | `SML_Power` |
 | `MC_Reset` | `SML_Reset` |
 | `MC_Home` | `SML_Home` |
@@ -79,7 +79,7 @@ Riferimenti: `../NOTA_Pattern_MotionLayer.md`, `BOZZA_LevelA_CtrlState.md`,
   adattato (qui e in `f_GetProgress`).
 - **Scaling**: `ST_MOVE_DATA` in unita' utente; conversione con `Ctrl.Scale`
   assume scala velocita'/accel = scala posizione. Per drive con unita' 0x6081/
-  0x60FF diverse, raffinare in `FB_SmlAxisCtrl`.
+  0x60FF diverse, raffinare in `FB_AxisCtrl`.
 - **Metodi vs struct**: i metodi sono setter che accedono ai VAR_IN_OUT del FB.
   Chiamare il **corpo del FB ogni ciclo** (che lega i riferimenti IN_OUT); usare
   O i metodi O la struct `Ctrl`, non entrambi.
@@ -87,12 +87,12 @@ Riferimenti: `../NOTA_Pattern_MotionLayer.md`, `BOZZA_LevelA_CtrlState.md`,
   forzano il modo (stesso principio di FB_SML); il blocco OTG gira solo con
   `eCmd = AXIS_MOVE_CSP`. Da validare su drive reale il passaggio di modo
   PP/PV <-> CSP (modo 8).
-- Sorgenti `.txt` da importare in CoDeSys; i metodi di `I_SmlAxis` vanno creati
-  come oggetti METHOD/PROPERTY sotto `FB_SmlAxisCtrl`.
+- Sorgenti `.txt` da importare in CoDeSys; i metodi di `I_Axis` vanno creati
+  come oggetti METHOD/PROPERTY sotto `FB_AxisCtrl`.
 
 ## Verifica
-1. Import + Build: `E_AXIS_CTRL`/`E_AXIS_STATE`/ST_*/`I_SmlAxis` risolti;
-   `FB_SmlAxisCtrl` implementa tutti i metodi di `I_SmlAxis`.
-2. `SML_LevelB_Test` in un task: `xTestPassed` -> TRUE; osservare `State.eState`
+1. Import + Build: `E_AXIS_CTRL`/`E_AXIS_STATE`/ST_*/`I_Axis` risolti;
+   `FB_AxisCtrl` implementa tutti i metodi di `I_Axis`.
+2. `PRG_LevelB_Test` in un task: `xTestPassed` -> TRUE; osservare `State.eState`
    (es. 306 = IDLE+DONE, 502 = MOVING+BUSY) e la coerenza `eStProg = eProgress`.
 3. Confermare che v6 non modifichi gli FB foglia di v5 (solo aggiunte).

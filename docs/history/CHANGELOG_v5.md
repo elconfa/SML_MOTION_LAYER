@@ -61,7 +61,7 @@ Varianti motivate:
 ## Non incluso (rimandato al Livello B)
 - Split reale delle struct in `SML_AxisCtrl`/`SML_AxisState`.
 - Uso dello stato combinato con `f_GetProgress`/`f_GetState`.
-- FB di comando `FB_SmlAxisCtrl` (`eCmd`), interfaccia `I_SmlAxis`,
+- FB di comando `FB_AxisCtrl` (`eCmd`), interfaccia `I_Axis`,
   orchestrazione `ARRAY[1..MAX_AXIS]`.
 
 ## Verifica consigliata

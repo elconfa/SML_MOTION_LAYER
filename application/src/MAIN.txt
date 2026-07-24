@@ -5,8 +5,8 @@
    Esegue tutti gli assi 1..MAX_AXIS. Per ciascun asse:
      - aggiorna il riferimento a interfaccia (ItfSmlAxis[n] := Control[n])
        cosi' coordinatori di alto livello possono manovrare l'asse via
-       I_SmlAxis[n];
-     - chiama ciclicamente FB_SmlAxisCtrl passando il contratto dati
+       I_Axis[n];
+     - chiama ciclicamente FB_AxisCtrl passando il contratto dati
        per riferimento (VAR_IN_OUT).
 
    L'applicazione comanda ogni asse scrivendo GVL_AXIS.Ctrl[n].eCmd (+
@@ -16,7 +16,7 @@
    NB: nessuna macchina di INIT dedicata (a differenza di PLC_MOTION_LAYER):
    l'abilitazione avviene per asse via eCmd = AXIS_ENABLE.
 
-   Bridge I/O opzionale: SML_IoLink_In()/SML_IoLink_Out() copiano da/verso
+   Bridge I/O opzionale: PRG_IoLink_In()/PRG_IoLink_Out() copiano da/verso
    l'hardware (GVL_IO) solo se GVL_IO.IO_LINK_ENABLE = TRUE. In (drive->Axis)
    prima del ciclo, Out (Axis->drive) dopo: zero ritardo. Su CoDeSys con link
    diretto nella scheda I/O Mapping lasciarlo FALSE.
@@ -25,7 +25,7 @@
    (GVL_AXIS_MAP) solo se GVL_AXIS_MAP.AXIS_MAP_ENABLE = TRUE; altrimenti
    si auto-bypassano (comportamento identico a v7).
 
-   SIMULAZIONE: usare SML_MultiAxis_Test (banco con emulatore) AL POSTO di
+   SIMULAZIONE: usare PRG_MultiAxis_Test (banco con emulatore) AL POSTO di
    MAIN; non eseguirli entrambi nello stesso task (doppia chiamata degli
    stessi FB).
    ============================================================ *)
@@ -36,7 +36,7 @@ VAR
 END_VAR
 
 // /HW -> struct asse (bypass se IO_LINK_ENABLE = FALSE)
-SML_IoLink_In();
+PRG_IoLink_In();
 // HW -> struct asse/
 
 // /bus -> interno (bypass se AXIS_MAP_ENABLE = FALSE)
@@ -62,5 +62,5 @@ MAPPING_out();
 // interno -> bus/
 
 // /struct asse -> HW (bypass se IO_LINK_ENABLE = FALSE)
-SML_IoLink_Out();
+PRG_IoLink_Out();
 // struct asse -> HW/

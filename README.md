@@ -6,7 +6,7 @@ Libreria di controllo assi per drive **CiA402** su EtherCAT che porta il pattern
 architetturale di [PLC_MOTION_LAYER](https://github.com/haud-ba/PLC_MOTION_LAYER)
 su **SML** (ramo di [OpenSML](https://github.com/feecat/opensml)): **SML sostituisce
 le librerie `Tc2_*`/NC** come livello di esecuzione. Un unico FB per asse
-(`FB_SmlAxisCtrl`), comandato via **struttura dati** o **interfaccia**, pilota
+(`FB_AxisCtrl`), comandato via **struttura dati** o **interfaccia**, pilota
 direttamente gli FB CiA402 di SML (Power/Home/ProfilePosition/ProfileVelocity/
 Jog/Stop) + **CSP/OTG**, con **Status completo** e **TouchProbe**.
 
@@ -17,9 +17,9 @@ Jog/Stop) + **CSP/OTG**, con **Status completo** e **TouchProbe**.
 
 ## Caratteristiche
 
-- **Un solo entry-point per asse**: `FB_SmlAxisCtrl` (comando `eCmd` + contratto
+- **Un solo entry-point per asse**: `FB_AxisCtrl` (comando `eCmd` + contratto
   dati Ctrl/State/Info/Data) — superset delle vecchie facce (PP/PV/Jog **e** CSP+OTG).
-- **Interfaccia** `I_SmlAxis` (Enable/Home/MoveAbsolute/MoveVelocity/Jog/MoveFollow/
+- **Interfaccia** `I_Axis` (Enable/Home/MoveAbsolute/MoveVelocity/Jog/MoveFollow/
   Stop + proprietà) per coordinatori di alto livello.
 - **Avanzamento unificato** `E_PROGRESS` + **stato combinato** `E_AXIS_STATE`.
 - **Multi-asse**: `ARRAY[1..MAX_AXIS]` orchestrato da `MAIN`.
@@ -38,7 +38,7 @@ Jog/Stop) + **CSP/OTG**, con **Status completo** e **TouchProbe**.
    APPLICAZIONE  (scrive Ctrl+Data, legge State+Info)
         │
         ▼
-   MAIN  ──►  FOR n := 1..MAX_AXIS ──►  GVL_AXIS.Control[n]  (FB_SmlAxisCtrl)
+   MAIN  ──►  FOR n := 1..MAX_AXIS ──►  GVL_AXIS.Control[n]  (FB_AxisCtrl)
         │                                      │  pilota gli FB foglia
         │                                      ▼
         │        SML_Power / Reset / Home / ProfilePosition / ProfileVelocity /
@@ -66,7 +66,7 @@ Il progetto è separato in **libreria** (core riusabile) e **applicazione**
 
 | Cartella | Contenuto |
 |---|---|
-| **`library/`** | core riusabile (enum, DUT, interfaccia, `FB_SmlAxisCtrl`, FB foglia, funzioni, `GVL_SML_CONST`, OTG) — [README](library/README.md) |
+| **`library/`** | core riusabile (enum, DUT, interfaccia, `FB_AxisCtrl`, FB foglia, funzioni, `GVL_SML_CONST`, OTG) — [README](library/README.md) |
 | `library/src/` | i sorgenti della libreria (nessun riferimento a `MAX_AXIS`/istanze) |
 | **`application/`** | template macchina che referenzia la libreria — [README](application/README.md) |
 | `application/src/` | `GVL_App` (`MAX_AXIS`), `GVL_AXIS`, `MAIN`, MAPPING, bridge I/O |
@@ -80,7 +80,7 @@ Il progetto è separato in **libreria** (core riusabile) e **applicazione**
 
 **Split libreria/applicazione**: le costanti di libreria (`PROGRESS_SPAN`,
 `MAP_SIZE_*`) stanno in `GVL_SML_CONST`; la config macchina (`MAX_AXIS`) in
-`GVL_App`. Il core (`FB_SmlAxisCtrl`) è mono-asse e non referenzia né `MAX_AXIS`
+`GVL_App`. Il core (`FB_AxisCtrl`) è mono-asse e non referenzia né `MAX_AXIS`
 né le istanze.
 
 ### Documentazione (`docs/`)
@@ -101,7 +101,7 @@ né le istanze.
 1. Crea la **libreria** dai file `library/src/` (namespace `SML`) — vedi
    [`library/README.md`](library/README.md) — oppure importa tutto in un progetto
    unico (ordine in [`IMPORT_CHECKLIST`](docs/IMPORT_CHECKLIST.md)). Crea i METHOD/
-   PROPERTY di `I_SmlAxis` sotto `FB_SmlAxisCtrl` da `FB_SmlAxisCtrl_METHODS.txt`.
+   PROPERTY di `I_Axis` sotto `FB_AxisCtrl` da `FB_AxisCtrl_METHODS.txt`.
 2. Nell'**applicazione** (`application/`) referenzia la libreria e imposta
    `GVL_App.MAX_AXIS`.
 3. Metti `MAIN` in un task ciclico.

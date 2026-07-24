@@ -1,8 +1,8 @@
 (* ============================================================
-   SML_LevelB_Test — Test di FB_SmlAxisCtrl (Livello B)
+   PRG_LevelB_Test — Test di FB_AxisCtrl (Livello B)
    SML v6 — nuovo
 
-   Guida FB_SmlAxisCtrl in xSimulation con un mini-emulatore CiA402
+   Guida FB_AxisCtrl in xSimulation con un mini-emulatore CiA402
    inline (StatusWord derivato da ControlWord) attraverso una
    sequenza di comandi eCmd, e verifica:
      - il routing dei comandi sui FB foglia,
@@ -17,7 +17,7 @@
    Banco di prova di sviluppo, non parte della libreria.
    ============================================================ *)
 
-PROGRAM SML_LevelB_Test
+PROGRAM PRG_LevelB_Test
 VAR
     // ── contratto dati + FB sotto test ───────────────────────
     Axis  : OpenSML_Axis;
@@ -25,7 +25,7 @@ VAR
     Data  : ST_MOVE_DATA;
     State : ST_AXIS_STATE;
     Info  : ST_AXIS_INFO;
-    Ax    : FB_SmlAxisCtrl;
+    Ax    : FB_AxisCtrl;
 
     // ── sequenziatore ────────────────────────────────────────
     step  : INT;

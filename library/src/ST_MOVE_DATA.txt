@@ -3,7 +3,7 @@
    SML v6 — Livello B (nuovo)
 
    Contratto dati "Data". Tutti i valori sono in UNITA' UTENTE (LREAL).
-   FB_SmlAxisCtrl converte in unita' grezze del drive tramite Ctrl.Scale
+   FB_AxisCtrl converte in unita' grezze del drive tramite Ctrl.Scale
    prima di passarle agli FB foglia (PP/PV/Jog); il percorso CSP/OTG
    lavora direttamente in unita' utente.
 

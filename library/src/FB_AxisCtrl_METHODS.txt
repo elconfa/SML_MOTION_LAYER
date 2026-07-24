@@ -1,11 +1,11 @@
 (* ============================================================
-   FB_SmlAxisCtrl — Metodi e proprieta' di I_SmlAxis
+   FB_AxisCtrl — Metodi e proprieta' di I_Axis
    SML v6 — Livello B (nuovo)
 
    Codice REALE (non commentato) dei metodi/proprieta' che
-   FB_SmlAxisCtrl deve implementare per soddisfare I_SmlAxis.
+   FB_AxisCtrl deve implementare per soddisfare I_Axis.
    In CoDeSys: creare un oggetto METHOD / PROPERTY sotto
-   FB_SmlAxisCtrl per ciascun blocco seguente.
+   FB_AxisCtrl per ciascun blocco seguente.
 
    Sono SETTER: impostano Ctrl.eCmd (+ Data) e ritornano lo stato
    corrente State.eProgress; il moto avviene al successivo richiamo

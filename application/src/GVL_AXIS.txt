@@ -3,7 +3,7 @@
    SML v7 — Livello B (nuovo)
 
    Equivalente di GVL_AXIS di PLC_MOTION_LAYER, ma:
-     - il livello di esecuzione e' FB_SmlAxisCtrl (FB foglia SML),
+     - il livello di esecuzione e' FB_AxisCtrl (FB foglia SML),
        non FB_McAxisCtrl (MC_*);
      - il cablaggio e' via VAR_IN_OUT (nessun array di puntatori):
        MAIN passa Axis/Ctrl/Data/State/Info[nAxis] nella chiamata.
@@ -23,6 +23,6 @@ VAR_GLOBAL
     State      : ARRAY[1..GVL_App.MAX_AXIS] OF ST_AXIS_STATE;   // esito + stato combinato
     Info       : ARRAY[1..GVL_App.MAX_AXIS] OF ST_AXIS_INFO;    // valori attuali
 
-    Control    : ARRAY[1..GVL_App.MAX_AXIS] OF FB_SmlAxisCtrl;  // FB di controllo per asse
-    ItfSmlAxis : ARRAY[1..GVL_App.MAX_AXIS] OF I_SmlAxis;       // accesso a interfaccia (I_SmlAxis)
+    Control    : ARRAY[1..GVL_App.MAX_AXIS] OF FB_AxisCtrl;  // FB di controllo per asse
+    ItfSmlAxis : ARRAY[1..GVL_App.MAX_AXIS] OF I_Axis;       // accesso a interfaccia (I_Axis)
 END_VAR

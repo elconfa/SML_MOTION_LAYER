@@ -118,8 +118,8 @@ SML **ha già** il livello di esecuzione: i suoi FB (`SML_Power`, `SML_Home`,
 |------------------|--------------|----------------------|
 | Livello esecuzione | ✅ presente (`SML_*` FB) | nessuna |
 | Contratto Ctrl/State/Info/Data | ⚠️ fuso in `OpenSML_Control` | separare comando/stato |
-| Base astratta + interfaccia `I_SmlAxis` | ❌ assente | opzionale (livello completo) |
-| FB comando con `eCmd` | ⚠️ `FB_SML` usa xExecute+arbiter | introdurre `FB_SmlAxisCtrl` con enum |
+| Base astratta + interfaccia `I_Axis` | ❌ assente | opzionale (livello completo) |
+| FB comando con `eCmd` | ⚠️ `FB_SML` usa xExecute+arbiter | introdurre `FB_AxisCtrl` con enum |
 | `E_PROGRESS` unificato | ❌ ogni FB usa `iState:INT` | uniformare + `f_GetState/f_GetProgress` |
 | Orchestrazione `ARRAY[1..MAX_AXIS]` | ❌ single-axis per istanza | PRG `MAIN` con array |
 | MAPPING/UNION/define | ⚠️ `SML_TC3Link` parziale | generalizzare (opzionale) |
@@ -133,6 +133,6 @@ sotto la linea di astrazione**, quindi non blocca il pattern. L'adozione è
 - **Livello A — leggero (basso rischio):** enum `E_PROGRESS` uniforme +
   `f_GetState/f_GetProgress` + split esplicito Ctrl/State su `OpenSML_Control`.
   Nessuna modifica all'esecuzione.
-- **Livello B — completo (alto valore multi-asse):** `FB_SmlAxisCtrl`
-  (comando `eCmd` + Ctrl/State/Info/Data), interfaccia `I_SmlAxis`,
+- **Livello B — completo (alto valore multi-asse):** `FB_AxisCtrl`
+  (comando `eCmd` + Ctrl/State/Info/Data), interfaccia `I_Axis`,
   orchestrazione `ARRAY[1..MAX_AXIS]` in `MAIN`, MAPPING opzionale.

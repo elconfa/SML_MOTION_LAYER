@@ -1,5 +1,5 @@
 (* ============================================================
-   SML_IoLink_In — Bridge I/O: immagine INPUT -> struct asse
+   PRG_IoLink_In — Bridge I/O: immagine INPUT -> struct asse
    SML v9 — bridge I/O (nuovo)
 
    Copia GVL_IO.DriveIn[n] (TxPDO del drive) in GVL_AXIS.Axis[n]
@@ -10,7 +10,7 @@
    bypass (es. simulazione, o CoDeSys con link diretto).
    ============================================================ *)
 
-PROGRAM SML_IoLink_In
+PROGRAM PRG_IoLink_In
 VAR
     n : UINT;
 END_VAR
