@@ -34,7 +34,8 @@ corpo ST (implementazione): separarli nei due riquadri dell'editor.
 Creare gli oggetti in QUEST'ORDINE (Add Object → tipo indicato):
 
 ### 1a. Costanti — **per prime** (usate come bound degli array)
-- [ ] `GVL_SML_CONST`  → GVL
+- [ ] `GVL_SML_CONST`  → GVL  (libreria: `PROGRESS_SPAN`, `MAP_SIZE_*`)
+- [ ] `GVL_App`        → GVL  (applicazione: `MAX_AXIS` — bound degli array)
 
 ### 1b. Enum (DUT → Enumeration)
 - [ ] `SML_DiagCode` (se non gia' presente dalla base)
