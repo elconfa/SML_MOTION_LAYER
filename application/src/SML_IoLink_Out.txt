@@ -16,7 +16,7 @@ END_VAR
 
 IF NOT GVL_IO.IO_LINK_ENABLE THEN RETURN; END_IF
 
-FOR n := 1 TO GVL_SML_CONST.MAX_AXIS DO
+FOR n := 1 TO GVL_App.MAX_AXIS DO
     GVL_IO.DriveOut[n].ControlWord            := GVL_AXIS.Axis[n].ControlWord;
     GVL_IO.DriveOut[n].Modes_of_operation     := GVL_AXIS.Axis[n].Modes_of_operation;
     GVL_IO.DriveOut[n].Target_Position        := GVL_AXIS.Axis[n].Target_Position;

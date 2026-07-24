@@ -17,12 +17,12 @@
 
 {attribute 'qualified_only'}
 VAR_GLOBAL
-    Axis       : ARRAY[1..GVL_SML_CONST.MAX_AXIS] OF OpenSML_Axis;    // immagine PDO (link I/O)
-    Ctrl       : ARRAY[1..GVL_SML_CONST.MAX_AXIS] OF ST_AXIS_CTRL;    // comando + config
-    Data       : ARRAY[1..GVL_SML_CONST.MAX_AXIS] OF ST_MOVE_DATA;    // setpoint moto
-    State      : ARRAY[1..GVL_SML_CONST.MAX_AXIS] OF ST_AXIS_STATE;   // esito + stato combinato
-    Info       : ARRAY[1..GVL_SML_CONST.MAX_AXIS] OF ST_AXIS_INFO;    // valori attuali
+    Axis       : ARRAY[1..GVL_App.MAX_AXIS] OF OpenSML_Axis;    // immagine PDO (link I/O)
+    Ctrl       : ARRAY[1..GVL_App.MAX_AXIS] OF ST_AXIS_CTRL;    // comando + config
+    Data       : ARRAY[1..GVL_App.MAX_AXIS] OF ST_MOVE_DATA;    // setpoint moto
+    State      : ARRAY[1..GVL_App.MAX_AXIS] OF ST_AXIS_STATE;   // esito + stato combinato
+    Info       : ARRAY[1..GVL_App.MAX_AXIS] OF ST_AXIS_INFO;    // valori attuali
 
-    Control    : ARRAY[1..GVL_SML_CONST.MAX_AXIS] OF FB_SmlAxisCtrl;  // FB di controllo per asse
-    ItfSmlAxis : ARRAY[1..GVL_SML_CONST.MAX_AXIS] OF I_SmlAxis;       // accesso a interfaccia (I_SmlAxis)
+    Control    : ARRAY[1..GVL_App.MAX_AXIS] OF FB_SmlAxisCtrl;  // FB di controllo per asse
+    ItfSmlAxis : ARRAY[1..GVL_App.MAX_AXIS] OF I_SmlAxis;       // accesso a interfaccia (I_SmlAxis)
 END_VAR

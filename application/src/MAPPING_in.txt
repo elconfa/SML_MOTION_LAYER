@@ -34,7 +34,7 @@ bSizeOk := (SIZEOF(ST_AXIS_CTRL) <= GVL_SML_CONST.MAP_SIZE_CTRL)
 IF NOT bSizeOk THEN RETURN; END_IF   // blocco: ridimensionare MAP_SIZE_*
 
 // ── Copia bus -> interno ─────────────────────────────────────
-FOR i := 1 TO GVL_SML_CONST.MAX_AXIS DO
+FOR i := 1 TO GVL_App.MAX_AXIS DO
     GVL_AXIS.Ctrl[i] := GVL_AXIS_MAP.Ctrl[i].stData;
     GVL_AXIS.Data[i] := GVL_AXIS_MAP.Data[i].stData;
 END_FOR

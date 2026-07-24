@@ -17,7 +17,7 @@ END_VAR
 
 IF NOT GVL_IO.IO_LINK_ENABLE THEN RETURN; END_IF
 
-FOR n := 1 TO GVL_SML_CONST.MAX_AXIS DO
+FOR n := 1 TO GVL_App.MAX_AXIS DO
     GVL_AXIS.Axis[n].StatusWord                   := GVL_IO.DriveIn[n].StatusWord;
     GVL_AXIS.Axis[n].Modes_of_operation_display   := GVL_IO.DriveIn[n].Modes_of_operation_display;
     GVL_AXIS.Axis[n].Torque_Actual_Value          := GVL_IO.DriveIn[n].Torque_Actual_Value;

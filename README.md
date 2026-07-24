@@ -58,18 +58,30 @@ GVL_AXIS.ItfSmlAxis[1].MoveAbsolute(50.0, 100.0);
 
 ---
 
-## Struttura del repository
+## Struttura del repository (due livelli)
+
+Il progetto è separato in **libreria** (core riusabile) e **applicazione**
+(config + istanze della macchina): vedi
+[perché](docs/NOTA_Pattern_MotionLayer.md) e i README dedicati.
 
 | Cartella | Contenuto |
 |---|---|
-| `src/` | libreria (DUT, enum, interfaccia, FB, GVL, MAIN, MAPPING, bridge I/O) |
-| `src/_legacy/` | facce superate (FB_SML, SML_AxisController, …), preservate ma non usate |
-| `examples/` | `FB_AxisCycleDemo` (ciclo A↔B) e `PLC_APP` (macchina 2 assi reale) |
-| `tests/` | banchi di simulazione (Livello A / B / multi-asse) con emulatore |
+| **`library/`** | core riusabile (enum, DUT, interfaccia, `FB_SmlAxisCtrl`, FB foglia, funzioni, `GVL_SML_CONST`, OTG) — [README](library/README.md) |
+| `library/src/` | i sorgenti della libreria (nessun riferimento a `MAX_AXIS`/istanze) |
+| **`application/`** | template macchina che referenzia la libreria — [README](application/README.md) |
+| `application/src/` | `GVL_App` (`MAX_AXIS`), `GVL_AXIS`, `MAIN`, MAPPING, bridge I/O |
+| `application/examples/` | `FB_AxisCycleDemo`, `PLC_APP` (macchina 2 assi) |
+| `application/tests/` | banchi di simulazione (Livello A / B / multi-asse) |
+| `legacy/` | facce superate (FB_SML, SML_AxisController, …), preservate |
 | `docs/` | **manuali e guide** (vedi sotto) |
 | `docs/history/` | changelog v4→v9, session handoff, bozza Livello A |
 | `docs/origin/` | analisi originale OpenSML da cui siamo partiti |
-| `binaries/` | **spazio per i progetti compilati CoDeSys e TwinCAT** |
+| `binaries/` | **progetti compilati CoDeSys (`codesys/`) e TwinCAT (`twincat/`)** |
+
+**Split libreria/applicazione**: le costanti di libreria (`PROGRESS_SPAN`,
+`MAP_SIZE_*`) stanno in `GVL_SML_CONST`; la config macchina (`MAX_AXIS`) in
+`GVL_App`. Il core (`FB_SmlAxisCtrl`) è mono-asse e non referenzia né `MAX_AXIS`
+né le istanze.
 
 ### Documentazione (`docs/`)
 - **[`MANUALE_SML.md`](docs/MANUALE_SML.md)** — manuale d'uso stile PLCopen:
@@ -86,10 +98,12 @@ GVL_AXIS.ItfSmlAxis[1].MoveAbsolute(50.0, 100.0);
 
 ## Avvio rapido
 
-1. Importa i file `src/` in un progetto CoDeSys/TwinCAT (ordine in
-   [`IMPORT_CHECKLIST`](docs/IMPORT_CHECKLIST.md); crea i METHOD/PROPERTY di
-   `I_SmlAxis` sotto `FB_SmlAxisCtrl` da `FB_SmlAxisCtrl_METHODS.txt`).
-2. Imposta `GVL_SML_CONST.MAX_AXIS`.
+1. Crea la **libreria** dai file `library/src/` (namespace `SML`) — vedi
+   [`library/README.md`](library/README.md) — oppure importa tutto in un progetto
+   unico (ordine in [`IMPORT_CHECKLIST`](docs/IMPORT_CHECKLIST.md)). Crea i METHOD/
+   PROPERTY di `I_SmlAxis` sotto `FB_SmlAxisCtrl` da `FB_SmlAxisCtrl_METHODS.txt`.
+2. Nell'**applicazione** (`application/`) referenzia la libreria e imposta
+   `GVL_App.MAX_AXIS`.
 3. Metti `MAIN` in un task ciclico.
 4. Collega `GVL_AXIS.Axis[n]` ai PDO del drive — vedi [`GUIDA_IO_Linking`](docs/GUIDA_IO_Linking.md).
 5. Comanda: `GVL_AXIS.Ctrl[n].eCmd := ...` e leggi `GVL_AXIS.State[n]`/`Info[n]`.

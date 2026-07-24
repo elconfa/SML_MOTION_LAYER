@@ -24,6 +24,6 @@ VAR_GLOBAL
     // flag di abilitazione del bridge (design-time o runtime)
     IO_LINK_ENABLE : BOOL := FALSE;   // TRUE = attiva SML_IoLink_In / _Out
 
-    DriveOut : ARRAY[1..GVL_SML_CONST.MAX_AXIS] OF ST_DriveOut;  // -> RxPDO (mappa nel configuratore)
-    DriveIn  : ARRAY[1..GVL_SML_CONST.MAX_AXIS] OF ST_DriveIn;   // <- TxPDO (mappa nel configuratore)
+    DriveOut : ARRAY[1..GVL_App.MAX_AXIS] OF ST_DriveOut;  // -> RxPDO (mappa nel configuratore)
+    DriveIn  : ARRAY[1..GVL_App.MAX_AXIS] OF ST_DriveIn;   // <- TxPDO (mappa nel configuratore)
 END_VAR

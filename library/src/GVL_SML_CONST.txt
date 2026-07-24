@@ -1,13 +1,14 @@
 (* ============================================================
-   GVL_SML_CONST — Costanti globali della libreria SML
-   SML v7 — Livello B (nuovo)
+   GVL_SML_CONST — Costanti di LIBRERIA (invarianti)
+   SML
 
-   Riferimento qualificato: GVL_SML_CONST.MAX_AXIS, ...
+   Solo costanti proprie della libreria (non dipendono dalla macchina).
+   La configurazione applicativa (numero assi) sta in GVL_App.MAX_AXIS.
+   Riferimento qualificato: GVL_SML_CONST.PROGRESS_SPAN, ...
    ============================================================ *)
 
 {attribute 'qualified_only'}
 VAR_GLOBAL CONSTANT
-    MAX_AXIS      : UINT := 4;     // numero di assi gestiti dal MAIN
     PROGRESS_SPAN : DINT := 100;   // ampiezza banda progress nello stato combinato
                                    // (E_AXIS_STATE sono multipli di questo valore)
 

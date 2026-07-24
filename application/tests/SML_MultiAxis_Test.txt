@@ -62,7 +62,7 @@ CASE step OF
 END_CASE
 
 // ── esecuzione assi (identica a MAIN) ────────────────────────
-FOR nAxis := 1 TO GVL_SML_CONST.MAX_AXIS DO
+FOR nAxis := 1 TO GVL_App.MAX_AXIS DO
     GVL_AXIS.ItfSmlAxis[nAxis] := GVL_AXIS.Control[nAxis];
     GVL_AXIS.Control[nAxis](
         Axis  := GVL_AXIS.Axis[nAxis],

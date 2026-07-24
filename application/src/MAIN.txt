@@ -43,7 +43,7 @@ SML_IoLink_In();
 MAPPING_in();
 // bus -> interno/
 
-FOR nAxis := 1 TO GVL_SML_CONST.MAX_AXIS
+FOR nAxis := 1 TO GVL_App.MAX_AXIS
 DO
     // accesso a interfaccia per coordinatori di alto livello
     GVL_AXIS.ItfSmlAxis[nAxis] := GVL_AXIS.Control[nAxis];

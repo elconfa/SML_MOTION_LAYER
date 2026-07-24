@@ -20,8 +20,8 @@ VAR_GLOBAL
     // flag di abilitazione del MAPPING (design-time o runtime)
     AXIS_MAP_ENABLE : BOOL := FALSE;   // TRUE = attiva MAPPING_in / MAPPING_out
 
-    Ctrl  : ARRAY[1..GVL_SML_CONST.MAX_AXIS] OF U_AXIS_CTRL;    // comando   (bus -> plc)
-    Data  : ARRAY[1..GVL_SML_CONST.MAX_AXIS] OF U_MOVE_DATA;    // setpoint  (bus -> plc)
-    State : ARRAY[1..GVL_SML_CONST.MAX_AXIS] OF U_AXIS_STATE;   // stato     (plc -> bus)
-    Info  : ARRAY[1..GVL_SML_CONST.MAX_AXIS] OF U_AXIS_INFO;    // info      (plc -> bus)
+    Ctrl  : ARRAY[1..GVL_App.MAX_AXIS] OF U_AXIS_CTRL;    // comando   (bus -> plc)
+    Data  : ARRAY[1..GVL_App.MAX_AXIS] OF U_MOVE_DATA;    // setpoint  (bus -> plc)
+    State : ARRAY[1..GVL_App.MAX_AXIS] OF U_AXIS_STATE;   // stato     (plc -> bus)
+    Info  : ARRAY[1..GVL_App.MAX_AXIS] OF U_AXIS_INFO;    // info      (plc -> bus)
 END_VAR
