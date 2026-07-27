@@ -1,14 +1,14 @@
 (* ============================================================
-   ST_DriveOut — Immagine di processo OUTPUT (PLC -> Drive)
-   SML v9 — bridge I/O (nuovo)
+   ST_DriveOut — OUTPUT process image (PLC -> Drive)
+   SML v9 — I/O bridge (new)
 
-   Meta' "output" di OpenSML_Axis, STESSO ordine e stessi tipi.
-   Usata per il bridge I/O: si dichiara AT %Q* (mappata ai RxPDO
-   del drive) e si copia da GVL_AXIS.Axis[n] dopo il calcolo.
+   The "output" half of OpenSML_Axis, SAME order and same types.
+   Used for the I/O bridge: declared AT %Q* (mapped to the drive's
+   RxPDOs) and copied from GVL_AXIS.Axis[n] after the computation.
 
-   Vale sia per CoDeSys sia per TwinCAT (ST generico IEC 61131-3).
-   Su CoDeSys, in alternativa, si puo' linkare direttamente
-   GVL_AXIS.Axis[n].<membro> nella scheda I/O Mapping (senza bridge).
+   Valid for both CoDeSys and TwinCAT (generic IEC 61131-3 ST).
+   On CoDeSys, as an alternative, you can directly link
+   GVL_AXIS.Axis[n].<member> in the I/O Mapping tab (no bridge).
    ============================================================ *)
 
 TYPE ST_DriveOut :

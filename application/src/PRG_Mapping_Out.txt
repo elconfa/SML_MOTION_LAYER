@@ -1,12 +1,12 @@
 (* ============================================================
-   PRG_Mapping_Out — Copia stato/info da GVL_AXIS verso il bus
-   SML v8 — Livello B / MAPPING (nuovo)
+   PRG_Mapping_Out — Copy state/info from GVL_AXIS toward the bus
+   SML v8 — Level B / MAPPING (new)
 
-   Percorso: GVL_AXIS.State/Info  ->  GVL_AXIS_MAP.State/Info (fieldbus)
-   Chiamare alla FINE di MAIN, dopo il loop assi.
+   Path: GVL_AXIS.State/Info  ->  GVL_AXIS_MAP.State/Info (fieldbus)
+   Call at the END of MAIN, after the axis loop.
 
-   GATE: attivo solo se GVL_AXIS_MAP.AXIS_MAP_ENABLE = TRUE; altrimenti
-   bypass (flag runtime; vedi nota in PRG_Mapping_In).
+   GATE: active only if GVL_AXIS_MAP.AXIS_MAP_ENABLE = TRUE; otherwise
+   bypass (runtime flag; see the note in PRG_Mapping_In).
    ============================================================ *)
 
 PROGRAM PRG_Mapping_Out
@@ -17,12 +17,12 @@ END_VAR
 
 IF NOT GVL_AXIS_MAP.AXIS_MAP_ENABLE THEN RETURN; END_IF
 
-// ── Check dimensione blocchi bus (sicurezza) ─────────────────
+// ── Bus block size check (safety) ────────────────────────────
 bSizeOk := (SIZEOF(ST_AXIS_STATE) <= GVL_SML_CONST.MAP_SIZE_STATE)
        AND (SIZEOF(ST_AXIS_INFO)  <= GVL_SML_CONST.MAP_SIZE_INFO);
-IF NOT bSizeOk THEN RETURN; END_IF   // blocco: ridimensionare MAP_SIZE_*
+IF NOT bSizeOk THEN RETURN; END_IF   // blocked: resize MAP_SIZE_*
 
-// ── Copia interno -> bus ─────────────────────────────────────
+// ── Copy internal -> bus ─────────────────────────────────────
 FOR i := 1 TO GVL_App.MAX_AXIS DO
     GVL_AXIS_MAP.State[i].stData := GVL_AXIS.State[i];
     GVL_AXIS_MAP.Info[i].stData  := GVL_AXIS.Info[i];

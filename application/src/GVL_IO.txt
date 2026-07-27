@@ -1,29 +1,29 @@
 (* ============================================================
-   GVL_IO — Immagini di processo del bridge I/O (hardware)
-   SML v9 — bridge I/O
+   GVL_IO — I/O bridge process images (hardware)
+   SML v9 — I/O bridge
 
-   Usato SOLO col bridge. Su CoDeSys con link diretto NON serve:
-   in quel caso lascia IO_LINK_ENABLE = FALSE (i due SML_IoLink_*
-   si auto-bypassano) e mappa GVL_AXIS.Axis[n] direttamente.
+   Used ONLY with the bridge. On CoDeSys with a direct link it is NOT
+   needed: in that case leave IO_LINK_ENABLE = FALSE (the two
+   PRG_IoLink_* auto-bypass) and map GVL_AXIS.Axis[n] directly.
 
-   MAPPATURA (importante): DriveOut/DriveIn sono array SEMPLICI, senza
-   'AT %Q*'/'AT %I*'. Motivo: su CoDeSys un indirizzo incompleto in un
-   GVL richiede un VAR_CONFIG/mappatura e altrimenti da' errore C0128.
-   Con array semplici il codice compila standalone; i canali PDO si
-   collegano cosi':
-     - CoDeSys: scheda <Slave> I/O Mapping -> colonna Variable ->
-       lega ogni PDO a GVL_IO.DriveOut[n].<campo> / DriveIn[n].<campo>.
-     - TwinCAT: 'Change Link' su ogni PDO verso GVL_IO.DriveOut/DriveIn,
-       oppure (se preferisci l'immagine di processo esplicita) riaggiungi
-       'AT %Q*' / 'AT %I*' — supportato su TwinCAT.
-   Vedi docs/GUIDA_IO_Linking.md.
+   MAPPING (important): DriveOut/DriveIn are PLAIN arrays, without
+   'AT %Q*'/'AT %I*'. Reason: on CoDeSys an incomplete address in a
+   GVL requires a VAR_CONFIG/mapping and otherwise throws error C0128.
+   With plain arrays the code compiles standalone; the PDO channels
+   are linked like this:
+     - CoDeSys: <Slave> I/O Mapping tab -> Variable column ->
+       bind each PDO to GVL_IO.DriveOut[n].<field> / DriveIn[n].<field>.
+     - TwinCAT: 'Change Link' on each PDO to GVL_IO.DriveOut/DriveIn,
+       or (if you prefer the explicit process image) re-add
+       'AT %Q*' / 'AT %I*' — supported on TwinCAT.
+   See docs/GUIDA_IO_Linking.md.
    ============================================================ *)
 
 {attribute 'qualified_only'}
 VAR_GLOBAL
-    // flag di abilitazione del bridge (design-time o runtime)
-    IO_LINK_ENABLE : BOOL := FALSE;   // TRUE = attiva PRG_IoLink_In / _Out
+    // bridge enable flag (design-time or runtime)
+    IO_LINK_ENABLE : BOOL := FALSE;   // TRUE = activate PRG_IoLink_In / _Out
 
-    DriveOut : ARRAY[1..GVL_App.MAX_AXIS] OF ST_DriveOut;  // -> RxPDO (mappa nel configuratore)
-    DriveIn  : ARRAY[1..GVL_App.MAX_AXIS] OF ST_DriveIn;   // <- TxPDO (mappa nel configuratore)
+    DriveOut : ARRAY[1..GVL_App.MAX_AXIS] OF ST_DriveOut;  // -> RxPDO (map in the configurator)
+    DriveIn  : ARRAY[1..GVL_App.MAX_AXIS] OF ST_DriveIn;   // <- TxPDO (map in the configurator)
 END_VAR

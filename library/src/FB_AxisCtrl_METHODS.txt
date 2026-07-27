@@ -1,15 +1,15 @@
 (* ============================================================
-   FB_AxisCtrl — Metodi e proprieta' di I_Axis
-   SML v6 — Livello B (nuovo)
+   FB_AxisCtrl — Methods and properties of I_Axis
+   SML v6 — Level B (new)
 
-   Codice REALE (non commentato) dei metodi/proprieta' che
-   FB_AxisCtrl deve implementare per soddisfare I_Axis.
-   In CoDeSys: creare un oggetto METHOD / PROPERTY sotto
-   FB_AxisCtrl per ciascun blocco seguente.
+   REAL code (not commented out) of the methods/properties that
+   FB_AxisCtrl must implement to satisfy I_Axis.
+   In CoDeSys: create a METHOD / PROPERTY object under FB_AxisCtrl
+   for each block below.
 
-   Sono SETTER: impostano Ctrl.eCmd (+ Data) e ritornano lo stato
-   corrente State.eProgress; il moto avviene al successivo richiamo
-   ciclico del corpo del FB.
+   They are SETTERS: they set Ctrl.eCmd (+ Data) and return the
+   current State.eProgress; motion happens on the next cyclic call
+   of the FB body.
    ============================================================ *)
 
 //============================================================ METHODS
@@ -57,7 +57,7 @@ MoveRelative          := State.eProgress;
 //------------------------------------------------------------
 METHOD MoveVelocity : E_PROGRESS
 VAR_INPUT
-    lrVelocity : LREAL;   // con segno
+    lrVelocity : LREAL;   // signed
 END_VAR
 Ctrl.eCmd       := AXIS_MOVE_VELOCITY;
 Data.lrVelocity := lrVelocity;

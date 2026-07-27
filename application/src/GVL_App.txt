@@ -1,15 +1,15 @@
 (* ============================================================
-   GVL_App — Configurazione APPLICATIVA (dipende dalla macchina)
-   SML — livello applicazione
+   GVL_App — APPLICATION configuration (machine-dependent)
+   SML — application level
 
-   Costanti proprie del progetto macchina, NON della libreria SML.
-   Qui vive il numero di assi: cambia solo questo per scalare gli array
-   di GVL_AXIS e i loop di MAIN.
+   Constants owned by the machine project, NOT by the SML library.
+   The number of axes lives here: change only this to scale the
+   GVL_AXIS arrays and the MAIN loops.
 
-   Riferimento qualificato: GVL_App.MAX_AXIS
+   Qualified reference: GVL_App.MAX_AXIS
    ============================================================ *)
 
 {attribute 'qualified_only'}
 VAR_GLOBAL CONSTANT
-    MAX_AXIS : UINT := 4;     // numero di assi gestiti dal MAIN / dimensione array
+    MAX_AXIS : UINT := 4;     // number of axes handled by MAIN / array size
 END_VAR

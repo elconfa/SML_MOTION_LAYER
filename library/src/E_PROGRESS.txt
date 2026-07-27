@@ -1,33 +1,33 @@
 (* ============================================================
-   E_PROGRESS — Avanzamento unificato per tutti gli FB SML
-   SML v5 — Livello A (nuovo)
+   E_PROGRESS — Unified progress for all SML FBs
+   SML v5 — Level A (new)
 
-   Vocabolario comune di avanzamento, leggibile da applicazione /
-   HMI / diagnostica, in sostituzione della semantica ad-hoc di
-   iState:INT usata dai singoli FB.
+   Common progress vocabulary, readable by application / HMI /
+   diagnostics, replacing the ad-hoc iState:INT semantics used by
+   the individual FBs.
 
-   PROIEZIONE (Livello A):
-     Ogni FB mantiene la propria macchina a stati iState invariata
-     e, in coda al ciclo, espone eProgress:E_PROGRESS derivandolo
-     da iState e dai propri flag (xError / xDone / ...).
-     Nessuna macchina a stati viene riscritta.
+   PROJECTION (Level A):
+     Each FB keeps its own iState state machine unchanged and, at
+     the end of the cycle, exposes eProgress:E_PROGRESS by deriving
+     it from iState and from its own flags (xError / xDone / ...).
+     No state machine is rewritten.
 
-   STATO COMBINATO (predisposizione Livello B):
-     Uno stato macchina si potra' codificare come
-       stato_funzionale + E_PROGRESS
-     con stato_funzionale multiplo di 100 (vedi f_GetState /
-     f_GetProgress). Non usato ancora in Livello A.
+   COMBINED STATE (Level B groundwork):
+     A machine state can be encoded as
+       functional_state + E_PROGRESS
+     with functional_state a multiple of 100 (see f_GetState /
+     f_GetProgress). Not used yet in Level A.
    ============================================================ *)
 
 TYPE E_PROGRESS :
 (
-    PROGRESS_INVALID := 0,   // non inizializzato / idle, nessuna richiesta
-    PROGRESS_INIT    := 1,   // richiesta di avvio ricevuta
-    PROGRESS_BUSY    := 2,   // in elaborazione
-    PROGRESS_PREPARE := 3,   // preparazione parametri / precondizioni
-    PROGRESS_STARTUP := 4,   // esecuzione fase di startup
-    PROGRESS_CHECK   := 5,   // verifica esito / avanzamento indice
-    PROGRESS_DONE    := 6,   // completato con successo
-    PROGRESS_ERROR   := 7    // errore (terminale finche' non resettato)
+    PROGRESS_INVALID := 0,   // not initialized / idle, no request
+    PROGRESS_INIT    := 1,   // start request received
+    PROGRESS_BUSY    := 2,   // processing
+    PROGRESS_PREPARE := 3,   // preparing parameters / preconditions
+    PROGRESS_STARTUP := 4,   // running the startup phase
+    PROGRESS_CHECK   := 5,   // verifying result / advancing index
+    PROGRESS_DONE    := 6,   // completed successfully
+    PROGRESS_ERROR   := 7    // error (terminal until reset)
 ) INT;
 END_TYPE

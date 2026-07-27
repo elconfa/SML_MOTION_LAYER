@@ -1,23 +1,23 @@
 (* ============================================================
-   PRG_Mapping_In — Copia comando/setpoint dal bus verso GVL_AXIS
-   SML v8 — Livello B / MAPPING (nuovo)
+   PRG_Mapping_In — Copy command/setpoint from the bus into GVL_AXIS
+   SML v8 — Level B / MAPPING (new)
 
-   Percorso: GVL_AXIS_MAP.Ctrl/Data (fieldbus)  ->  GVL_AXIS.Ctrl/Data
-   Chiamare all'INIZIO di MAIN, prima del loop assi.
+   Path: GVL_AXIS_MAP.Ctrl/Data (fieldbus)  ->  GVL_AXIS.Ctrl/Data
+   Call at the START of MAIN, before the axis loop.
 
-   GATE: attivo solo se GVL_AXIS_MAP.AXIS_MAP_ENABLE = TRUE; altrimenti
-   bypass immediato (comportamento = v7). Flag runtime al posto di una
-   pragma {IF defined(...)}: quest'ultima non e' portabile nella parte
-   dichiarazione su CoDeSys. Per l'esclusione a COMPILE-TIME, in
-   alternativa, racchiudere il CORPO tra {IF defined (AXIS_MAP)} ...
-   {END_IF} nella parte IMPLEMENTAZIONE (non nella dichiarazione).
+   GATE: active only if GVL_AXIS_MAP.AXIS_MAP_ENABLE = TRUE; otherwise
+   an immediate bypass (behavior = v7). A runtime flag instead of a
+   {IF defined(...)} pragma: the latter is not portable in the
+   declaration part on CoDeSys. For COMPILE-TIME exclusion, as an
+   alternative, wrap the BODY in {IF defined (AXIS_MAP)} ... {END_IF}
+   in the IMPLEMENTATION part (not in the declaration).
 
-   Check di dimensione a runtime: se una struct supera il blocco bus
-   (MAP_SIZE_*), il mapping viene bloccato per sicurezza.
+   Runtime size check: if a struct exceeds the bus block (MAP_SIZE_*),
+   the mapping is blocked for safety.
 
-   Copia via assegnazione strutturata (portabile, nessuna dipendenza
-   da libreria memcpy). Per linkare la vista GREZZA usare .aRaw sul
-   fieldbus: la copia .stData resta corretta.
+   Copy via structured assignment (portable, no dependency on a memcpy
+   library). To link the RAW view use .aRaw on the fieldbus: the
+   .stData copy stays correct.
    ============================================================ *)
 
 PROGRAM PRG_Mapping_In
@@ -28,12 +28,12 @@ END_VAR
 
 IF NOT GVL_AXIS_MAP.AXIS_MAP_ENABLE THEN RETURN; END_IF
 
-// ── Check dimensione blocchi bus (sicurezza) ─────────────────
+// ── Bus block size check (safety) ────────────────────────────
 bSizeOk := (SIZEOF(ST_AXIS_CTRL) <= GVL_SML_CONST.MAP_SIZE_CTRL)
        AND (SIZEOF(ST_MOVE_DATA) <= GVL_SML_CONST.MAP_SIZE_DATA);
-IF NOT bSizeOk THEN RETURN; END_IF   // blocco: ridimensionare MAP_SIZE_*
+IF NOT bSizeOk THEN RETURN; END_IF   // blocked: resize MAP_SIZE_*
 
-// ── Copia bus -> interno ─────────────────────────────────────
+// ── Copy bus -> internal ─────────────────────────────────────
 FOR i := 1 TO GVL_App.MAX_AXIS DO
     GVL_AXIS.Ctrl[i] := GVL_AXIS_MAP.Ctrl[i].stData;
     GVL_AXIS.Data[i] := GVL_AXIS_MAP.Data[i].stData;

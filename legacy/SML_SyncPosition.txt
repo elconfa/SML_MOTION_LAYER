@@ -36,7 +36,7 @@ END_VAR
 VAR_OUTPUT
     xBusy  : BOOL;
     xError : BOOL;
-    eProgress : E_PROGRESS; // Livello A: avanzamento unificato (proiezione di iState)
+    eProgress : E_PROGRESS; // Level A: unified progress (projection of iState)
 END_VAR
 VAR
     otg    : FB_S7RTT_OTG;
@@ -113,8 +113,8 @@ CASE iState OF
         END_IF
 END_CASE
 
-// ── Livello A: proiezione avanzamento unificato (E_PROGRESS) ──────────────
-// Sincronismo continuo: nessun "DONE" discreto.
+// ── Level A: unified progress projection (E_PROGRESS) ──────────────
+// Continuous sync: no discrete "DONE".
 IF    xError     THEN eProgress := PROGRESS_ERROR;
 ELSIF iState = 0 THEN eProgress := PROGRESS_INVALID;
 ELSE                  eProgress := PROGRESS_BUSY;

@@ -1,9 +1,9 @@
 (* ============================================================
-   U_MOVE_DATA — UNION bus per i setpoint di moto
-   SML v8 — Livello B / MAPPING (nuovo)
+   U_MOVE_DATA — Bus UNION for the motion setpoints
+   SML v8 — Level B / MAPPING (new)
 
-   stData : ST_MOVE_DATA (tipizzata) / aRaw : blocco byte (fieldbus).
-   Dimensione fissa = MAP_SIZE_DATA (>= SIZEOF(ST_MOVE_DATA)).
+   stData : ST_MOVE_DATA (typed) / aRaw : byte block (fieldbus).
+   Fixed size = MAP_SIZE_DATA (>= SIZEOF(ST_MOVE_DATA)).
    ============================================================ *)
 
 TYPE U_MOVE_DATA :

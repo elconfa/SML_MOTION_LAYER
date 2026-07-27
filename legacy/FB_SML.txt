@@ -174,7 +174,7 @@ VAR_OUTPUT
     // Halt stopped confirmation
     HaltStopped : BOOL;
 
-    // Livello A: avanzamento aggregato del facade
+    // Level A: aggregated progress of the facade
     eProgress   : E_PROGRESS;
 END_VAR
 
@@ -377,11 +377,11 @@ inst_Diag(
     FollowingError   =>,
     FaultCount       => FaultCount);
 
-// ── Livello A: proiezione avanzamento aggregato (E_PROGRESS) ──────────────
-// Non c'e' un iState unico: l'avanzamento riassume lo stato dei sotto-FB.
+// ── Level A: aggregated progress projection (E_PROGRESS) ──────────────
+// There is no single iState: the progress summarizes the sub-FBs' state.
 IF    xActiveFault OR PwrError THEN eProgress := PROGRESS_ERROR;
 ELSIF NOT PwrStatus            THEN eProgress := PROGRESS_INVALID; // drive non abilitato
 ELSIF Status_Moving OR HomeBusy OR MovHomeBusy OR MovAbsBusy
                                THEN eProgress := PROGRESS_BUSY;
-ELSE                                eProgress := PROGRESS_DONE;    // abilitato, fermo, nessun fault
+ELSE                                eProgress := PROGRESS_DONE;    // enabled, stopped, no fault
 END_IF

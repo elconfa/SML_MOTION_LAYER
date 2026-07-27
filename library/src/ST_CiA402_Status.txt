@@ -1,16 +1,16 @@
 (* ============================================================
-   ST_CiA402_Status — Decoder di stato CiA402 completo
-   SML v9 — Livello B (nuovo)
+   ST_CiA402_Status — Full CiA402 status decoder
+   SML v9 — Level B (new)
 
-   Replica gli output del decoder SML_Status, resi disponibili nel
-   contratto dati come sotto-struct di ST_AXIS_INFO (Info.Status).
-   Porta in FB_AxisCtrl i bit di stato granulari che prima erano
-   esposti solo da FB_SML.
+   Mirrors the outputs of the SML_Status decoder, made available in
+   the data contract as a sub-struct of ST_AXIS_INFO (Info.Status).
+   Brings into FB_AxisCtrl the granular status bits that used to be
+   exposed only by FB_SML.
    ============================================================ *)
 
 TYPE ST_CiA402_Status :
 STRUCT
-    // ── macchina di stato CiA402 ─────────────────────────────
+    // ── CiA402 state machine ──────────────────────────────────
     NotReadyToSwitchOn  : BOOL;
     SwitchOnDisabled    : BOOL;
     ReadyToSwitchOn     : BOOL;
@@ -20,14 +20,14 @@ STRUCT
     FaultReactionActive : BOOL;
     Fault               : BOOL;
 
-    // ── stato generale ───────────────────────────────────────
+    // ── general status ────────────────────────────────────────
     Warning             : BOOL;   // bit 7
     TargetReached       : BOOL;   // bit 10 (mode-dependent)
     Halted              : BOOL;
     VoltageEnabled      : BOOL;   // bit 4
     InternalLimit       : BOOL;   // bit 11
 
-    // ── modo operativo attivo ────────────────────────────────
+    // ── active operating mode ─────────────────────────────────
     ProfilePositionMode : BOOL;   // 1
     ProfileVelocityMode : BOOL;   // 3
     VelocityMode        : BOOL;   // 2 (legacy)
@@ -36,15 +36,15 @@ STRUCT
     SyncPositionMode    : BOOL;   // 8 (CSP)
     SyncVelocityMode    : BOOL;   // 9 (CSV)
 
-    // ── moto ─────────────────────────────────────────────────
+    // ── motion ────────────────────────────────────────────────
     Moving              : BOOL;
     StandStill          : BOOL;
     Homed               : BOOL;
 
-    // ── errore / dettaglio ───────────────────────────────────
+    // ── error / detail ────────────────────────────────────────
     Err                 : BOOL;   // Error_Code != 0
     ErrId               : UINT;   // 0x603F
-    ActTorque           : INT;    // 0x6077 [0.1% del nominale]
+    ActTorque           : INT;    // 0x6077 [0.1% of rated]
     FollowingError      : DINT;   // 0x60F4 [encoder counts]
 END_STRUCT
 END_TYPE

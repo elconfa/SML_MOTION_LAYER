@@ -1,25 +1,25 @@
 (* ============================================================
-   PRG_LevelB_Test — Test di FB_AxisCtrl (Livello B)
-   SML v6 — nuovo
+   PRG_LevelB_Test — FB_AxisCtrl test (Level B)
+   SML v6 — new
 
-   Guida FB_AxisCtrl in xSimulation con un mini-emulatore CiA402
-   inline (StatusWord derivato da ControlWord) attraverso una
-   sequenza di comandi eCmd, e verifica:
-     - il routing dei comandi sui FB foglia,
-     - i valori di State.eProgress attesi,
-     - la decomposizione dello STATO COMBINATO con f_GetState /
-       f_GetProgress (funzioni del Livello A, ora usate).
+   Drives FB_AxisCtrl in xSimulation with a small inline CiA402
+   emulator (StatusWord derived from ControlWord) through a
+   sequence of eCmd commands, and verifies:
+     - command routing to the leaf FBs,
+     - the expected State.eProgress values,
+     - decomposition of the COMBINED STATE with f_GetState /
+       f_GetProgress (Level A functions, now used).
 
-   Sequenza:  ENABLE -> MOVE_CSP -> JOG_POS -> STOP -> DISABLE
-   Attese:    ENABLE->DONE, CSP->DONE, JOG->BUSY, STOP->DONE
+   Sequence:  ENABLE -> MOVE_CSP -> JOG_POS -> STOP -> DISABLE
+   Expected:  ENABLE->DONE, CSP->DONE, JOG->BUSY, STOP->DONE
 
-   ESITO: xTestPassed = TRUE quando tutte le attese sono osservate.
-   Banco di prova di sviluppo, non parte della libreria.
+   RESULT: xTestPassed = TRUE when all expectations are observed.
+   Development test bench, not part of the library.
    ============================================================ *)
 
 PROGRAM PRG_LevelB_Test
 VAR
-    // ── contratto dati + FB sotto test ───────────────────────
+    // ── data contract + FB under test ────────────────────────
     Axis  : OpenSML_Axis;
     Ctrl  : ST_AXIS_CTRL;
     Data  : ST_MOVE_DATA;
@@ -27,11 +27,11 @@ VAR
     Info  : ST_AXIS_INFO;
     Ax    : FB_AxisCtrl;
 
-    // ── sequenziatore ────────────────────────────────────────
+    // ── sequencer ────────────────────────────────────────────
     step  : INT;
     tStep : TON;
 
-    // ── osservazione ─────────────────────────────────────────
+    // ── observation ──────────────────────────────────────────
     eProg   : E_PROGRESS;   // State.eProgress
     eStBase : DINT;         // f_GetState(State.eState)
     eStProg : E_PROGRESS;   // f_GetProgress(State.eState)
@@ -44,17 +44,17 @@ VAR
     xTestDone       : BOOL;
 END_VAR
 
-// ── configurazione (ogni ciclo) ──────────────────────────────
+// ── configuration (every cycle) ──────────────────────────────
 Ctrl.xSimulation    := TRUE;
 Ctrl.xEmergencyStop := TRUE;
-Ctrl.Scale          := 1.0;      // 1 count/unita' per semplicita'
+Ctrl.Scale          := 1.0;      // 1 count/unit for simplicity
 Ctrl.CycleTime      := 0.001;
 Ctrl.PositionWindow := 0.5;
 Data.lrAcceleration := 1000.0;
 Data.lrDeceleration := 1000.0;
 Data.lrJerk         := 10000.0;
 
-// ── sequenziatore ~300 ms/passo ──────────────────────────────
+// ── sequencer ~300 ms/step ───────────────────────────────────
 tStep(IN := NOT xTestDone, PT := T#300MS);
 IF tStep.Q THEN
     tStep(IN := FALSE);
@@ -67,27 +67,27 @@ CASE step OF
         Data.lrVelocity       := 100.0;
         Ctrl.eCmd := AXIS_MOVE_CSP;                                // -> DONE (xInPosition)
     5:  Data.lrVelocity := 20.0;
-        Ctrl.eCmd := AXIS_JOG_POS;                                 // -> BUSY (continuo)
+        Ctrl.eCmd := AXIS_JOG_POS;                                 // -> BUSY (continuous)
     7:  Ctrl.eCmd := AXIS_STOP;                                    // -> DONE (standstill)
     9:  Ctrl.eCmd := AXIS_DISABLE;                                 // -> DONE
     11: xTestDone := TRUE;
 END_CASE
 
-// ── FB sotto test ────────────────────────────────────────────
+// ── FB under test ────────────────────────────────────────────
 Ax(Axis := Axis, Ctrl := Ctrl, Data := Data, State := State, Info := Info);
 
-// ── mini-emulatore CiA402 (dopo il FB) ───────────────────────
-Axis.Modes_of_operation_display := Axis.Modes_of_operation;      // il drive echeggia il modo
+// ── mini CiA402 emulator (after the FB) ──────────────────────
+Axis.Modes_of_operation_display := Axis.Modes_of_operation;      // the drive echoes the mode
 Axis.StatusWord.0  := Axis.ControlWord.1;                        // ReadyToSwitchOn
 Axis.StatusWord.1  := Axis.ControlWord.0 AND Axis.ControlWord.1; // SwitchedOn
 Axis.StatusWord.2  := Axis.ControlWord.3 AND Axis.StatusWord.1;  // OperationEnabled
-Axis.StatusWord.5  := TRUE;                                      // QuickStop non attivo
-Axis.StatusWord.10 := Axis.ControlWord.8;                        // standstill quando Halt
+Axis.StatusWord.5  := TRUE;                                      // QuickStop not active
+Axis.StatusWord.10 := Axis.ControlWord.8;                        // standstill when Halt
 
-// ── osservazione: decomposizione stato combinato ─────────────
+// ── observation: combined-state decomposition ───────────────
 eProg   := State.eProgress;
-eStBase := f_GetState(State.eState);      // base funzionale (E_AXIS_STATE)
-eStProg := f_GetProgress(State.eState);   // avanzamento (E_PROGRESS)
+eStBase := f_GetState(State.eState);      // functional base (E_AXIS_STATE)
+eStProg := f_GetProgress(State.eState);   // progress (E_PROGRESS)
 
 IF (State.eCmdActive = AXIS_ENABLE)   AND (eProg = PROGRESS_DONE) THEN xSeenEnableDone := TRUE; END_IF
 IF (State.eCmdActive = AXIS_MOVE_CSP) AND (eProg = PROGRESS_DONE) THEN xSeenCspDone    := TRUE; END_IF

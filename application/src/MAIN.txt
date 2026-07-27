@@ -1,33 +1,32 @@
 (* ============================================================
-   MAIN — Orchestratore multi-asse del Motion Layer SML
-   SML v7 — Livello B (nuovo)
+   MAIN — Multi-axis orchestrator of the SML Motion Layer
+   SML v7 — Level B (new)
 
-   Esegue tutti gli assi 1..MAX_AXIS. Per ciascun asse:
-     - aggiorna il riferimento a interfaccia (ItfSmlAxis[n] := Control[n])
-       cosi' coordinatori di alto livello possono manovrare l'asse via
+   Runs all axes 1..MAX_AXIS. For each axis:
+     - updates the interface reference (ItfSmlAxis[n] := Control[n])
+       so high-level coordinators can maneuver the axis via
        I_Axis[n];
-     - chiama ciclicamente FB_AxisCtrl passando il contratto dati
-       per riferimento (VAR_IN_OUT).
+     - cyclically calls FB_AxisCtrl passing the data contract
+       by reference (VAR_IN_OUT).
 
-   L'applicazione comanda ogni asse scrivendo GVL_AXIS.Ctrl[n].eCmd (+
-   GVL_AXIS.Data[n]) e legge GVL_AXIS.State[n]/Info[n]. In produzione
-   collegare GVL_AXIS.Axis[n] all'I/O con SML_TC3Link (fuori da MAIN).
+   The application commands each axis by writing GVL_AXIS.Ctrl[n].eCmd (+
+   GVL_AXIS.Data[n]) and reads GVL_AXIS.State[n]/Info[n]. In production
+   link GVL_AXIS.Axis[n] to the I/O with SML_TC3Link (outside MAIN).
 
-   NB: nessuna macchina di INIT dedicata (a differenza di PLC_MOTION_LAYER):
-   l'abilitazione avviene per asse via eCmd = AXIS_ENABLE.
+   NB: no dedicated INIT machine (unlike PLC_MOTION_LAYER): enabling
+   happens per axis via eCmd = AXIS_ENABLE.
 
-   Bridge I/O opzionale: PRG_IoLink_In()/PRG_IoLink_Out() copiano da/verso
-   l'hardware (GVL_IO) solo se GVL_IO.IO_LINK_ENABLE = TRUE. In (drive->Axis)
-   prima del ciclo, Out (Axis->drive) dopo: zero ritardo. Su CoDeSys con link
-   diretto nella scheda I/O Mapping lasciarlo FALSE.
+   Optional I/O bridge: PRG_IoLink_In()/PRG_IoLink_Out() copy to/from
+   the hardware (GVL_IO) only if GVL_IO.IO_LINK_ENABLE = TRUE. In (drive->Axis)
+   before the loop, Out (Axis->drive) after: zero delay. On CoDeSys with a
+   direct link in the I/O Mapping tab, leave it FALSE.
 
-   MAPPING opzionale: PRG_Mapping_In()/PRG_Mapping_Out() copiano da/verso il bus
-   (GVL_AXIS_MAP) solo se GVL_AXIS_MAP.AXIS_MAP_ENABLE = TRUE; altrimenti
-   si auto-bypassano (comportamento identico a v7).
+   Optional MAPPING: PRG_Mapping_In()/PRG_Mapping_Out() copy to/from the bus
+   (GVL_AXIS_MAP) only if GVL_AXIS_MAP.AXIS_MAP_ENABLE = TRUE; otherwise
+   they auto-bypass (behavior identical to v7).
 
-   SIMULAZIONE: usare PRG_MultiAxis_Test (banco con emulatore) AL POSTO di
-   MAIN; non eseguirli entrambi nello stesso task (doppia chiamata degli
-   stessi FB).
+   SIMULATION: use PRG_MultiAxis_Test (emulator bench) INSTEAD of
+   MAIN; do not run both in the same task (double-call of the same FBs).
    ============================================================ *)
 
 PROGRAM MAIN
@@ -35,20 +34,20 @@ VAR
     nAxis : UINT;
 END_VAR
 
-// /HW -> struct asse (bypass se IO_LINK_ENABLE = FALSE)
+// /HW -> axis struct (bypass if IO_LINK_ENABLE = FALSE)
 PRG_IoLink_In();
-// HW -> struct asse/
+// HW -> axis struct/
 
-// /bus -> interno (bypass se AXIS_MAP_ENABLE = FALSE)
+// /bus -> internal (bypass if AXIS_MAP_ENABLE = FALSE)
 PRG_Mapping_In();
-// bus -> interno/
+// bus -> internal/
 
 FOR nAxis := 1 TO GVL_App.MAX_AXIS
 DO
-    // accesso a interfaccia per coordinatori di alto livello
+    // interface access for high-level coordinators
     GVL_AXIS.ItfSmlAxis[nAxis] := GVL_AXIS.Control[nAxis];
 
-    // esecuzione ciclica dell'asse (contratto dati per riferimento)
+    // cyclic execution of the axis (data contract by reference)
     GVL_AXIS.Control[nAxis](
         Axis  := GVL_AXIS.Axis[nAxis],
         Ctrl  := GVL_AXIS.Ctrl[nAxis],
@@ -57,10 +56,10 @@ DO
         Info  := GVL_AXIS.Info[nAxis]);
 END_FOR
 
-// /interno -> bus (bypass se AXIS_MAP_ENABLE = FALSE)
+// /internal -> bus (bypass if AXIS_MAP_ENABLE = FALSE)
 PRG_Mapping_Out();
-// interno -> bus/
+// internal -> bus/
 
-// /struct asse -> HW (bypass se IO_LINK_ENABLE = FALSE)
+// /axis struct -> HW (bypass if IO_LINK_ENABLE = FALSE)
 PRG_IoLink_Out();
-// struct asse -> HW/
+// axis struct -> HW/

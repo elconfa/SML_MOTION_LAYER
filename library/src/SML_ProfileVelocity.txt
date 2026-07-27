@@ -26,7 +26,7 @@ VAR_OUTPUT
     xMoving     : BOOL; // TRUE when axis velocity ≠ 0 in either direction
     xAtVelocity : BOOL; // TRUE when drive reports target velocity reached (bit 10)
     xError      : BOOL; // Fault or following error
-    eProgress   : E_PROGRESS; // Livello A: avanzamento unificato (proiezione di iState)
+    eProgress   : E_PROGRESS; // Level A: unified progress (projection of iState)
 END_VAR
 VAR
     iState : INT;
@@ -121,8 +121,8 @@ CASE iState OF
 
 END_CASE
 
-// ── Livello A: proiezione avanzamento unificato (E_PROGRESS) ──────────────
-// Modo continuo: "DONE" = velocita' target raggiunta (regime).
+// ── Level A: unified progress projection (E_PROGRESS) ──────────────
+// Continuous mode: "DONE" = target velocity reached (steady state).
 IF    xError       THEN eProgress := PROGRESS_ERROR;
 ELSIF xAtVelocity  THEN eProgress := PROGRESS_DONE;
 ELSIF iState = 0   THEN eProgress := PROGRESS_INVALID;

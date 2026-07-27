@@ -1,21 +1,21 @@
 (* ============================================================
-   ST_AXIS_STATE — Struttura di stato (layer -> app)
-   SML v6 — Livello B (nuovo)
+   ST_AXIS_STATE — State structure (layer -> app)
+   SML v6 — Level B (new)
 
-   Contratto dati "State". Esito del comando + avanzamento.
-   eState e' lo STATO COMBINATO (E_AXIS_STATE + E_PROGRESS);
-   usare f_GetState / f_GetProgress per decomporlo.
+   The "State" data contract. Command result + progress.
+   eState is the COMBINED STATE (E_AXIS_STATE + E_PROGRESS);
+   use f_GetState / f_GetProgress to decompose it.
    ============================================================ *)
 
 TYPE ST_AXIS_STATE :
 STRUCT
-    eState         : INT;            // stato combinato = E_AXIS_STATE + E_PROGRESS
-    eProgress      : E_PROGRESS;     // avanzamento (comodo, gia' decomposto)
-    eCmdActive     : E_AXIS_CTRL;    // comando in esecuzione
-    xDone          : BOOL;           // comando corrente completato
-    xError         : BOOL;           // errore aggregato
+    eState         : INT;            // combined state = E_AXIS_STATE + E_PROGRESS
+    eProgress      : E_PROGRESS;     // progress (handy, already decomposed)
+    eCmdActive     : E_AXIS_CTRL;    // command being executed
+    xDone          : BOOL;           // current command complete
+    xError         : BOOL;           // aggregated error
 
-    // ── diagnostica (da SML_Diagnostics) ────────────────────
+    // ── diagnostics (from SML_Diagnostics) ───────────────────
     DiagCode       : SML_DiagCode;
     DiagText       : STRING(80);
     FirstFaultCode : SML_DiagCode;

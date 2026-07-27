@@ -1,52 +1,52 @@
 (* ============================================================
-   PRG_LevelA_Test — Test di proiezione E_PROGRESS (Livello A)
-   SML v5 — nuovo
+   PRG_LevelA_Test — E_PROGRESS projection test (Level A)
+   SML v5 — new
 
-   Verifica, SENZA hardware, che l'output eProgress introdotto in
-   Livello A segua le transizioni attese. Guida SML_Power con un
-   mini-emulatore CiA402 inline (StatusWord derivato da ControlWord)
-   e registra i valori di E_PROGRESS osservati.
+   Verifies, WITHOUT hardware, that the eProgress output introduced in
+   Level A follows the expected transitions. It drives SML_Power with a
+   small inline CiA402 emulator (StatusWord derived from ControlWord)
+   and records the observed E_PROGRESS values.
 
-   Sequenza attesa su Power.eProgress:
+   Expected sequence on Power.eProgress:
      idle            -> PROGRESS_INVALID
-     abilitazione    -> PROGRESS_BUSY (transitorio, pochi cicli)
+     enabling        -> PROGRESS_BUSY (transient, a few cycles)
      OperationEnabled-> PROGRESS_DONE
-     fault iniettato -> PROGRESS_ERROR
+     injected fault  -> PROGRESS_ERROR
      drop execute    -> PROGRESS_INVALID
 
-   ESITO: xTestPassed = TRUE quando tutti e quattro i valori sono
-   stati osservati. Nessuna dipendenza oltre OpenSML_Axis, SML_Power,
-   E_PROGRESS e TON (Tc2_Standard).
+   RESULT: xTestPassed = TRUE when all four values have been observed.
+   No dependency beyond OpenSML_Axis, SML_Power, E_PROGRESS and TON
+   (Tc2_Standard).
 
-   NOTA: e' un banco di prova di sviluppo, non parte della libreria.
+   NOTE: this is a development test bench, not part of the library.
    ============================================================ *)
 
 PROGRAM PRG_LevelA_Test
 VAR
-    Axis  : OpenSML_Axis;   // struct condivisa app <-> FB (nessun mapping I/O)
-    Power : SML_Power;      // FB sotto test
+    Axis  : OpenSML_Axis;   // struct shared app <-> FB (no I/O mapping)
+    Power : SML_Power;      // FB under test
 
-    // ── sequenziatore di test ────────────────────────────────
+    // ── test sequencer ───────────────────────────────────────
     step  : INT;
     tStep : TON;
 
-    // ── stimoli ──────────────────────────────────────────────
-    xEnable      : BOOL;    // richiesta abilitazione drive
-    xInjectFault : BOOL;    // inietta un fault (StatusWord bit 3)
+    // ── stimuli ──────────────────────────────────────────────
+    xEnable      : BOOL;    // drive enable request
+    xInjectFault : BOOL;    // inject a fault (StatusWord bit 3)
 
-    // ── osservazione ─────────────────────────────────────────
-    ePwr : E_PROGRESS;      // eProgress corrente di Power
+    // ── observation ──────────────────────────────────────────
+    ePwr : E_PROGRESS;      // current eProgress of Power
 
-    xSeenInvalid : BOOL;    // flag "valore osservato almeno una volta"
+    xSeenInvalid : BOOL;    // flag "value observed at least once"
     xSeenBusy    : BOOL;
     xSeenDone    : BOOL;
     xSeenError   : BOOL;
-    xTestPassed  : BOOL;    // TRUE quando la sequenza completa e' stata vista
-    xTestDone    : BOOL;    // sequenza terminata
+    xTestPassed  : BOOL;    // TRUE when the full sequence has been seen
+    xTestDone    : BOOL;    // sequence finished
 END_VAR
 
 // ─────────────────────────────────────────────────────────────
-//  Sequenziatore: ~200 ms per passo
+//  Sequencer: ~200 ms per step
 // ─────────────────────────────────────────────────────────────
 tStep(IN := NOT xTestDone, PT := T#200MS);
 IF tStep.Q THEN
@@ -55,43 +55,43 @@ IF tStep.Q THEN
 END_IF
 
 CASE step OF
-    0:  // riposo -> atteso PROGRESS_INVALID
+    0:  // idle -> expected PROGRESS_INVALID
         xEnable      := FALSE;
         xInjectFault := FALSE;
 
-    1:  // richiesta enable -> BUSY (transitorio) poi DONE
+    1:  // enable request -> BUSY (transient) then DONE
         xEnable := TRUE;
 
-    // 2..4: mantiene enable, atteso PROGRESS_DONE
+    // 2..4: holds enable, expected PROGRESS_DONE
 
-    5:  // inietta fault -> PROGRESS_ERROR (Power stato 50 -> 999)
+    5:  // inject fault -> PROGRESS_ERROR (Power state 50 -> 999)
         xInjectFault := TRUE;
 
-    6:  // rilascia enable e fault -> ritorno a PROGRESS_INVALID
+    6:  // release enable and fault -> back to PROGRESS_INVALID
         xEnable      := FALSE;
         xInjectFault := FALSE;
 
-    7:  // fine
+    7:  // end
         xTestDone := TRUE;
 END_CASE
 
 // ─────────────────────────────────────────────────────────────
-//  FB sotto test
+//  FB under test
 // ─────────────────────────────────────────────────────────────
 Power(
     Axis           := Axis,
     xExecute       := xEnable,
-    xEmergencyStop := TRUE);       // 1 = run (nessun quick-stop)
+    xEmergencyStop := TRUE);       // 1 = run (no quick-stop)
 
 ePwr := Power.eProgress;
 
 // ─────────────────────────────────────────────────────────────
-//  Mini-emulatore CiA402 (chiamato DOPO Power: risponde alle
-//  ControlWord scritte da Power nel ciclo corrente)
+//  Mini CiA402 emulator (called AFTER Power: it responds to the
+//  ControlWord written by Power in the current cycle)
 //    bit1 EnableVoltage  -> StatusWord.0 ReadyToSwitchOn
-//    bit0 SwitchOn       -> StatusWord.1 SwitchedOn (richiede voltage)
-//    bit3 EnableOp       -> StatusWord.2 OperationEnabled (richiede SwitchedOn)
-//    bit7 FaultReset     -> azzera StatusWord.3
+//    bit0 SwitchOn       -> StatusWord.1 SwitchedOn (requires voltage)
+//    bit3 EnableOp       -> StatusWord.2 OperationEnabled (requires SwitchedOn)
+//    bit7 FaultReset     -> clears StatusWord.3
 // ─────────────────────────────────────────────────────────────
 IF xInjectFault THEN
     Axis.StatusWord.3 := TRUE;                 // Fault
@@ -102,10 +102,10 @@ END_IF
 Axis.StatusWord.0 := Axis.ControlWord.1;                          // ReadyToSwitchOn
 Axis.StatusWord.1 := Axis.ControlWord.0 AND Axis.ControlWord.1;   // SwitchedOn
 Axis.StatusWord.2 := Axis.ControlWord.3 AND Axis.StatusWord.1;    // OperationEnabled
-Axis.StatusWord.5 := TRUE;                                        // QuickStop non attivo
+Axis.StatusWord.5 := TRUE;                                        // QuickStop not active
 
 // ─────────────────────────────────────────────────────────────
-//  Raccolta esito
+//  Result collection
 // ─────────────────────────────────────────────────────────────
 CASE ePwr OF
     PROGRESS_INVALID: xSeenInvalid := TRUE;

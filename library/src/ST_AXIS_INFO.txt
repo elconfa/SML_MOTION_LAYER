@@ -1,24 +1,24 @@
 (* ============================================================
-   ST_AXIS_INFO — Struttura informativa (layer -> app)
-   SML v6 — Livello B (nuovo)
+   ST_AXIS_INFO — Info structure (layer -> app)
+   SML v6 — Level B (new)
 
-   Contratto dati "Info". Valori attuali e bit di stato dell'asse,
-   in unita' utente.
+   The "Info" data contract. Actual values and axis status bits,
+   in user units.
    ============================================================ *)
 
 TYPE ST_AXIS_INFO :
 STRUCT
-    lrActualPosition : LREAL;    // posizione attuale [unita']
-    lrActualVelocity : LREAL;    // velocita' attuale [unita'/s]
+    lrActualPosition : LREAL;    // actual position [units]
+    lrActualVelocity : LREAL;    // actual velocity [units/s]
     xEnabled         : BOOL;     // drive in OperationEnabled
-    xHomed           : BOOL;     // homing eseguito almeno una volta (latch)
-    xMoving          : BOOL;     // asse in movimento
-    xInPosition      : BOOL;     // entro PositionWindow (percorso CSP)
+    xHomed           : BOOL;     // homing done at least once (latch)
+    xMoving          : BOOL;     // axis is moving
+    xInPosition      : BOOL;     // within PositionWindow (CSP path)
 
-    // ── decoder CiA402 completo (da SML_Status) ──────────────
+    // ── full CiA402 decoder (from SML_Status) ─────────────────
     Status           : ST_CiA402_Status;
 
-    // ── risultati TouchProbe (da SML_TouchProbe) ─────────────
+    // ── TouchProbe results (from SML_TouchProbe) ──────────────
     xTouchProbeDoneR       : BOOL;
     xTouchProbeDoneF       : BOOL;
     xTouchProbeBusy        : BOOL;

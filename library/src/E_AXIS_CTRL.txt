@@ -1,29 +1,29 @@
 (* ============================================================
-   E_AXIS_CTRL — Comando asse (eCmd) per FB_AxisCtrl
-   SML v6 — Livello B (nuovo)
+   E_AXIS_CTRL — Axis command (eCmd) for FB_AxisCtrl
+   SML v6 — Level B (new)
 
-   Enum di comando a livello (level-based): l'applicazione scrive
-   Ctrl.eCmd; FB_AxisCtrl instrada il comando sul FB foglia
-   corrispondente. Un solo comando alla volta => nessun arbiter
-   esplicito (il valore singolo di eCmd E' l'arbiter).
+   Level-based command enum: the application writes Ctrl.eCmd;
+   FB_AxisCtrl routes the command to the corresponding leaf FB.
+   One command at a time => no explicit arbiter (the single value
+   of eCmd IS the arbiter).
 
-   Analogo di E_AXIS_CTRL di PLC_MOTION_LAYER, ma i comandi mappano
-   sugli FB CiA402 di SML al posto degli MC_* Beckhoff.
+   Analogous to E_AXIS_CTRL of PLC_MOTION_LAYER, but the commands
+   map onto SML's CiA402 FBs instead of the Beckhoff MC_*.
    ============================================================ *)
 
 TYPE E_AXIS_CTRL :
 (
-    AXIS_NULL          := 0,    // nessun comando: mantiene lo stato corrente
-    AXIS_ENABLE        := 1,    // abilita drive (Power) e resta idle
-    AXIS_DISABLE       := 2,    // disabilita drive
-    AXIS_RESET         := 3,    // reset fault (drive + FB foglia)
+    AXIS_NULL          := 0,    // no command: holds the current state
+    AXIS_ENABLE        := 1,    // enable drive (Power) and stay idle
+    AXIS_DISABLE       := 2,    // disable drive
+    AXIS_RESET         := 3,    // fault reset (drive + leaf FBs)
     AXIS_HOME          := 4,    // homing
-    AXIS_MOVE_ABS      := 5,    // Profile Position assoluto
-    AXIS_MOVE_REL      := 6,    // Profile Position relativo
-    AXIS_MOVE_VELOCITY := 7,    // Profile Velocity (velocita' con segno)
-    AXIS_JOG_POS       := 8,    // jog positivo (tenuto)
-    AXIS_JOG_NEG       := 9,    // jog negativo (tenuto)
-    AXIS_MOVE_CSP      := 10,   // CSP (modo 8) + OTG verso Data.lrTargetPosition
-    AXIS_STOP          := 11    // Halt (decelerazione controllata)
+    AXIS_MOVE_ABS      := 5,    // absolute Profile Position
+    AXIS_MOVE_REL      := 6,    // relative Profile Position
+    AXIS_MOVE_VELOCITY := 7,    // Profile Velocity (signed velocity)
+    AXIS_JOG_POS       := 8,    // jog positive (held)
+    AXIS_JOG_NEG       := 9,    // jog negative (held)
+    AXIS_MOVE_CSP      := 10,   // CSP (mode 8) + OTG toward Data.lrTargetPosition
+    AXIS_STOP          := 11    // Halt (controlled deceleration)
 ) INT;
 END_TYPE

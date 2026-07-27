@@ -1,14 +1,14 @@
 (* ============================================================
-   U_AXIS_CTRL — UNION bus per il comando asse
-   SML v8 — Livello B / MAPPING (nuovo)
+   U_AXIS_CTRL — Bus UNION for the axis command
+   SML v8 — Level B / MAPPING (new)
 
-   Overlay dello stesso blocco di memoria come:
-     - stData : ST_AXIS_CTRL   (vista tipizzata per la logica)
-     - aRaw   : blocco byte     (vista grezza per il mapping fieldbus)
+   Overlay of the same memory block as:
+     - stData : ST_AXIS_CTRL   (typed view for the logic)
+     - aRaw   : byte block      (raw view for fieldbus mapping)
 
-   Dimensione fissa = MAP_SIZE_CTRL (>= SIZEOF(ST_AXIS_CTRL), verificato
-   da PRG_Mapping_In). Consente di linkare l'elemento al process image come
-   struct o come blocco grezzo senza cambiare la dimensione mappata.
+   Fixed size = MAP_SIZE_CTRL (>= SIZEOF(ST_AXIS_CTRL), checked by
+   PRG_Mapping_In). Lets you link the element to the process image as
+   a struct or as a raw block without changing the mapped size.
    ============================================================ *)
 
 TYPE U_AXIS_CTRL :

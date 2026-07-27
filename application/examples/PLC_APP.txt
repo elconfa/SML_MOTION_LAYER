@@ -1,99 +1,99 @@
 (* ============================================================
-   PLC_APP — Applicazione macchina a 2 assi (esempio d'uso SML)
-   SML v9 — esempio (NON parte della libreria)
+   PLC_APP — 2-axis machine application (SML usage example)
+   SML v9 — example (NOT part of the library)
 
-   Macchina di misura/selezione pezzi su nastro:
-     - Asse 1 (nBelt) = nastro a rotazione continua (velocity), con TouchProbe
-     - Asse 2 (nPos)  = posizionatore
+   Piece measuring/sorting machine on a belt:
+     - Axis 1 (nBelt) = continuously rotating belt (velocity), with TouchProbe
+     - Axis 2 (nPos)  = positioner
 
-   CICLO:
-     HOMING (una volta): asse1 homing sul posto; asse2 homing su sensore+tacca
-       encoder con offset -> riferimento = lrAx2Home (es. 10 mm).
-     Poi a regime:
-       1. asse1 parte in velocity + arma TouchProbe.
-       2. pezzo copre la fotocellula -> TouchProbe latcha (rising); il nastro
-          passa SENZA fermarsi da velocity a Profile Position relativo lrBeltMove
-          (es. 500 mm).
-       3. pezzo libera la fotocellula -> TouchProbe latcha (falling); si ferma il
-          TouchProbe e si calcola la misura = |falling - rising| / Scale.
-       4a. misura > soglia (lrThreshold): il nastro CONTINUA in velocity; il pezzo,
-           passando sotto la fotocellula di uscita (xExitPhotocell), viene
-           certificato espulso (cade a terra). Il ciclo riparte (senza homing).
-       4b. misura <= soglia: si attende che il nastro (PP) si fermi, breve attesa,
-           asse2 AVANTI a lrAx2Fwd assoluto (es. +400 mm), breve attesa, poi
-           CONTEMPORANEAMENTE asse2 torna a lrAx2Zero (0 mm) e asse1 riparte in
-           velocity. Ciclo riparte.
+   CYCLE:
+     HOMING (once): axis1 homes in place; axis2 homes on a sensor+encoder
+       index with an offset -> reference = lrAx2Home (e.g. 10 mm).
+     Then at steady state:
+       1. axis1 starts in velocity + arms the TouchProbe.
+       2. a piece covers the photocell -> TouchProbe latches (rising); the belt
+          switches WITHOUT stopping from velocity to relative Profile Position
+          lrBeltMove (e.g. 500 mm).
+       3. the piece clears the photocell -> TouchProbe latches (falling); the
+          TouchProbe is stopped and the measurement = |falling - rising| / Scale.
+       4a. measurement > threshold (lrThreshold): the belt KEEPS running in velocity;
+           the piece, passing under the exit photocell (xExitPhotocell), is
+           certified as ejected (it falls to the ground). The cycle restarts (no homing).
+       4b. measurement <= threshold: wait for the belt (PP) to stop, a short wait,
+           axis2 goes FORWARD to lrAx2Fwd absolute (e.g. +400 mm), a short wait, then
+           SIMULTANEOUSLY axis2 returns to lrAx2Zero (0 mm) and axis1 restarts in
+           velocity. The cycle restarts.
 
-   PIPELINING: lo scarto NON ferma il nastro; mentre il pezzo scartato viaggia
-   verso la fotocellula di uscita (contato in parallelo da un tracker su
-   xExitPhotocell), un NUOVO pezzo puo' gia' entrare ed essere misurato.
+   PIPELINING: a reject does NOT stop the belt; while the rejected piece travels
+   toward the exit photocell (counted in parallel by a tracker on
+   xExitPhotocell), a NEW piece can already enter and be measured.
 
-   STANDBY: se non arriva alcun pezzo per tIdle, il nastro rallenta e si ferma
-   (xStandby). Da fermo puo' essere ri-azzerato con xHomeBelt; il segnale esterno
-   xResume riattiva la rotazione (uscita da standby).
+   STANDBY: if no piece arrives for tIdle, the belt slows and stops
+   (xStandby). While stopped it can be re-homed with xHomeBelt; the external
+   signal xResume reactivates rotation (exit from standby).
 
-   INTEGRAZIONE: comandi in ingresso (VAR_INPUT) e stato in uscita (VAR_OUTPUT).
-   Mettere PLC_APP nel task INSIEME a MAIN (che esegue gli assi).
+   INTEGRATION: input commands (VAR_INPUT) and output state (VAR_OUTPUT).
+   Put PLC_APP in the task TOGETHER with MAIN (which runs the axes).
 
-   ASSUNZIONI (adattabili via parametri):
-     - fotocellula di misura cablata al trigger TouchProbe del drive dell'asse1 E
-       come ingresso PLC xPhotocell (TRUE = coperta);
-     - fotocellula di uscita (xExitPhotocell) a valle: certifica l'espulsione dei
-       pezzi scartati (nessun attuatore, il pezzo cade dal nastro);
-     - homing dei due assi realizzato dal metodo di homing del drive;
-     - HomeOffset in ENCODER COUNTS (convertito da lrAx2Home * lrScale);
-     - moti asse2 (avanti a lrAx2Fwd, ritorno a lrAx2Zero) ASSOLUTI.
+   ASSUMPTIONS (adaptable via parameters):
+     - the measure photocell is wired to the TouchProbe trigger of axis1's drive AND
+       as the PLC input xPhotocell (TRUE = covered);
+     - the exit photocell (xExitPhotocell) downstream: certifies the ejection of
+       rejected pieces (no actuator, the piece falls off the belt);
+     - homing of the two axes performed by the drive's homing method;
+     - HomeOffset in ENCODER COUNTS (converted from lrAx2Home * lrScale);
+     - axis2 moves (forward to lrAx2Fwd, return to lrAx2Zero) ABSOLUTE.
    ============================================================ *)
 
 PROGRAM PLC_APP
 VAR_INPUT
-    // ── comandi macchina ─────────────────────────────────────
-    xStart      : BOOL;                 // TRUE = avvia/mantieni il ciclo automatico
-    xStop       : BOOL;                 // TRUE = ferma il ciclo (Halt) e vai in idle
-    xReset      : BOOL;                 // (riservato) reset esterno
-    xSafetyOk   : BOOL := TRUE;         // consenso sicurezza (TRUE = marcia)
-    xPhotocell  : BOOL;                 // fotocellula misura: TRUE = coperta da un pezzo
-    xExitPhotocell : BOOL;              // fotocellula di uscita: TRUE = pezzo in transito (espulsione)
-    xResume     : BOOL;                 // segnale esterno: riattiva il nastro dallo standby
-    xHomeBelt   : BOOL;                 // comando: ri-azzera (home) il nastro fermo in standby
+    // ── machine commands ─────────────────────────────────────
+    xStart      : BOOL;                 // TRUE = start/hold the automatic cycle
+    xStop       : BOOL;                 // TRUE = stop the cycle (Halt) and go to idle
+    xReset      : BOOL;                 // (reserved) external reset
+    xSafetyOk   : BOOL := TRUE;         // safety consent (TRUE = run)
+    xPhotocell  : BOOL;                 // measure photocell: TRUE = covered by a piece
+    xExitPhotocell : BOOL;              // exit photocell: TRUE = piece passing through (ejection)
+    xResume     : BOOL;                 // external signal: reactivate the belt from standby
+    xHomeBelt   : BOOL;                 // command: re-home the belt while stopped in standby
 
-    // ── parametri (default d'esempio) ────────────────────────
-    lrScale     : LREAL := 4096.0;      // counts/mm (uguale per i due assi in questo esempio)
-    lrCycleTime : LREAL := 0.001;       // periodo task [s]
-    lrBeltVel   : LREAL := 200.0;       // velocita' nastro [mm/s]
-    lrBeltMove  : LREAL := 500.0;       // corsa PP del nastro dopo il trigger [mm]
-    lrThreshold : LREAL := 300.0;       // soglia misura pezzo [mm]: > -> scarto
-    lrAx2Home   : LREAL := 10.0;        // posizione di riferimento dopo homing asse2 [mm]
-    lrAx2Fwd    : LREAL := 400.0;       // posizione avanti asse2 (assoluta) [mm]
-    lrAx2Zero   : LREAL := 0.0;         // posizione di ritorno asse2 (assoluta) [mm]
-    lrAx2Vel    : LREAL := 150.0;       // velocita' asse2 [mm/s]
-    tWait       : TIME  := T#500MS;     // brevi attese
-    tIdle       : TIME  := T#5S;        // timeout senza pezzi -> standby nastro
+    // ── parameters (example defaults) ────────────────────────
+    lrScale     : LREAL := 4096.0;      // counts/mm (same for both axes in this example)
+    lrCycleTime : LREAL := 0.001;       // task period [s]
+    lrBeltVel   : LREAL := 200.0;       // belt velocity [mm/s]
+    lrBeltMove  : LREAL := 500.0;       // belt PP travel after the trigger [mm]
+    lrThreshold : LREAL := 300.0;       // piece measurement threshold [mm]: > -> reject
+    lrAx2Home   : LREAL := 10.0;        // reference position after axis2 homing [mm]
+    lrAx2Fwd    : LREAL := 400.0;       // axis2 forward position (absolute) [mm]
+    lrAx2Zero   : LREAL := 0.0;         // axis2 return position (absolute) [mm]
+    lrAx2Vel    : LREAL := 150.0;       // axis2 velocity [mm/s]
+    tWait       : TIME  := T#500MS;     // short waits
+    tIdle       : TIME  := T#5S;        // timeout with no pieces -> belt standby
 END_VAR
 VAR_OUTPUT
-    xHomed        : BOOL;               // homing completato (una volta)
-    xRunning      : BOOL;               // ciclo in esecuzione
-    xStandby      : BOOL;               // nastro fermo in standby (nessun pezzo)
-    xError        : BOOL;               // errore su un asse
-    xOversize     : BOOL;               // ultimo pezzo fuori misura (scartato)
-    xEjected      : BOOL;               // impulso: pezzo scartato certificato espulso
-    nRejectCount  : UINT;               // contatore scarti espulsi
-    lrLastMeasure : LREAL;              // ultima misura pezzo [mm]
-    iStep         : INT;                // passo corrente (diagnostica)
-    sDiag         : STRING(80);         // testo diagnostico asse in errore
+    xHomed        : BOOL;               // homing complete (once)
+    xRunning      : BOOL;               // cycle running
+    xStandby      : BOOL;               // belt stopped in standby (no pieces)
+    xError        : BOOL;               // error on an axis
+    xOversize     : BOOL;               // last piece out of tolerance (rejected)
+    xEjected      : BOOL;               // pulse: rejected piece certified ejected
+    nRejectCount  : UINT;               // ejected-reject counter
+    lrLastMeasure : LREAL;              // last piece measurement [mm]
+    iStep         : INT;                // current step (diagnostics)
+    sDiag         : STRING(80);         // diagnostic text of the axis in error
 END_VAR
 VAR CONSTANT
-    nBelt : UINT := 1;                  // indice asse nastro in GVL_AXIS
-    nPos  : UINT := 2;                  // indice asse posizionatore in GVL_AXIS
+    nBelt : UINT := 1;                  // belt axis index in GVL_AXIS
+    nPos  : UINT := 2;                  // positioner axis index in GVL_AXIS
 END_VAR
 VAR
     tonWait : TON;
     tonIdle : TON;
-    ftExit  : F_TRIG;   // fronte di discesa fotocellula di uscita
+    ftExit  : F_TRIG;   // falling edge of the exit photocell
 END_VAR
 
 //------------------------------------------------------------------------------
-// /configurazione assi (ogni ciclo)
+// /axis configuration (every cycle)
 //------------------------------------------------------------------------------
 GVL_AXIS.Ctrl[nBelt].Scale          := lrScale;
 GVL_AXIS.Ctrl[nBelt].CycleTime      := lrCycleTime;
@@ -102,14 +102,14 @@ GVL_AXIS.Ctrl[nPos].Scale           := lrScale;
 GVL_AXIS.Ctrl[nPos].CycleTime       := lrCycleTime;
 GVL_AXIS.Ctrl[nPos].xEmergencyStop  := xSafetyOk;
 
-// timer brevi attese (attivo solo nei passi 75/85, auto-reset uscendo)
+// short-wait timer (active only in steps 75/85, auto-resets on exit)
 tonWait(IN := (iStep = 75) OR (iStep = 85), PT := tWait);
 //------------------------------------------------------------------------------
-// configurazione assi/
+// axis configuration/
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-// /supervisione: errore o stop mentre in ciclo
+// /supervision: error or stop while in the cycle
 //------------------------------------------------------------------------------
 xError := GVL_AXIS.State[nBelt].xError OR GVL_AXIS.State[nPos].xError;
 
@@ -126,25 +126,25 @@ END_IF
 
 xRunning := (iStep <> 0);
 xStandby := (iStep >= 100) AND (iStep <= 120);
-xEjected := FALSE;   // impulso: TRUE solo al passaggio in uscita (tracker parallelo)
+xEjected := FALSE;   // pulse: TRUE only when a piece passes the exit (parallel tracker)
 //------------------------------------------------------------------------------
-// supervisione/
+// supervision/
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-// /espulsione scarti — PARALLELO (il nastro non si ferma; un nuovo pezzo puo'
-//   gia' entrare mentre lo scarto viaggia verso la fotocellula di uscita)
+// /reject ejection — PARALLEL (the belt does not stop; a new piece can
+//   already enter while the reject travels toward the exit photocell)
 //------------------------------------------------------------------------------
 ftExit(CLK := xExitPhotocell);
-IF ftExit.Q THEN                    // fronte di discesa = pezzo scartato passato = espulso
+IF ftExit.Q THEN                    // falling edge = rejected piece passed = ejected
     nRejectCount := nRejectCount + 1;
-    xEjected     := TRUE;           // impulso (1 scan)
+    xEjected     := TRUE;           // pulse (1 scan)
 END_IF
 
-// timer di standby: attivo solo in attesa pezzo, resettato all'arrivo di un pezzo
+// standby timer: active only while waiting for a piece, reset when a piece arrives
 tonIdle(IN := (iStep = 40) AND NOT xPhotocell, PT := tIdle);
 //------------------------------------------------------------------------------
-// espulsione scarti/
+// reject ejection/
 //------------------------------------------------------------------------------
 
 CASE iStep OF
@@ -154,21 +154,21 @@ CASE iStep OF
         GVL_AXIS.Ctrl[nPos].eCmd  := AXIS_NULL;
         IF xStart AND NOT xStop THEN iStep := 5; END_IF
 
-    5: // ENABLE dei due assi
+    5: // ENABLE both axes
         GVL_AXIS.Ctrl[nBelt].eCmd := AXIS_ENABLE;
         GVL_AXIS.Ctrl[nPos].eCmd  := AXIS_ENABLE;
         IF GVL_AXIS.Info[nBelt].xEnabled AND GVL_AXIS.Info[nPos].xEnabled THEN
-            IF xHomed THEN iStep := 30; ELSE iStep := 10; END_IF   // homing una volta
+            IF xHomed THEN iStep := 30; ELSE iStep := 10; END_IF   // homing once
         END_IF
 
-    10: // HOMING asse1 (nastro) — sul posto (metodo drive)
+    10: // HOMING axis1 (belt) — in place (drive method)
         GVL_AXIS.Ctrl[nBelt].eCmd := AXIS_HOME;
         IF GVL_AXIS.State[nBelt].xDone THEN
             GVL_AXIS.Ctrl[nBelt].eCmd := AXIS_NULL;
             iStep := 20;
         END_IF
 
-    20: // HOMING asse2 — sensore + tacca encoder, riferimento = lrAx2Home
+    20: // HOMING axis2 — sensor + encoder index, reference = lrAx2Home
         GVL_AXIS.Ctrl[nPos].HomeOffset := LREAL_TO_DINT(lrAx2Home * lrScale);
         GVL_AXIS.Ctrl[nPos].eCmd       := AXIS_HOME;
         IF GVL_AXIS.State[nPos].xDone THEN
@@ -177,7 +177,7 @@ CASE iStep OF
             iStep  := 30;
         END_IF
 
-    30: // NASTRO in velocity + arma TouchProbe (ingresso ciclo / scansione)
+    30: // BELT in velocity + arm TouchProbe (cycle entry / scanning)
         GVL_AXIS.Data[nBelt].lrVelocity          := lrBeltVel;
         GVL_AXIS.Ctrl[nBelt].eCmd                := AXIS_MOVE_VELOCITY;
         GVL_AXIS.Ctrl[nBelt].xTouchProbeEnable   := TRUE;
@@ -185,18 +185,18 @@ CASE iStep OF
         GVL_AXIS.Ctrl[nBelt].xTouchProbeFalling  := TRUE;
         iStep := 40;
 
-    40: // attesa pezzo (fotocellula coperta); se nessun pezzo per tIdle -> standby
+    40: // wait for a piece (photocell covered); if none for tIdle -> standby
         IF xPhotocell THEN
-            // rising latchato in HW; nastro da velocity a PP relativo, senza fermarsi
+            // rising latched in HW; belt from velocity to relative PP, without stopping
             GVL_AXIS.Data[nBelt].lrTargetPosition := lrBeltMove;
             GVL_AXIS.Data[nBelt].lrVelocity       := lrBeltVel;
             GVL_AXIS.Ctrl[nBelt].eCmd             := AXIS_MOVE_REL;
             iStep := 50;
         ELSIF tonIdle.Q THEN
-            iStep := 100;                          // nessun pezzo -> standby
+            iStep := 100;                          // no piece -> standby
         END_IF
 
-    50: // attesa pezzo passato (fotocellula liberata) + analisi misura
+    50: // wait for the piece to pass (photocell cleared) + measurement analysis
         IF NOT xPhotocell THEN
             lrLastMeasure := ABS(DINT_TO_LREAL(
                                  GVL_AXIS.Info[nBelt].TouchProbeFallingValue
@@ -204,64 +204,64 @@ CASE iStep OF
             GVL_AXIS.Ctrl[nBelt].xTouchProbeEnable := FALSE;   // stop TouchProbe
             xOversize := (lrLastMeasure > lrThreshold);
             IF xOversize THEN
-                // SCARTO non bloccante: il nastro torna in velocity e NON si ferma;
-                // il pezzo sara' espulso (cade) e certificato dal tracker parallelo
-                // su xExitPhotocell. Si riprende SUBITO a misurare (pipelining):
-                // un nuovo pezzo puo' entrare mentre lo scarto esce.
+                // non-blocking REJECT: the belt returns to velocity and does NOT stop;
+                // the piece will be ejected (it falls) and certified by the parallel
+                // tracker on xExitPhotocell. Measuring resumes IMMEDIATELY (pipelining):
+                // a new piece can enter while the reject exits.
                 GVL_AXIS.Data[nBelt].lrVelocity := lrBeltVel;
                 GVL_AXIS.Ctrl[nBelt].eCmd       := AXIS_MOVE_VELOCITY;
                 iStep := 30;
             ELSE
-                iStep := 70;          // buono: ferma e processa con asse2
+                iStep := 70;          // good: stop and process with axis2
             END_IF
         END_IF
 
-    70: // BUONO: attende che il nastro (PP) si sia fermato
+    70: // GOOD: wait for the belt (PP) to have stopped
         IF GVL_AXIS.State[nBelt].xDone THEN iStep := 75; END_IF
 
-    75: // breve attesa, poi asse2 AVANTI a lrAx2Fwd (assoluto, es. +400)
+    75: // short wait, then axis2 FORWARD to lrAx2Fwd (absolute, e.g. +400)
         IF tonWait.Q THEN
             GVL_AXIS.Ctrl[nBelt].eCmd             := AXIS_NULL;
-            GVL_AXIS.Data[nPos].lrTargetPosition  := lrAx2Fwd;     // avanti a +400
+            GVL_AXIS.Data[nPos].lrTargetPosition  := lrAx2Fwd;     // forward to +400
             GVL_AXIS.Data[nPos].lrVelocity        := lrAx2Vel;
             GVL_AXIS.Ctrl[nPos].eCmd              := AXIS_MOVE_ABS;
             iStep := 80;
         END_IF
 
-    80: // attesa asse2 in posizione avanti
+    80: // wait for axis2 at the forward position
         IF GVL_AXIS.State[nPos].xDone THEN iStep := 85; END_IF
 
-    85: // breve attesa, poi CONTEMPORANEAMENTE asse2 torna a 0 e nastro in velocity
+    85: // short wait, then SIMULTANEOUSLY axis2 returns to 0 and belt in velocity
         IF tonWait.Q THEN
-            GVL_AXIS.Data[nPos].lrTargetPosition := lrAx2Zero;     // ritorno assoluto a 0
+            GVL_AXIS.Data[nPos].lrTargetPosition := lrAx2Zero;     // absolute return to 0
             GVL_AXIS.Data[nPos].lrVelocity       := lrAx2Vel;
             GVL_AXIS.Ctrl[nPos].eCmd             := AXIS_MOVE_ABS;
-            iStep := 30;              // riavvia nastro (velocity + TP), asse2 in parallelo
+            iStep := 30;              // restart belt (velocity + TP), axis2 in parallel
         END_IF
 
-    100: // STANDBY: rallenta e ferma il nastro (nessun pezzo da tIdle)
-        GVL_AXIS.Ctrl[nBelt].eCmd              := AXIS_STOP;   // Halt = decelera e tiene
+    100: // STANDBY: slow down and stop the belt (no piece for tIdle)
+        GVL_AXIS.Ctrl[nBelt].eCmd              := AXIS_STOP;   // Halt = decelerate and hold
         GVL_AXIS.Ctrl[nBelt].xTouchProbeEnable := FALSE;
         IF NOT GVL_AXIS.Info[nBelt].xMoving THEN
             GVL_AXIS.Ctrl[nBelt].eCmd := AXIS_NULL;
             iStep := 110;
         END_IF
 
-    110: // STANDBY fermo: attende home (ri-azzeramento) o segnale di ripresa
+    110: // STANDBY stopped: wait for home (re-zeroing) or a resume signal
         IF xHomeBelt THEN
-            iStep := 120;                 // ri-azzera il nastro sul posto
+            iStep := 120;                 // re-home the belt in place
         ELSIF xResume THEN
-            iStep := 30;                  // riattiva rotazione (esce da standby)
+            iStep := 30;                  // reactivate rotation (exit standby)
         END_IF
 
-    120: // STANDBY home: ri-azzera il nastro sul posto, poi torna in standby
+    120: // STANDBY home: re-home the belt in place, then back to standby
         GVL_AXIS.Ctrl[nBelt].eCmd := AXIS_HOME;
         IF GVL_AXIS.State[nBelt].xDone THEN
             GVL_AXIS.Ctrl[nBelt].eCmd := AXIS_NULL;
             iStep := 110;
         END_IF
 
-    200: // STOP richiesto — Halt dei due assi, poi idle
+    200: // STOP requested — Halt both axes, then idle
         GVL_AXIS.Ctrl[nBelt].eCmd := AXIS_STOP;
         GVL_AXIS.Ctrl[nPos].eCmd  := AXIS_STOP;
         IF (NOT GVL_AXIS.Info[nBelt].xMoving) AND (NOT GVL_AXIS.Info[nPos].xMoving) THEN
@@ -271,7 +271,7 @@ CASE iStep OF
             iStep := 0;
         END_IF
 
-    900: // ERRORE — reset dei due assi, poi idle (serve nuovo xStart)
+    900: // ERROR — reset both axes, then idle (needs a new xStart)
         GVL_AXIS.Ctrl[nBelt].eCmd := AXIS_RESET;
         GVL_AXIS.Ctrl[nPos].eCmd  := AXIS_RESET;
         IF NOT xError THEN

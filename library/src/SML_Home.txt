@@ -37,7 +37,7 @@ VAR_OUTPUT
     xBusy  : BOOL; // Homing sequence in progress
     xDone  : BOOL; // Homing completed successfully
     xError : BOOL; // Error: fault, stall, timeout, or operator abort
-    eProgress : E_PROGRESS; // Livello A: avanzamento unificato (proiezione di iState)
+    eProgress : E_PROGRESS; // Level A: unified progress (projection of iState)
 END_VAR
 VAR
     iState     : INT;
@@ -146,7 +146,7 @@ CASE iState OF
 
 END_CASE
 
-// ── Livello A: proiezione avanzamento unificato (E_PROGRESS) ──────────────
+// ── Level A: unified progress projection (E_PROGRESS) ──────────────
 IF    xError     THEN eProgress := PROGRESS_ERROR;
 ELSIF xDone      THEN eProgress := PROGRESS_DONE;
 ELSIF iState = 0 THEN eProgress := PROGRESS_INVALID;

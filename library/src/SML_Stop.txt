@@ -25,7 +25,7 @@ VAR_INPUT
 END_VAR
 VAR_OUTPUT
     xStopped : BOOL; // TRUE when Halt active and drive reports standstill
-    eProgress : E_PROGRESS; // Livello A: avanzamento unificato
+    eProgress : E_PROGRESS; // Level A: unified progress
 END_VAR
 
 // ── Halt bit (ControlWord bit 8) — every cycle ────────────────────────────
@@ -37,8 +37,8 @@ Axis.ControlWord.8 := xStop;
 // and "Drive Halted" / "Speed Zero" on many drives in Halt condition.
 xStopped := xStop AND Axis.StatusWord.10;
 
-// ── Livello A: proiezione avanzamento unificato (E_PROGRESS) ──────────────
+// ── Level A: unified progress projection (E_PROGRESS) ──────────────
 IF    NOT xStop  THEN eProgress := PROGRESS_INVALID;
 ELSIF xStopped   THEN eProgress := PROGRESS_DONE;
-ELSE                  eProgress := PROGRESS_BUSY;   // in decelerazione
+ELSE                  eProgress := PROGRESS_BUSY;   // decelerating
 END_IF

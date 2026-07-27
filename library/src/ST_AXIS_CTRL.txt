@@ -1,30 +1,30 @@
 (* ============================================================
-   ST_AXIS_CTRL — Struttura di comando (app -> layer)
-   SML v6 — Livello B (nuovo)
+   ST_AXIS_CTRL — Command structure (app -> layer)
+   SML v6 — Level B (new)
 
-   Contratto dati "Ctrl" del pattern Motion Layer. Struttura piatta
-   e serializzabile (nessun puntatore/interfaccia dentro): accessibile
-   via simbolo ADS o copiabile su bus (predisposizione MAPPING).
+   The "Ctrl" data contract of the Motion Layer pattern. A flat,
+   serializable structure (no pointer/interface inside): accessible
+   via ADS symbol or copyable onto a bus (MAPPING groundwork).
 
-   Il comando eCmd e' level-based. I parametri di moto stanno in
+   The eCmd command is level-based. Motion parameters live in
    ST_MOVE_DATA ("Data").
    ============================================================ *)
 
 TYPE ST_AXIS_CTRL :
 STRUCT
-    eCmd           : E_AXIS_CTRL;        // comando richiesto
+    eCmd           : E_AXIS_CTRL;        // requested command
     xEmergencyStop : BOOL := TRUE;       // TRUE = run / FALSE = quick-stop (CiA402 bit 2)
-    xSimulation    : BOOL;               // specchia Target_Position -> Position_Actual_Value
+    xSimulation    : BOOL;               // mirror Target_Position -> Position_Actual_Value
 
-    // ── configurazione (raramente variabile) ────────────────
-    Scale          : LREAL := 4096.0;    // [counts/unita'] — deve essere > 0
-    CycleTime      : LREAL := 0.001;     // [s] — deve combaciare col task (OTG)
-    PositionWindow : LREAL := 0.01;      // deadband in-posizione [unita']
-    HomeOffset     : DINT  := 0;         // offset homing [encoder counts] -> 0x607C
+    // ── configuration (rarely changed) ───────────────────────
+    Scale          : LREAL := 4096.0;    // [counts/unit] — must be > 0
+    CycleTime      : LREAL := 0.001;     // [s] — must match the task (OTG)
+    PositionWindow : LREAL := 0.01;      // in-position deadband [units]
+    HomeOffset     : DINT  := 0;         // homing offset [encoder counts] -> 0x607C
 
-    // ── TouchProbe (parallelo al moto, non e' un eCmd) ───────
-    xTouchProbeEnable  : BOOL;           // arma l'hardware TouchProbe
-    xTouchProbeRising  : BOOL;           // arma il latch sul fronte di salita
-    xTouchProbeFalling : BOOL;           // arma il latch sul fronte di discesa
+    // ── TouchProbe (parallel to motion, not an eCmd) ──────────
+    xTouchProbeEnable  : BOOL;           // arm the TouchProbe hardware
+    xTouchProbeRising  : BOOL;           // arm the latch on the rising edge
+    xTouchProbeFalling : BOOL;           // arm the latch on the falling edge
 END_STRUCT
 END_TYPE

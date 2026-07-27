@@ -1,13 +1,13 @@
 (* ============================================================
-   PRG_IoLink_In — Bridge I/O: immagine INPUT -> struct asse
-   SML v9 — bridge I/O (nuovo)
+   PRG_IoLink_In — I/O bridge: INPUT image -> axis struct
+   SML v9 — I/O bridge (new)
 
-   Copia GVL_IO.DriveIn[n] (TxPDO del drive) in GVL_AXIS.Axis[n]
-   (campi input). Chiamare all'INIZIO del task, PRIMA di MAIN, cosi'
-   il calcolo usa input freschi (zero ritardo).
+   Copies GVL_IO.DriveIn[n] (drive TxPDO) into GVL_AXIS.Axis[n]
+   (input fields). Call at the START of the task, BEFORE MAIN, so
+   the computation uses fresh inputs (zero delay).
 
-   GATE: attivo solo se GVL_IO.IO_LINK_ENABLE = TRUE; altrimenti
-   bypass (es. simulazione, o CoDeSys con link diretto).
+   GATE: active only if GVL_IO.IO_LINK_ENABLE = TRUE; otherwise
+   bypass (e.g. simulation, or CoDeSys with a direct link).
    ============================================================ *)
 
 PROGRAM PRG_IoLink_In

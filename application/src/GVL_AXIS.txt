@@ -1,28 +1,28 @@
 (* ============================================================
-   GVL_AXIS — Array per-asse del Motion Layer SML
-   SML v7 — Livello B (nuovo)
+   GVL_AXIS — Per-axis arrays of the SML Motion Layer
+   SML v7 — Level B (new)
 
-   Equivalente di GVL_AXIS di PLC_MOTION_LAYER, ma:
-     - il livello di esecuzione e' FB_AxisCtrl (FB foglia SML),
-       non FB_McAxisCtrl (MC_*);
-     - il cablaggio e' via VAR_IN_OUT (nessun array di puntatori):
-       MAIN passa Axis/Ctrl/Data/State/Info[nAxis] nella chiamata.
+   Equivalent to GVL_AXIS of PLC_MOTION_LAYER, but:
+     - the execution level is FB_AxisCtrl (SML leaf FBs),
+       not FB_McAxisCtrl (MC_*);
+     - wiring is via VAR_IN_OUT (no pointer array):
+       MAIN passes Axis/Ctrl/Data/State/Info[nAxis] in the call.
 
-   Axis[]  : immagini PDO del drive; collegare all'I/O con SML_TC3Link.
-   Ctrl[]/Data[]  : comando + setpoint  (app -> layer)
-   State[]/Info[] : esito + valori attuali (layer -> app)
-   Control[]      : FB di controllo per asse
-   ItfSmlAxis[]   : accesso a interfaccia per coordinatori di alto livello
+   Axis[]  : drive PDO images; link to the I/O with SML_TC3Link.
+   Ctrl[]/Data[]  : command + setpoint  (app -> layer)
+   State[]/Info[] : result + actual values (layer -> app)
+   Control[]      : per-axis control FB
+   ItfSmlAxis[]   : interface access for high-level coordinators
    ============================================================ *)
 
 {attribute 'qualified_only'}
 VAR_GLOBAL
-    Axis       : ARRAY[1..GVL_App.MAX_AXIS] OF OpenSML_Axis;    // immagine PDO (link I/O)
-    Ctrl       : ARRAY[1..GVL_App.MAX_AXIS] OF ST_AXIS_CTRL;    // comando + config
-    Data       : ARRAY[1..GVL_App.MAX_AXIS] OF ST_MOVE_DATA;    // setpoint moto
-    State      : ARRAY[1..GVL_App.MAX_AXIS] OF ST_AXIS_STATE;   // esito + stato combinato
-    Info       : ARRAY[1..GVL_App.MAX_AXIS] OF ST_AXIS_INFO;    // valori attuali
+    Axis       : ARRAY[1..GVL_App.MAX_AXIS] OF OpenSML_Axis;    // PDO image (I/O link)
+    Ctrl       : ARRAY[1..GVL_App.MAX_AXIS] OF ST_AXIS_CTRL;    // command + config
+    Data       : ARRAY[1..GVL_App.MAX_AXIS] OF ST_MOVE_DATA;    // motion setpoint
+    State      : ARRAY[1..GVL_App.MAX_AXIS] OF ST_AXIS_STATE;   // result + combined state
+    Info       : ARRAY[1..GVL_App.MAX_AXIS] OF ST_AXIS_INFO;    // actual values
 
-    Control    : ARRAY[1..GVL_App.MAX_AXIS] OF FB_AxisCtrl;  // FB di controllo per asse
-    ItfSmlAxis : ARRAY[1..GVL_App.MAX_AXIS] OF I_Axis;       // accesso a interfaccia (I_Axis)
+    Control    : ARRAY[1..GVL_App.MAX_AXIS] OF FB_AxisCtrl;  // per-axis control FB
+    ItfSmlAxis : ARRAY[1..GVL_App.MAX_AXIS] OF I_Axis;       // interface access (I_Axis)
 END_VAR

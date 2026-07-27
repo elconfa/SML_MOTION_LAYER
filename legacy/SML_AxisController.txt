@@ -25,7 +25,7 @@ VAR_IN_OUT
     Control : OpenSML_Control;
 END_VAR
 VAR_OUTPUT
-    eProgress : E_PROGRESS; // Livello A: avanzamento unificato (proiezione di iState)
+    eProgress : E_PROGRESS; // Level A: unified progress (projection of iState)
 END_VAR
 VAR
     Power         : SML_Power;
@@ -192,7 +192,7 @@ Diag(
     FollowingError   => Control.FollowingError,
     FaultCount       => Control.FaultCount);
 
-// ── Livello A: proiezione avanzamento unificato (E_PROGRESS) ──────────────
+// ── Level A: unified progress projection (E_PROGRESS) ──────────────
 IF    Control.xError                      THEN eProgress := PROGRESS_ERROR;
 ELSIF iState = 20 AND Control.xInPosition THEN eProgress := PROGRESS_DONE;
 ELSIF iState = 0                          THEN eProgress := PROGRESS_INVALID;

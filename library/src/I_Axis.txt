@@ -1,73 +1,73 @@
 (* ============================================================
-   I_Axis — Interfaccia asse (equivalente di I_McAxis)
-   SML v6 — Livello B (nuovo)
+   I_Axis — Axis interface (equivalent of I_McAxis)
+   SML v6 — Level B (new)
 
-   Facciata a metodi per pilotare un asse senza dipendere
-   dall'implementazione. Serve a coordinatori di alto livello
-   (in futuro: CAM/NCI/sincronismi) per manovrare gli assi.
+   A method facade to drive an axis without depending on the
+   implementation. It serves high-level coordinators (in the
+   future: CAM/NCI/gearing) to maneuver the axes.
 
-   SEMANTICA: i metodi sono SETTER. Impostano Ctrl.eCmd + Data e
-   ritornano l'avanzamento corrente (State.eProgress). L'esecuzione
-   vera avviene nel corpo ciclico di FB_AxisCtrl, che DEVE essere
-   chiamato ogni ciclo. Usare O i metodi O la struct Ctrl, non
-   entrambi contemporaneamente sullo stesso asse.
+   SEMANTICS: the methods are SETTERS. They set Ctrl.eCmd + Data and
+   return the current progress (State.eProgress). The actual
+   execution happens in the cyclic body of FB_AxisCtrl, which MUST
+   be called every cycle. Use EITHER the methods OR the Ctrl struct,
+   not both at the same time on the same axis.
 
-   Rappresentazione testuale: in CoDeSys ogni METHOD/PROPERTY qui
-   elencato e' un oggetto separato sotto l'INTERFACE I_Axis.
+   Textual representation: in CoDeSys each METHOD/PROPERTY listed
+   here is a separate object under the INTERFACE I_Axis.
    ============================================================ *)
 
 INTERFACE I_Axis
 
-// ── METHODS (ritornano E_PROGRESS) ─────────────────────────────
+// ── METHODS (return E_PROGRESS) ────────────────────────────────
 
 METHOD Enable : E_PROGRESS
-// (nessun parametro)
+// (no parameters)
 
 METHOD Disable : E_PROGRESS
-// (nessun parametro)
+// (no parameters)
 
 METHOD Reset : E_PROGRESS
-// (nessun parametro)
+// (no parameters)
 
 METHOD Home : E_PROGRESS
-// (nessun parametro; usa Ctrl.HomeOffset)
+// (no parameters; uses Ctrl.HomeOffset)
 
 METHOD MoveAbsolute : E_PROGRESS
 VAR_INPUT
-    lrPosition : LREAL;   // [unita']
-    lrVelocity : LREAL;   // [unita'/s]
+    lrPosition : LREAL;   // [units]
+    lrVelocity : LREAL;   // [units/s]
 END_VAR
 
 METHOD MoveRelative : E_PROGRESS
 VAR_INPUT
-    lrDistance : LREAL;   // [unita']
-    lrVelocity : LREAL;   // [unita'/s]
+    lrDistance : LREAL;   // [units]
+    lrVelocity : LREAL;   // [units/s]
 END_VAR
 
 METHOD MoveVelocity : E_PROGRESS
 VAR_INPUT
-    lrVelocity : LREAL;   // [unita'/s] con segno
+    lrVelocity : LREAL;   // [units/s] signed
 END_VAR
 
 METHOD Jog : E_PROGRESS
 VAR_INPUT
     xForward   : BOOL;
     xReverse   : BOOL;
-    lrVelocity : LREAL;   // magnitudo [unita'/s]
+    lrVelocity : LREAL;   // magnitude [units/s]
 END_VAR
 
 METHOD MoveFollow : E_PROGRESS   // CSP + OTG (jerk-limited)
 VAR_INPUT
-    lrPosition : LREAL;   // [unita'] — ri-targettabile online
-    lrVelocity : LREAL;   // [unita'/s]
+    lrPosition : LREAL;   // [units] — online re-targetable
+    lrVelocity : LREAL;   // [units/s]
 END_VAR
 
 METHOD Stop : E_PROGRESS
-// (nessun parametro)
+// (no parameters)
 
 // ── PROPERTIES (get) ───────────────────────────────────────────
 
-PROPERTY Position : LREAL     // posizione attuale [unita']  (get)
-PROPERTY Enabled  : BOOL      // drive OperationEnabled       (get)
+PROPERTY Position : LREAL     // actual position [units]  (get)
+PROPERTY Enabled  : BOOL      // drive OperationEnabled     (get)
 
 END_INTERFACE

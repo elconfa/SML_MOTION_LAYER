@@ -1,23 +1,23 @@
 (* ============================================================
-   ST_MOVE_DATA — Setpoint e vincoli dinamici (app -> layer)
-   SML v6 — Livello B (nuovo)
+   ST_MOVE_DATA — Setpoints and dynamic limits (app -> layer)
+   SML v6 — Level B (new)
 
-   Contratto dati "Data". Tutti i valori sono in UNITA' UTENTE (LREAL).
-   FB_AxisCtrl converte in unita' grezze del drive tramite Ctrl.Scale
-   prima di passarle agli FB foglia (PP/PV/Jog); il percorso CSP/OTG
-   lavora direttamente in unita' utente.
+   The "Data" data contract. All values are in USER UNITS (LREAL).
+   FB_AxisCtrl converts to the drive's raw units via Ctrl.Scale
+   before passing them to the leaf FBs (PP/PV/Jog); the CSP/OTG
+   path works directly in user units.
 
-   NOTA scaling: si assume scala velocita'/accelerazione = scala
-   posizione (moltiplicazione per Scale). Per drive con unita' di
-   velocita' 0x6081/0x60FF diverse, raffinare la conversione nel FB.
+   Scaling note: velocity/acceleration scale is assumed equal to
+   position scale (multiply by Scale). For drives whose velocity
+   units 0x6081/0x60FF differ, refine the conversion in the FB.
    ============================================================ *)
 
 TYPE ST_MOVE_DATA :
 STRUCT
-    lrTargetPosition : LREAL;              // target [unita'] per MOVE_ABS/REL/CSP
-    lrVelocity       : LREAL := 10.0;      // velocita' [unita'/s]; con segno per MOVE_VELOCITY
-    lrAcceleration   : LREAL := 1000.0;    // [unita'/s^2]
-    lrDeceleration   : LREAL := 1000.0;    // [unita'/s^2]
-    lrJerk           : LREAL := 10000.0;   // [unita'/s^3] — solo CSP/OTG
+    lrTargetPosition : LREAL;              // target [units] for MOVE_ABS/REL/CSP
+    lrVelocity       : LREAL := 10.0;      // velocity [units/s]; signed for MOVE_VELOCITY
+    lrAcceleration   : LREAL := 1000.0;    // [units/s^2]
+    lrDeceleration   : LREAL := 1000.0;    // [units/s^2]
+    lrJerk           : LREAL := 10000.0;   // [units/s^3] — CSP/OTG only
 END_STRUCT
 END_TYPE

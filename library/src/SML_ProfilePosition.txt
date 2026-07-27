@@ -42,7 +42,7 @@ VAR_OUTPUT
     xBusy   : BOOL; // Setpoint acknowledged (bit 12), motion in progress
     xMoving : BOOL; // Axis velocity ≠ 0 (StatusWord bit 14 = 0 on many drives)
     xError  : BOOL; // Fault (bit 3) or following error (bit 13)
-    eProgress : E_PROGRESS; // Livello A: avanzamento unificato (proiezione di iState)
+    eProgress : E_PROGRESS; // Level A: unified progress (projection of iState)
 END_VAR
 VAR
     iState : INT;
@@ -151,7 +151,7 @@ CASE iState OF
 
 END_CASE
 
-// ── Livello A: proiezione avanzamento unificato (E_PROGRESS) ──────────────
+// ── Level A: unified progress projection (E_PROGRESS) ──────────────
 IF    xError     THEN eProgress := PROGRESS_ERROR;
 ELSIF xDone      THEN eProgress := PROGRESS_DONE;
 ELSIF iState = 0 THEN eProgress := PROGRESS_INVALID;

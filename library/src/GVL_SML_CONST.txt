@@ -1,23 +1,23 @@
 (* ============================================================
-   GVL_SML_CONST — Costanti di LIBRERIA (invarianti)
+   GVL_SML_CONST — LIBRARY constants (invariants)
    SML
 
-   Solo costanti proprie della libreria (non dipendono dalla macchina).
-   La configurazione applicativa (numero assi) sta in GVL_App.MAX_AXIS.
-   Riferimento qualificato: GVL_SML_CONST.PROGRESS_SPAN, ...
+   Only constants owned by the library (machine-independent).
+   The application configuration (number of axes) lives in GVL_App.MAX_AXIS.
+   Qualified reference: GVL_SML_CONST.PROGRESS_SPAN, ...
    ============================================================ *)
 
 {attribute 'qualified_only'}
 VAR_GLOBAL CONSTANT
-    PROGRESS_SPAN : DINT := 100;   // ampiezza banda progress nello stato combinato
-                                   // (E_AXIS_STATE sono multipli di questo valore)
+    PROGRESS_SPAN : DINT := 100;   // progress band width in the combined state
+                                   // (E_AXIS_STATE values are multiples of this)
 
-    // ── MAPPING: dimensione fissa (byte) dei blocchi bus per le UNION ──
-    // Devono essere >= SIZEOF della struct corrispondente (verificato a
-    // runtime da PRG_Mapping_In/Out via Check). Fissi per stabilita' del
-    // process image sul fieldbus.
+    // ── MAPPING: fixed size (bytes) of the bus blocks for the UNIONs ──
+    // Must be >= SIZEOF of the corresponding struct (checked at runtime
+    // by PRG_Mapping_In/Out via Check). Fixed for a stable process image
+    // on the fieldbus.
     MAP_SIZE_CTRL  : UDINT := 64;    // >= SIZEOF(ST_AXIS_CTRL)
     MAP_SIZE_DATA  : UDINT := 64;    // >= SIZEOF(ST_MOVE_DATA)
-    MAP_SIZE_STATE : UDINT := 256;   // >= SIZEOF(ST_AXIS_STATE) (contiene 2x STRING(80))
-    MAP_SIZE_INFO  : UDINT := 128;   // >= SIZEOF(ST_AXIS_INFO) (con Status + TouchProbe)
+    MAP_SIZE_STATE : UDINT := 256;   // >= SIZEOF(ST_AXIS_STATE) (holds 2x STRING(80))
+    MAP_SIZE_INFO  : UDINT := 128;   // >= SIZEOF(ST_AXIS_INFO) (with Status + TouchProbe)
 END_VAR

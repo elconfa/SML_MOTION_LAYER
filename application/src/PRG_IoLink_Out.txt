@@ -1,12 +1,12 @@
 (* ============================================================
-   PRG_IoLink_Out — Bridge I/O: struct asse -> immagine OUTPUT
-   SML v9 — bridge I/O (nuovo)
+   PRG_IoLink_Out — I/O bridge: axis struct -> OUTPUT image
+   SML v9 — I/O bridge (new)
 
-   Copia GVL_AXIS.Axis[n] (campi output) in GVL_IO.DriveOut[n]
-   (RxPDO del drive). Chiamare alla FINE del task, DOPO MAIN, cosi'
-   gli output riflettono il calcolo del ciclo corrente (zero ritardo).
+   Copies GVL_AXIS.Axis[n] (output fields) into GVL_IO.DriveOut[n]
+   (drive RxPDO). Call at the END of the task, AFTER MAIN, so the
+   outputs reflect the current cycle's computation (zero delay).
 
-   GATE: attivo solo se GVL_IO.IO_LINK_ENABLE = TRUE; altrimenti bypass.
+   GATE: active only if GVL_IO.IO_LINK_ENABLE = TRUE; otherwise bypass.
    ============================================================ *)
 
 PROGRAM PRG_IoLink_Out

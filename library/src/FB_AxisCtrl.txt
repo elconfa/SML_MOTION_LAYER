@@ -1,30 +1,30 @@
 (* ============================================================
-   FB_AxisCtrl — FB di controllo asse a comandi (Livello B)
-   SML v6 — nuovo
+   FB_AxisCtrl — Command-driven axis control FB (Level B)
+   SML v6 — new
 
-   Porta il pattern Motion Layer di PLC_MOTION_LAYER su SML: al posto
-   di wrappare gli MC_* Beckhoff, questo FB pilota DIRETTAMENTE gli FB
-   foglia CiA402 di SML (Power/Home/ProfilePosition/ProfileVelocity/
-   Jog/Stop) + il percorso CSP con FB_S7RTT_OTG.
+   Brings the Motion Layer pattern of PLC_MOTION_LAYER onto SML:
+   instead of wrapping the Beckhoff MC_*, this FB drives DIRECTLY
+   SML's CiA402 leaf FBs (Power/Home/ProfilePosition/ProfileVelocity/
+   Jog/Stop) + the CSP path with FB_S7RTT_OTG.
 
-   SUPERSET di FB_SML (v9): integra anche il decoder di stato completo
-   SML_Status (-> Info.Status, tutti i bit CiA402) e SML_TouchProbe
-   (-> Info.xTouchProbe*, comando via Ctrl.xTouchProbe*). Il TouchProbe
-   e' PARALLELO al moto (non e' un eCmd) e il suo errore alimenta la
-   diagnostica ma NON lo stato di moto combinato (eState).
+   SUPERSET of FB_SML (v9): it also integrates the full status decoder
+   SML_Status (-> Info.Status, all CiA402 bits) and SML_TouchProbe
+   (-> Info.xTouchProbe*, commanded via Ctrl.xTouchProbe*). The TouchProbe
+   is PARALLEL to motion (it is not an eCmd) and its error feeds the
+   diagnostics but NOT the combined motion state (eState).
 
-   INGRESSI / USCITE via contratto dati (VAR_IN_OUT):
-     Axis  : OpenSML_Axis   immagine PDO del drive
-     Ctrl  : ST_AXIS_CTRL   comando (eCmd) + config           (app -> layer)
-     Data  : ST_MOVE_DATA   setpoint moto [unita' utente]     (app -> layer)
-     State : ST_AXIS_STATE  esito + stato combinato           (layer -> app)
-     Info  : ST_AXIS_INFO   valori attuali + bit              (layer -> app)
+   INPUTS / OUTPUTS via the data contract (VAR_IN_OUT):
+     Axis  : OpenSML_Axis   drive PDO image
+     Ctrl  : ST_AXIS_CTRL   command (eCmd) + config             (app -> layer)
+     Data  : ST_MOVE_DATA   motion setpoints [user units]       (app -> layer)
+     State : ST_AXIS_STATE  result + combined state            (layer -> app)
+     Info  : ST_AXIS_INFO   actual values + bits                (layer -> app)
 
-   ARBITRAGGIO: eCmd e' un valore singolo => un solo comando di moto
-   attivo per ciclo. Nessun arbiter esplicito (a differenza di FB_SML).
+   ARBITRATION: eCmd is a single value => only one motion command
+   active per cycle. No explicit arbiter (unlike FB_SML).
 
-   ENTRY-POINT: chiamare ciclicamente. In alternativa alla scrittura di
-   Ctrl.eCmd, si possono usare i metodi di I_Axis (setter equivalenti).
+   ENTRY-POINT: call cyclically. As an alternative to writing
+   Ctrl.eCmd, you can use the I_Axis methods (equivalent setters).
 
    IMPLEMENTS I_Axis.
    ============================================================ *)
@@ -38,7 +38,7 @@ VAR_IN_OUT
     Info  : ST_AXIS_INFO;
 END_VAR
 VAR
-    // ── FB foglia (livello esecuzione, al posto degli MC_*) ──
+    // ── leaf FBs (execution level, in place of the MC_*) ──────
     inst_Power   : SML_Power;
     inst_Reset   : SML_Reset;
     inst_Home    : SML_Home;
@@ -47,23 +47,23 @@ VAR
     inst_Jog     : SML_ProfileVelocity_Jog;
     inst_Stop       : SML_Stop;
     inst_Diag       : SML_Diagnostics;
-    inst_Status     : SML_Status;         // decoder CiA402 completo (superset FB_SML)
-    inst_TouchProbe : SML_TouchProbe;     // TouchProbe (parallelo al moto)
+    inst_Status     : SML_Status;         // full CiA402 decoder (superset of FB_SML)
+    inst_TouchProbe : SML_TouchProbe;     // TouchProbe (parallel to motion)
     otg          : FB_S7RTT_OTG;
 
-    // ── comando ──────────────────────────────────────────────
+    // ── command ───────────────────────────────────────────────
     _eCmd, _eCmdOld : E_AXIS_CTRL;
 
     // ── latch / pulse ────────────────────────────────────────
-    _bEnableReq  : BOOL;       // richiesta abilitazione (ENABLE/DISABLE)
-    _xReset      : BOOL;       // reset attivo (level)
-    _xHomedLatch : BOOL;       // homing eseguito almeno una volta
-    _eCspState   : INT;        // sotto-stato CSP: 0 seed, 1 run
+    _bEnableReq  : BOOL;       // enable request (ENABLE/DISABLE)
+    _xReset      : BOOL;       // reset active (level)
+    _xHomedLatch : BOOL;       // homing done at least once
+    _eCspState   : INT;        // CSP sub-state: 0 seed, 1 run
 
-    // ── conversioni unita' (user -> raw drive) ───────────────
+    // ── unit conversions (user -> raw drive) ─────────────────
     _diPos   : DINT;
-    _diVelSg : DINT;           // velocita' con segno (PV)
-    _diVelMg : DINT;           // magnitudo (Jog)
+    _diVelSg : DINT;           // signed velocity (PV)
+    _diVelMg : DINT;           // magnitude (Jog)
     _udiVel  : UDINT;
     _udiAcc  : UDINT;
     _udiDec  : UDINT;
@@ -71,7 +71,7 @@ VAR
     // ── gate ─────────────────────────────────────────────────
     _xMotionEnable : BOOL;
 
-    // ── flag dai FB foglia ───────────────────────────────────
+    // ── flags from the leaf FBs ──────────────────────────────
     _xEnabled, _xPowerErr                          : BOOL;
     _xResetDone, _xResetErr                        : BOOL;
     _xHomeBusy, _xHomeDone, _xHomeErr              : BOOL;
@@ -79,27 +79,27 @@ VAR
     _xAtVel, _xVelMoving, _xVelErr                 : BOOL;
     _xJogMoving, _xJogErr                          : BOOL;
     _xStopped                                      : BOOL;
-    _xTpErr                                        : BOOL;   // TouchProbe error (parallelo)
+    _xTpErr                                        : BOOL;   // TouchProbe error (parallel)
     _xInPos, _xCspErr                              : BOOL;
     _xActiveFault, _xAnyErr                        : BOOL;
 
-    // ── calcolo stato combinato ──────────────────────────────
+    // ── combined-state computation ───────────────────────────
     _eBase : E_AXIS_STATE;
     _eProg : E_PROGRESS;
 END_VAR
 
 //------------------------------------------------------------------------------
-// /input + guardie
+// /input + guards
 //------------------------------------------------------------------------------
 _eCmd := Ctrl.eCmd;
 
-IF Ctrl.Scale = 0.0 THEN Ctrl.Scale := 1.0; END_IF   // guardia divisione
+IF Ctrl.Scale = 0.0 THEN Ctrl.Scale := 1.0; END_IF   // divide-by-zero guard
 
 IF Ctrl.xSimulation THEN
-    Axis.Position_Actual_Value := Axis.Target_Position;  // specchio in simulazione
+    Axis.Position_Actual_Value := Axis.Target_Position;  // mirror in simulation
 END_IF
 
-// latch enable: qualsiasi comando != NULL/DISABLE implica abilitazione
+// enable latch: any command != NULL/DISABLE implies enable
 IF    _eCmd = AXIS_DISABLE THEN _bEnableReq := FALSE;
 ELSIF _eCmd <> AXIS_NULL   THEN _bEnableReq := TRUE;
 END_IF
@@ -107,7 +107,7 @@ END_IF
 _xReset        := (_eCmd = AXIS_RESET);
 _xMotionEnable := _xEnabled AND Ctrl.xEmergencyStop;
 
-// conversioni unita' utente -> grezze del drive (vedi nota scaling in ST_MOVE_DATA)
+// user units -> drive raw units (see scaling note in ST_MOVE_DATA)
 _diPos   := LREAL_TO_DINT (Data.lrTargetPosition * Ctrl.Scale);
 _diVelSg := LREAL_TO_DINT (Data.lrVelocity       * Ctrl.Scale);
 _diVelMg := LREAL_TO_DINT (ABS(Data.lrVelocity)  * Ctrl.Scale);
@@ -115,11 +115,11 @@ _udiVel  := LREAL_TO_UDINT(ABS(Data.lrVelocity)  * Ctrl.Scale);
 _udiAcc  := LREAL_TO_UDINT(Data.lrAcceleration   * Ctrl.Scale);
 _udiDec  := LREAL_TO_UDINT(Data.lrDeceleration   * Ctrl.Scale);
 //------------------------------------------------------------------------------
-// input + guardie/
+// input + guards/
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-// /FB foglia — chiamati ogni ciclo, gate via eCmd (come FB_SML)
+// /leaf FBs — called every cycle, gated via eCmd (like FB_SML)
 //------------------------------------------------------------------------------
 inst_Power(
     Axis           := Axis,
@@ -190,7 +190,7 @@ inst_Stop(
     xStop    := (_eCmd = AXIS_STOP),
     xStopped => _xStopped);
 
-// decoder CiA402 completo (read-only) -> Info.Status
+// full CiA402 decoder (read-only) -> Info.Status
 inst_Status(
     Axis                       := Axis,
     xEnable                    := TRUE,
@@ -224,7 +224,7 @@ inst_Status(
     ActTorque                  => Info.Status.ActTorque,
     FollowingError             => Info.Status.FollowingError);
 
-// TouchProbe (parallelo al moto) -> Info.xTouchProbe*
+// TouchProbe (parallel to motion) -> Info.xTouchProbe*
 inst_TouchProbe(
     Axis                     := Axis,
     xEnable                  := _xMotionEnable,
@@ -240,17 +240,17 @@ inst_TouchProbe(
     TouchProbe_Falling_Value => Info.TouchProbeFallingValue);
 Info.xTouchProbeError := _xTpErr;
 //------------------------------------------------------------------------------
-// FB foglia/
+// leaf FBs/
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-// /CSP + OTG — attivo solo con eCmd = AXIS_MOVE_CSP
+// /CSP + OTG — active only with eCmd = AXIS_MOVE_CSP
 //------------------------------------------------------------------------------
 _xInPos := FALSE;
 IF (_eCmd = AXIS_MOVE_CSP) AND _xMotionEnable THEN
     Info.lrActualPosition := DINT_TO_LREAL(Axis.Position_Actual_Value) / Ctrl.Scale;
     CASE _eCspState OF
-        0: // switch a CSP (modo 8) + seed OTG alla posizione attuale
+        0: // switch to CSP (mode 8) + seed OTG at the actual position
             Axis.Modes_of_operation := 8;
             Axis.ControlWord.3      := (Axis.Modes_of_operation_display = 8);
             otg(
@@ -267,7 +267,7 @@ IF (_eCmd = AXIS_MOVE_CSP) AND _xMotionEnable THEN
                 _eCspState := 1;
             END_IF
 
-        1: // loop di moto CSP
+        1: // CSP motion loop
             otg(
                 xInit            := FALSE,
                 ControlInterface := FALSE,
@@ -282,7 +282,7 @@ IF (_eCmd = AXIS_MOVE_CSP) AND _xMotionEnable THEN
     END_CASE
     _xCspErr := Axis.StatusWord.13 OR Axis.StatusWord.3 OR otg.xError OR _xPowerErr;
 ELSE
-    _eCspState := 0;      // reset del sotto-stato quando non in CSP
+    _eCspState := 0;      // reset the sub-state when not in CSP
     _xCspErr   := FALSE;
 END_IF
 //------------------------------------------------------------------------------
@@ -290,7 +290,7 @@ END_IF
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-// /diagnostica aggregata
+// /aggregated diagnostics
 //------------------------------------------------------------------------------
 inst_Diag(
     Axis             := Axis,
@@ -313,11 +313,11 @@ inst_Diag(
     FollowingError   => ,
     FaultCount       => );
 //------------------------------------------------------------------------------
-// diagnostica aggregata/
+// aggregated diagnostics/
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-// /Info (feedback) + errore aggregato
+// /Info (feedback) + aggregated error
 //------------------------------------------------------------------------------
 Info.lrActualPosition := DINT_TO_LREAL(Axis.Position_Actual_Value) / Ctrl.Scale;
 Info.lrActualVelocity := DINT_TO_LREAL(Axis.Velocity_Actual_Value) / Ctrl.Scale;
@@ -329,11 +329,11 @@ Info.xInPosition      := _xInPos;
 _xAnyErr := _xPowerErr OR _xHomeErr OR _xMoveErr OR _xVelErr
             OR _xJogErr OR _xCspErr OR _xResetErr;
 //------------------------------------------------------------------------------
-// Info + errore/
+// Info + error/
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-// /stato combinato  eState = E_AXIS_STATE + E_PROGRESS
+// /combined state  eState = E_AXIS_STATE + E_PROGRESS
 //------------------------------------------------------------------------------
 IF _xAnyErr THEN
     _eBase := AXIS_STATE_ERROR;
@@ -374,7 +374,7 @@ ELSE
 
         AXIS_JOG_POS, AXIS_JOG_NEG:
             _eBase := AXIS_STATE_VELOCITY;
-            _eProg := PROGRESS_BUSY;      // jog continuo: nessun DONE discreto
+            _eProg := PROGRESS_BUSY;      // continuous jog: no discrete DONE
 
         AXIS_STOP:
             _eBase := AXIS_STATE_STOPPING;
@@ -383,21 +383,21 @@ ELSE
 END_IF
 
 State.eProgress  := _eProg;
-State.eState     := TO_INT(_eBase) + TO_INT(_eProg);   // stato combinato
+State.eState     := TO_INT(_eBase) + TO_INT(_eProg);   // combined state
 State.eCmdActive := _eCmd;
 State.xError     := _xAnyErr;
 State.xDone      := (_eProg = PROGRESS_DONE);
 
 _eCmdOld := _eCmd;
 //------------------------------------------------------------------------------
-// stato combinato/
+// combined state/
 //------------------------------------------------------------------------------
 
 
 (* ============================================================
-   METODI / PROPRIETA' di I_Axis
-   Codice reale in  FB_AxisCtrl_METHODS.txt  (da creare come
-   oggetti METHOD/PROPERTY sotto questo FB in CoDeSys).
-   Sono setter: impostano Ctrl.eCmd (+ Data) e ritornano
+   METHODS / PROPERTIES of I_Axis
+   Real code in  FB_AxisCtrl_METHODS.txt  (to be created as
+   METHOD/PROPERTY objects under this FB in CoDeSys).
+   They are setters: they set Ctrl.eCmd (+ Data) and return
    State.eProgress.
    ============================================================ *)

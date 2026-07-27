@@ -31,7 +31,7 @@ END_VAR
 VAR_OUTPUT
     xDone  : BOOL; // Drive in OperationEnabled state, ready for motion FBs
     xError : BOOL; // Fault present or power-up sequence timed out
-    eProgress : E_PROGRESS; // Livello A: avanzamento unificato (proiezione di iState)
+    eProgress : E_PROGRESS; // Level A: unified progress (projection of iState)
 END_VAR
 VAR
     iState     : INT;
@@ -151,9 +151,9 @@ CASE iState OF
 
 END_CASE
 
-// ── Livello A: proiezione avanzamento unificato (E_PROGRESS) ──────────────
+// ── Level A: unified progress projection (E_PROGRESS) ──────────────
 IF    xError     THEN eProgress := PROGRESS_ERROR;
 ELSIF xDone      THEN eProgress := PROGRESS_DONE;      // OperationEnabled (iState 50)
 ELSIF iState = 0 THEN eProgress := PROGRESS_INVALID;   // idle
-ELSE                  eProgress := PROGRESS_BUSY;       // sequenza in corso
+ELSE                  eProgress := PROGRESS_BUSY;       // sequence in progress
 END_IF
