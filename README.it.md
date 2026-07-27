@@ -125,7 +125,7 @@ Riferimento completo comandi/API: [`docs/MANUALE_SML.it.md`](docs/MANUALE_SML.it
 
 | Cartella | Contenuto |
 |---|---|
-| **`library/`** | core riusabile (enum, DUT, `I_Axis`, `FB_AxisCtrl`, FB foglia CiA402, funzioni, OTG) — [README](library/README.md) |
+| **`library/`** | core riusabile (enum, DUT, `I_Axis`, `FB_AxisCtrl`, FB foglia CiA402, funzioni, OTG) — [README](library/README.it.md) |
 | **`application/`** | template macchina che referenzia la libreria — [README](application/README.md) |
 | `application/src/` | `GVL_App` (`MAX_AXIS`), `GVL_AXIS`, `MAIN`, MAPPING, bridge I/O opzionale |
 | `application/examples/` | `FB_AxisCycleDemo`, `PLC_APP` (la macchina a 2 assi) |
@@ -138,7 +138,7 @@ Riferimento completo comandi/API: [`docs/MANUALE_SML.it.md`](docs/MANUALE_SML.it
 
 ## Avvio rapido
 
-1. Crea la **libreria** da `library/src/` (namespace `SML`) — vedi [`library/README.md`](library/README.md) — oppure
+1. Crea la **libreria** da `library/src/` (namespace `SML`) — vedi [`library/README.it.md`](library/README.it.md) — oppure
    importa tutto in un progetto unico seguendo [`docs/IMPORT_CHECKLIST.it.md`](docs/IMPORT_CHECKLIST.it.md). Crea i
    metodi/proprietà di `I_Axis` sotto `FB_AxisCtrl` da `FB_AxisCtrl_METHODS.txt`.
 2. Nell'**applicazione** referenzia la libreria e imposta `GVL_App.MAX_AXIS`.

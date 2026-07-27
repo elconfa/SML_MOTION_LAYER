@@ -13,6 +13,28 @@ corpo ST (implementazione): separarli nei due riquadri dell'editor.
 
 ---
 
+## Due progetti: libreria + applicazione
+
+Puoi importare tutto in un **progetto unico** (l'ordine in §1 funziona così com'è), oppure separare in una
+**libreria** riusabile + un'**applicazione** per macchina (consigliato, vedi [`../library/README.it.md`](../library/README.it.md)).
+
+**Progetto libreria** (riusabile, nessuna istanza) — §1a…1h tranne `GVL_App`:
+`GVL_SML_CONST`, tutti gli enum (`SML_DiagCode`, `E_PROGRESS`, `E_AXIS_CTRL`, `E_AXIS_STATE`), tutte le struct
+(`OpenSML_Axis`, `ST_CiA402_Status`, `ST_AXIS_CTRL`, `ST_MOVE_DATA`, `ST_AXIS_STATE`, `ST_AXIS_INFO`,
+`ST_DriveIn`, `ST_DriveOut`), funzioni (`f_GetProgress`, `f_GetState`), `I_Axis`, gli FB foglia
+(`SML_Power/Reset/Home/ProfilePosition/ProfileVelocity/ProfileVelocity_Jog/Stop/Status/Diagnostics/TouchProbe`,
+`FB_S7RTT_OTG`), `FB_AxisCtrl` (+ metodi) e le UNION (`U_AXIS_CTRL/MOVE_DATA/AXIS_STATE/AXIS_INFO`).
+
+**Progetto applicazione** (creato per macchina; NON nella libreria):
+`GVL_App` (`MAX_AXIS`), `GVL_AXIS` (array di istanze + `Control : FB_AxisCtrl` + `ItfSmlAxis`), `MAIN`,
+e opzionalmente `GVL_IO` + `PRG_IoLink_In/_Out`, `GVL_AXIS_MAP` + `PRG_Mapping_In/_Out`. Anche gli esempi
+(`PLC_APP`, `FB_AxisCycleDemo`) e i banchi di test (`PRG_*_Test`) stanno qui.
+
+> Con la libreria impacchettata sotto namespace `SML`, prefissa le referenze nell'applicazione
+> (`SML.FB_AxisCtrl`, `SML.AXIS_MOVE_ABS`, …). L'ordine §1 sotto è per la via a progetto unico.
+
+---
+
 ## 0. Pre-flight
 
 - [ ] **Versione CoDeSys** 3.5 (o TwinCAT 3, essendo CoDeSys-based).

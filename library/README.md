@@ -1,58 +1,121 @@
-# SML — Libreria (core riusabile)
+**English** | [Italiano](README.it.md)
 
-Componente **libreria** del Motion Layer: solo oggetti riusabili, **senza
-istanze né configurazione di macchina**. Da impacchettare come *CoDeSys Library*
-/ *TwinCAT Library*.
+# SML — Library (reusable core)
 
-## Manifest (proprietà consigliate del progetto libreria)
+The **library** component of the Motion Layer: reusable objects only — **no instances, no machine
+configuration, no PROGRAMs**. Package it as a *CoDeSys Library* / *TwinCAT Library*, then reference it
+from each PLC application.
 
-| Proprietà | Valore consigliato |
+The library is **self-contained**: every object here depends only on other objects in this folder plus
+the **Standard** IEC library (`TON`, and the operators `TON/ABS/MIN/MAX/SQRT/SIZEOF/…`). Verified: no
+object references `MAX_AXIS`, the instance GVLs, or any legacy/application file in code.
+
+---
+
+## Manifest (set these in *Project Information* when you create the library)
+
+| Field | Value |
 |---|---|
-| Title | `SML` (SoftMotion Light — Motion Layer CiA402) |
+| Title | `SML` |
+| Subtitle | SoftMotion Light — CiA402 Motion Layer |
 | Namespace | `SML` |
-| Version | `0.9.0` (allineata alla v9 dei sorgenti) |
-| Company / Author | *(da impostare)* |
-| Licenza | GPL-3.0 (vedi `../LICENSE`) |
+| Version | `0.9.0` (pre-1.0: early, simulation-tested) |
+| Company / Author | *(set your own)* |
+| License | GPL-3.0 (see [`../LICENSE`](../LICENSE)) |
+| Placeholder | leave default (or `SML, * (SML)`) |
 
-> **Namespace**: dopo aver creato la libreria con namespace `SML`, dall'applicazione
-> le referenze possono richiedere il prefisso — es. `SML.FB_AxisCtrl`,
-> `SML.AXIS_MOVE_ABS`, `SML.E_PROGRESS.PROGRESS_DONE`. Vedi i sorgenti applicativi
-> in `../application/` (senza prefisso): aggiungi `SML.` dove il compilatore
-> segnala simboli non risolti/ambigui.
+## Dependencies
 
-## Dipendenze
+- **Standard** (CoDeSys) / **Tc2_Standard** (TwinCAT) — for the IEC standard FB `TON` (and `TOF`/`F_TRIG`
+  only in the *application* files, not here). Normally already referenced in a new standard project.
+- Everything else is **built-in** to the compiler: type conversions (`LREAL_TO_DINT`, …), math operators
+  (`ABS/MIN/MAX/SQRT`), `SIZEOF`, `STRING`. No pointers, no `MEMCPY`/`MEMSET`, no string-function library.
+- **No motion library**: no SoftMotion / `SM3_` / `SMC_`, no `Tc2_MC2` / NC, no `MC_*`, no `AXIS_REF`.
+  This is the technical reason there is **no axis/motion license** requirement.
+- `FB_S7RTT_OTG` (jerk-limited trajectory generator) is **included here as source** — not an external
+  dependency; it uses only built-in math.
 
-- **Standard** (TON/TOF, CONCAT, SIZEOF, MEMSET…).
-- **FB_S7RTT_OTG** (generatore di traiettoria jerk-limited): incluso in `src/`.
-  Se è di terzi (Ruckig/Struckig-light), valutare di **esternalizzarlo** come
-  libreria referenziata (licenza + manutenzione).
+---
 
-## Oggetti esportati (`src/`)
+## Exported objects (`src/`) — 33 objects, in build order
 
-| Categoria | Oggetti |
-|---|---|
-| Enum | `E_PROGRESS`, `E_AXIS_CTRL`, `E_AXIS_STATE`, `SML_DiagCode` |
-| Contratto dati (DUT) | `ST_AXIS_CTRL`, `ST_MOVE_DATA`, `ST_AXIS_STATE`, `ST_AXIS_INFO`, `ST_CiA402_Status` |
-| Interfaccia | `I_Axis` |
-| FB di controllo | `FB_AxisCtrl` (+ `FB_AxisCtrl_METHODS`) |
-| FB foglia CiA402 | `SML_Power`, `SML_Reset`, `SML_Home`, `SML_ProfilePosition`, `SML_ProfileVelocity`, `SML_ProfileVelocity_Jog`, `SML_Stop`, `SML_Status`, `SML_Diagnostics`, `SML_TouchProbe` |
-| I/O (tipi) | `OpenSML_Axis`, `ST_DriveIn`, `ST_DriveOut` |
-| MAPPING (UNION) | `U_AXIS_CTRL`, `U_MOVE_DATA`, `U_AXIS_STATE`, `U_AXIS_INFO` |
-| Funzioni | `f_GetProgress`, `f_GetState` |
-| Costanti libreria | `GVL_SML_CONST` (`PROGRESS_SPAN`, `MAP_SIZE_*`) |
-| OTG | `FB_S7RTT_OTG` |
+Create the objects **bottom-up** (each line depends only on the ones above):
 
-**Nessun oggetto qui referenzia `MAX_AXIS` o `GVL_AXIS`** (verificato): il core è
-mono-asse e disaccoppiato dalla macchina. La config (numero assi) e le istanze
-stanno in `../application/`.
+1. **Constants** — GVL
+   - `GVL_SML_CONST` (`PROGRESS_SPAN`, `MAP_SIZE_*`)
+2. **Enums** — DUT → Enumeration
+   - `SML_DiagCode`, `E_PROGRESS`, `E_AXIS_CTRL`, `E_AXIS_STATE`
+3. **Structs** — DUT → Structure
+   - `OpenSML_Axis` (CiA402 PDO image), `ST_CiA402_Status`,
+     `ST_AXIS_CTRL`, `ST_MOVE_DATA`, `ST_AXIS_STATE`, `ST_AXIS_INFO`,
+     `ST_DriveIn`, `ST_DriveOut` (I/O bridge halves)
+4. **Functions** — POU → Function
+   - `f_GetProgress`, `f_GetState`
+5. **Interface** — POU → Interface (+ its child METHODs/PROPERTYs, see below)
+   - `I_Axis`
+6. **CiA402 leaf FBs** — POU → Function Block
+   - `SML_Power`, `SML_Reset`, `SML_Home`, `SML_ProfilePosition`, `SML_ProfileVelocity`,
+     `SML_ProfileVelocity_Jog`, `SML_Stop`, `SML_Status`, `SML_Diagnostics`, `SML_TouchProbe`,
+     `FB_S7RTT_OTG`
+7. **Control FB** — POU → Function Block (`IMPLEMENTS I_Axis`)
+   - `FB_AxisCtrl` (+ method/property bodies from `FB_AxisCtrl_METHODS.txt`)
+8. **UNIONs** (for the optional MAPPING layer) — DUT → Union
+   - `U_AXIS_CTRL`, `U_MOVE_DATA`, `U_AXIS_STATE`, `U_AXIS_INFO`
 
-## Come creare la libreria in CoDeSys
+> The `.txt` files are **textual ST exports**: create each object by hand (Add Object → the type shown)
+> and paste the declaration/implementation. For POUs, split the header+VARs (declaration) and the ST body
+> (implementation) into the editor's two panes.
 
-1. *New Project → Library*. Imposta Title/Namespace/Version/Company come sopra.
-2. Importa/incolla gli oggetti di `src/` (crea i METHOD/PROPERTY di `I_Axis`
-   sotto `FB_AxisCtrl` da `FB_AxisCtrl_METHODS.txt`).
-3. Aggiungi le dipendenze (Standard; OTG se esternalizzato).
-4. *Save Project as Library* / *Install* nel Library Repository.
-5. Nell'applicazione: *Library Manager → Add* e referenzia `SML`.
+---
 
-(TwinCAT: analogo tramite *Library Repository*.)
+## The `I_Axis` methods (the one fiddly step)
+
+`FB_AxisCtrl` declares `IMPLEMENTS I_Axis`, so it won't compile until the interface's methods/properties
+exist as **child objects**:
+
+1. Create the INTERFACE `I_Axis`; for each entry in `I_Axis.txt` add a child **Method**
+   (Enable/Disable/Reset/Home/MoveAbsolute/MoveRelative/MoveVelocity/Jog/MoveFollow/Stop) and a child
+   **Property** with a **Get** (Position, Enabled).
+2. On `FB_AxisCtrl`: right-click → **Implement interfaces…** to generate the stubs (or add them by hand).
+3. Paste the **real bodies** from `FB_AxisCtrl_METHODS.txt` into each method/Get.
+
+---
+
+## Build the library in CoDeSys
+
+1. *File → New Project → Empty project* (or *Library*). Set *Project → Project Information*:
+   Title/Namespace/Version/Company as in the manifest.
+2. Add the objects from `src/` in the build order above (create the `I_Axis` children under `FB_AxisCtrl`).
+3. Ensure the **Standard** library is referenced (Library Manager) — usually already there.
+4. *Build* → zero errors.
+5. *File → Save Project as Library* (or *Save as Compiled Library* for a distributable `.compiled-library`),
+   then *Install* into the Library Repository.
+
+## Build the library in TwinCAT
+
+1. *PLC → Library Project* (or a standard PLC project you'll save as library). Set the library metadata
+   (Title/Version/Company) in the project properties.
+2. Add the objects from `src/` in the same build order; reference **Tc2_Standard**.
+3. *Build* → *Save as library* → it appears in the *Library Repository*.
+
+---
+
+## Reference it from an application
+
+1. In the application project: *Library Manager → Add library → SML*.
+2. Because the library uses namespace `SML`, prefix library references where the compiler asks:
+   `SML.FB_AxisCtrl`, `SML.I_Axis`, `SML.AXIS_MOVE_ABS`, `SML.E_PROGRESS.PROGRESS_DONE`, …
+3. Create the **application-side** objects (they are NOT in the library — see
+   [`../application/README.md`](../application/README.md) and
+   [`../docs/IMPORT_CHECKLIST.md`](../docs/IMPORT_CHECKLIST.md)):
+   `GVL_App` (`MAX_AXIS`), `GVL_AXIS` (the `[1..MAX_AXIS]` arrays + `Control : SML.FB_AxisCtrl` +
+   `ItfSmlAxis : SML.I_Axis`), `MAIN`, and optionally `GVL_IO` + `PRG_IoLink_In/_Out` and
+   `GVL_AXIS_MAP` + `PRG_Mapping_In/_Out`.
+
+---
+
+## Versioning
+
+`0.9.0` reflects an early, simulation-tested state (see the root README "Maturity & safety"). Bump the
+minor for additive changes, the patch for fixes; reserve `1.0.0` for the first hardware-validated release.
+Keep the namespace `SML` stable so applications don't have to re-prefix.

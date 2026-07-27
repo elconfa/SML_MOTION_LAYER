@@ -12,6 +12,28 @@ editor's two panes.
 
 ---
 
+## Two projects: library + application
+
+You can import everything into a **single project** (the order in §1 below works as-is), or split it into a
+reusable **library** + a per-machine **application** (recommended, see [`../library/README.md`](../library/README.md)).
+
+**Library project** (reusable, no instances) — §1a…1h except `GVL_App`:
+`GVL_SML_CONST`, all enums (`SML_DiagCode`, `E_PROGRESS`, `E_AXIS_CTRL`, `E_AXIS_STATE`), all structs
+(`OpenSML_Axis`, `ST_CiA402_Status`, `ST_AXIS_CTRL`, `ST_MOVE_DATA`, `ST_AXIS_STATE`, `ST_AXIS_INFO`,
+`ST_DriveIn`, `ST_DriveOut`), functions (`f_GetProgress`, `f_GetState`), `I_Axis`, the leaf FBs
+(`SML_Power/Reset/Home/ProfilePosition/ProfileVelocity/ProfileVelocity_Jog/Stop/Status/Diagnostics/TouchProbe`,
+`FB_S7RTT_OTG`), `FB_AxisCtrl` (+ methods), and the UNIONs (`U_AXIS_CTRL/MOVE_DATA/AXIS_STATE/AXIS_INFO`).
+
+**Application project** (created per machine; NOT in the library):
+`GVL_App` (`MAX_AXIS`), `GVL_AXIS` (instance arrays + `Control : FB_AxisCtrl` + `ItfSmlAxis`), `MAIN`,
+and optionally `GVL_IO` + `PRG_IoLink_In/_Out`, `GVL_AXIS_MAP` + `PRG_Mapping_In/_Out`. Examples
+(`PLC_APP`, `FB_AxisCycleDemo`) and test benches (`PRG_*_Test`) live here too.
+
+> With the library packaged under namespace `SML`, prefix its references in the application
+> (`SML.FB_AxisCtrl`, `SML.AXIS_MOVE_ABS`, …). The §1 order below is for the single-project route.
+
+---
+
 ## 0. Pre-flight
 
 - [ ] **CoDeSys version** 3.5 (or TwinCAT 3, being CoDeSys-based).
