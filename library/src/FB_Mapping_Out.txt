@@ -1,0 +1,47 @@
+(* ============================================================
+   FB_Mapping_Out — MAPPING bridge FB: internal -> bus (state)
+   SML — Level B / MAPPING (library FB)
+
+   Copies the state/info from the internal structs into the bus
+   UNIONs, for all axes:
+     State[] -> StateBus[].stData   ,   Info[] -> InfoBus[].stData
+   Call at the END of the task, after the axis loop.
+
+   Reusable: arrays passed by VAR_IN_OUT as ARRAY[*] (variable
+   length) — no dependency on MAX_AXIS or on any application GVL. The
+   application keeps the bus UNION arrays (e.g. GVL_AXIS_MAP.State/Info)
+   and its enable flag, and instantiates this FB.
+
+   GATE: copies only when xEnable = TRUE.
+   Runtime size check: if a struct exceeds its bus block (MAP_SIZE_*),
+   the copy is blocked for safety (resize MAP_SIZE_* in GVL_SML_CONST).
+   Precondition: all arrays have the same bounds (one entry per axis).
+   ============================================================ *)
+
+FUNCTION_BLOCK FB_Mapping_Out
+VAR_INPUT
+    xEnable : BOOL;   // TRUE = perform the copy; FALSE = bypass
+END_VAR
+VAR_IN_OUT
+    State    : ARRAY[*] OF ST_AXIS_STATE;  // <- internal state
+    Info     : ARRAY[*] OF ST_AXIS_INFO;   // <- internal info
+    StateBus : ARRAY[*] OF U_AXIS_STATE;   // -> bus state (.stData)
+    InfoBus  : ARRAY[*] OF U_AXIS_INFO;    // -> bus info  (.stData)
+END_VAR
+VAR
+    i       : DINT;
+    bSizeOk : BOOL;
+END_VAR
+
+IF NOT xEnable THEN RETURN; END_IF
+
+// ── Bus block size check (safety) ────────────────────────────
+bSizeOk := (SIZEOF(ST_AXIS_STATE) <= GVL_SML_CONST.MAP_SIZE_STATE)
+       AND (SIZEOF(ST_AXIS_INFO)  <= GVL_SML_CONST.MAP_SIZE_INFO);
+IF NOT bSizeOk THEN RETURN; END_IF   // blocked: resize MAP_SIZE_*
+
+// ── Copy internal -> bus ─────────────────────────────────────
+FOR i := LOWER_BOUND(State, 1) TO UPPER_BOUND(State, 1) DO
+    StateBus[i].stData := State[i];
+    InfoBus[i].stData  := Info[i];
+END_FOR

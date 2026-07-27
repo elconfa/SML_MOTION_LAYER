@@ -14,7 +14,7 @@ VAR_GLOBAL CONSTANT
 
     // ── MAPPING: fixed size (bytes) of the bus blocks for the UNIONs ──
     // Must be >= SIZEOF of the corresponding struct (checked at runtime
-    // by PRG_Mapping_In/Out via Check). Fixed for a stable process image
+    // by FB_Mapping_In/Out via Check). Fixed for a stable process image
     // on the fieldbus.
     MAP_SIZE_CTRL  : UDINT := 64;    // >= SIZEOF(ST_AXIS_CTRL)
     MAP_SIZE_DATA  : UDINT := 64;    // >= SIZEOF(ST_MOVE_DATA)

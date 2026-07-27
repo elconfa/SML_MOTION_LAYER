@@ -37,7 +37,7 @@ object references `MAX_AXIS`, the instance GVLs, or any legacy/application file 
 
 ---
 
-## Exported objects (`src/`) — 33 objects, in build order
+## Exported objects (`src/`) — 37 objects, in build order
 
 Create the objects **bottom-up** (each line depends only on the ones above):
 
@@ -61,6 +61,12 @@ Create the objects **bottom-up** (each line depends only on the ones above):
    - `FB_AxisCtrl` (+ method/property bodies from `FB_AxisCtrl_METHODS.txt`)
 8. **UNIONs** (for the optional MAPPING layer) — DUT → Union
    - `U_AXIS_CTRL`, `U_MOVE_DATA`, `U_AXIS_STATE`, `U_AXIS_INFO`
+9. **I/O & MAPPING bridge FBs** (optional, reusable copy loops) — POU → Function Block
+   - `FB_IoLink_In`, `FB_IoLink_Out` — drive image ↔ `Axis[]`
+   - `FB_Mapping_In`, `FB_Mapping_Out` — bus UNIONs ↔ internal structs (with runtime size check)
+   - The arrays are passed by `VAR_IN_OUT` as `ARRAY[*]` (variable length): the application instantiates
+     these FBs in `MAIN` and passes its own GVL arrays + enable flag. (Requires `ARRAY[*]` VAR_IN_OUT
+     support — CoDeSys 3.5 and TwinCAT 3.)
 
 > The `.txt` files are **textual ST exports**: create each object by hand (Add Object → the type shown)
 > and paste the declaration/implementation. For POUs, split the header+VARs (declaration) and the ST body
@@ -109,8 +115,9 @@ exist as **child objects**:
    [`../application/README.md`](../application/README.md) and
    [`../docs/IMPORT_CHECKLIST.md`](../docs/IMPORT_CHECKLIST.md)):
    `GVL_App` (`MAX_AXIS`), `GVL_AXIS` (the `[1..MAX_AXIS]` arrays + `Control : SML.FB_AxisCtrl` +
-   `ItfSmlAxis : SML.I_Axis`), `MAIN`, and optionally `GVL_IO` + `PRG_IoLink_In/_Out` and
-   `GVL_AXIS_MAP` + `PRG_Mapping_In/_Out`.
+   `ItfSmlAxis : SML.I_Axis`), and `MAIN`. Optionally the image GVLs `GVL_IO` (I/O bridge) and
+   `GVL_AXIS_MAP` (bus MAPPING): the copy FBs `SML.FB_IoLink_In/_Out` and `SML.FB_Mapping_In/_Out` are in
+   the library — you just **instantiate them in `MAIN`** and pass the GVL arrays + the enable flag.
 
 ---
 

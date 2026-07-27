@@ -262,14 +262,14 @@ Un errore TouchProbe va nella **diagnostica** e in `Info.xTouchProbeError`, ma
 | `OpenSML_Axis` | immagine PDO CiA402 dell'asse (ControlWord/StatusWord/…); `GVL_AXIS.Axis[n]` |
 | `ST_DriveOut` / `ST_DriveIn` | metà output / input di OpenSML_Axis, per il bridge |
 | `GVL_IO` | immagini `AT %Q*/%I*` + flag `IO_LINK_ENABLE` |
-| `PRG_IoLink_In` / `_Out` | copia drive↔struct (In prima di MAIN, Out dopo) |
+| `FB_IoLink_In` / `_Out` | loop di copia drive↔struct (FB di libreria, istanziati in MAIN) |
 
 ### MAPPING bus (esporre Ctrl/State su ADS/fieldbus — opzionale)
 | File | Ruolo |
 |---|---|
 | `U_AXIS_CTRL` / `U_MOVE_DATA` / `U_AXIS_STATE` / `U_AXIS_INFO` | UNION struct/grezzo |
 | `GVL_AXIS_MAP` | array UNION lato bus + flag `AXIS_MAP_ENABLE` |
-| `PRG_Mapping_In` / `PRG_Mapping_Out` | copia bus↔interno (gate dal flag) |
+| `FB_Mapping_In` / `FB_Mapping_Out` | copia bus↔interno (FB di libreria, gate da xEnable) |
 
 ### Utility / Test
 | File | Ruolo |

@@ -1,0 +1,45 @@
+(* ============================================================
+   FB_IoLink_In — I/O bridge FB: INPUT image -> axis struct
+   SML — I/O bridge (library FB)
+
+   Copies DriveIn[] (the drive TxPDO image) into Axis[] (input
+   fields), for all axes. Call at the START of the task, BEFORE the
+   axis loop, so the computation uses fresh inputs (zero delay).
+
+   Reusable: the arrays are passed by VAR_IN_OUT as ARRAY[*]
+   (variable length) — no dependency on MAX_AXIS or on any
+   application GVL. The application keeps the process image (e.g.
+   GVL_IO.DriveIn) and its enable flag, and instantiates this FB.
+
+   Precondition: DriveIn and Axis have the same bounds (one entry
+   per axis). GATE: copies only when xEnable = TRUE.
+   ============================================================ *)
+
+FUNCTION_BLOCK FB_IoLink_In
+VAR_INPUT
+    xEnable : BOOL;   // TRUE = perform the copy; FALSE = bypass
+END_VAR
+VAR_IN_OUT
+    DriveIn : ARRAY[*] OF ST_DriveIn;    // <- drive TxPDO image
+    Axis    : ARRAY[*] OF OpenSML_Axis;  // -> axis struct (input fields written)
+END_VAR
+VAR
+    i : DINT;
+END_VAR
+
+IF NOT xEnable THEN RETURN; END_IF
+
+FOR i := LOWER_BOUND(Axis, 1) TO UPPER_BOUND(Axis, 1) DO
+    Axis[i].StatusWord                   := DriveIn[i].StatusWord;
+    Axis[i].Modes_of_operation_display   := DriveIn[i].Modes_of_operation_display;
+    Axis[i].Torque_Actual_Value          := DriveIn[i].Torque_Actual_Value;
+    Axis[i].Position_Actual_Value        := DriveIn[i].Position_Actual_Value;
+    Axis[i].Velocity_Actual_Value        := DriveIn[i].Velocity_Actual_Value;
+    Axis[i].Current_Actual_Value         := DriveIn[i].Current_Actual_Value;
+    Axis[i].Following_Error_Actual_Value := DriveIn[i].Following_Error_Actual_Value;
+    Axis[i].Error_Code                   := DriveIn[i].Error_Code;
+    Axis[i].Digital_Inputs               := DriveIn[i].Digital_Inputs;
+    Axis[i].TouchProbe_StatusWord        := DriveIn[i].TouchProbe_StatusWord;
+    Axis[i].TouchProbe_Rising_Value      := DriveIn[i].TouchProbe_Rising_Value;
+    Axis[i].TouchProbe_Falling_Value     := DriveIn[i].TouchProbe_Falling_Value;
+END_FOR

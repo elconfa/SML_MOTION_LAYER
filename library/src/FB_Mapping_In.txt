@@ -1,0 +1,47 @@
+(* ============================================================
+   FB_Mapping_In — MAPPING bridge FB: bus -> internal (command)
+   SML — Level B / MAPPING (library FB)
+
+   Copies the command/setpoint from the bus UNIONs into the internal
+   Ctrl/Data structs, for all axes:
+     CtrlBus[].stData -> Ctrl[]   ,   DataBus[].stData -> Data[]
+   Call at the START of the task, before the axis loop.
+
+   Reusable: arrays passed by VAR_IN_OUT as ARRAY[*] (variable
+   length) — no dependency on MAX_AXIS or on any application GVL. The
+   application keeps the bus UNION arrays (e.g. GVL_AXIS_MAP.Ctrl/Data)
+   and its enable flag, and instantiates this FB.
+
+   GATE: copies only when xEnable = TRUE.
+   Runtime size check: if a struct exceeds its bus block (MAP_SIZE_*),
+   the copy is blocked for safety (resize MAP_SIZE_* in GVL_SML_CONST).
+   Precondition: all arrays have the same bounds (one entry per axis).
+   ============================================================ *)
+
+FUNCTION_BLOCK FB_Mapping_In
+VAR_INPUT
+    xEnable : BOOL;   // TRUE = perform the copy; FALSE = bypass
+END_VAR
+VAR_IN_OUT
+    CtrlBus : ARRAY[*] OF U_AXIS_CTRL;   // <- bus command  (.stData)
+    DataBus : ARRAY[*] OF U_MOVE_DATA;   // <- bus setpoint (.stData)
+    Ctrl    : ARRAY[*] OF ST_AXIS_CTRL;  // -> internal command
+    Data    : ARRAY[*] OF ST_MOVE_DATA;  // -> internal setpoint
+END_VAR
+VAR
+    i       : DINT;
+    bSizeOk : BOOL;
+END_VAR
+
+IF NOT xEnable THEN RETURN; END_IF
+
+// ── Bus block size check (safety) ────────────────────────────
+bSizeOk := (SIZEOF(ST_AXIS_CTRL) <= GVL_SML_CONST.MAP_SIZE_CTRL)
+       AND (SIZEOF(ST_MOVE_DATA) <= GVL_SML_CONST.MAP_SIZE_DATA);
+IF NOT bSizeOk THEN RETURN; END_IF   // blocked: resize MAP_SIZE_*
+
+// ── Copy bus -> internal ─────────────────────────────────────
+FOR i := LOWER_BOUND(Ctrl, 1) TO UPPER_BOUND(Ctrl, 1) DO
+    Ctrl[i] := CtrlBus[i].stData;
+    Data[i] := DataBus[i].stData;
+END_FOR

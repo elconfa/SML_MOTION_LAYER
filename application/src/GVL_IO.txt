@@ -4,7 +4,7 @@
 
    Used ONLY with the bridge. On CoDeSys with a direct link it is NOT
    needed: in that case leave IO_LINK_ENABLE = FALSE (the two
-   PRG_IoLink_* auto-bypass) and map GVL_AXIS.Axis[n] directly.
+   FB_IoLink_* auto-bypass) and map GVL_AXIS.Axis[n] directly.
 
    MAPPING (important): DriveOut/DriveIn are PLAIN arrays, without
    'AT %Q*'/'AT %I*'. Reason: on CoDeSys an incomplete address in a
@@ -22,7 +22,7 @@
 {attribute 'qualified_only'}
 VAR_GLOBAL
     // bridge enable flag (design-time or runtime)
-    IO_LINK_ENABLE : BOOL := FALSE;   // TRUE = activate PRG_IoLink_In / _Out
+    IO_LINK_ENABLE : BOOL := FALSE;   // TRUE = activate FB_IoLink_In / _Out
 
     DriveOut : ARRAY[1..GVL_App.MAX_AXIS] OF ST_DriveOut;  // -> RxPDO (map in the configurator)
     DriveIn  : ARRAY[1..GVL_App.MAX_AXIS] OF ST_DriveIn;   // <- TxPDO (map in the configurator)

@@ -1,0 +1,43 @@
+(* ============================================================
+   FB_IoLink_Out — I/O bridge FB: axis struct -> OUTPUT image
+   SML — I/O bridge (library FB)
+
+   Copies Axis[] (output fields) into DriveOut[] (the drive RxPDO
+   image), for all axes. Call at the END of the task, AFTER the axis
+   loop, so the outputs reflect the current cycle (zero delay).
+
+   Reusable: the arrays are passed by VAR_IN_OUT as ARRAY[*]
+   (variable length) — no dependency on MAX_AXIS or on any
+   application GVL. The application keeps the process image (e.g.
+   GVL_IO.DriveOut) and its enable flag, and instantiates this FB.
+
+   Precondition: Axis and DriveOut have the same bounds (one entry
+   per axis). GATE: copies only when xEnable = TRUE.
+   ============================================================ *)
+
+FUNCTION_BLOCK FB_IoLink_Out
+VAR_INPUT
+    xEnable : BOOL;   // TRUE = perform the copy; FALSE = bypass
+END_VAR
+VAR_IN_OUT
+    Axis     : ARRAY[*] OF OpenSML_Axis;  // <- axis struct (output fields read)
+    DriveOut : ARRAY[*] OF ST_DriveOut;   // -> drive RxPDO image
+END_VAR
+VAR
+    i : DINT;
+END_VAR
+
+IF NOT xEnable THEN RETURN; END_IF
+
+FOR i := LOWER_BOUND(Axis, 1) TO UPPER_BOUND(Axis, 1) DO
+    DriveOut[i].ControlWord            := Axis[i].ControlWord;
+    DriveOut[i].Modes_of_operation     := Axis[i].Modes_of_operation;
+    DriveOut[i].Target_Position        := Axis[i].Target_Position;
+    DriveOut[i].Profile_Velocity       := Axis[i].Profile_Velocity;
+    DriveOut[i].Target_Velocity        := Axis[i].Target_Velocity;
+    DriveOut[i].Target_Torque          := Axis[i].Target_Torque;
+    DriveOut[i].Profile_Acceleration   := Axis[i].Profile_Acceleration;
+    DriveOut[i].Profile_Deceleration   := Axis[i].Profile_Deceleration;
+    DriveOut[i].Home_Offset            := Axis[i].Home_Offset;
+    DriveOut[i].TouchProbe_ControlWord := Axis[i].TouchProbe_ControlWord;
+END_FOR

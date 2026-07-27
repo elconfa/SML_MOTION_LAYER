@@ -117,12 +117,14 @@ Supplied objects (import from `.txt`):
 - **`ST_DriveIn`**  = remaining 12 fields (inputs), same order/types.
 - **`GVL_IO`** — `DriveOut` / `DriveIn` (`ARRAY[1..GVL_App.MAX_AXIS]`, plain arrays; see the C0128
   note in §4) + flag `IO_LINK_ENABLE : BOOL`.
-- **`PRG_IoLink_In`** — PROGRAM: `DriveIn[n] -> Axis[n]` (input).
-- **`PRG_IoLink_Out`** — PROGRAM: `Axis[n] -> DriveOut[n]` (output).
+- **`FB_IoLink_In`** — library FB: copies `DriveIn[] -> Axis[]` (input fields).
+- **`FB_IoLink_Out`** — library FB: copies `Axis[] -> DriveOut[]` (output fields).
+- Both are **instantiated in `MAIN`** and receive the arrays via `VAR_IN_OUT` (`ARRAY[*]`, variable length),
+  so they carry no dependency on `MAX_AXIS`.
 
-**Correct timing (zero delay):** `MAIN` already calls `PRG_IoLink_In()` **before** the axis loop and
-`PRG_IoLink_Out()` **after** (next to PRG_Mapping_In/Out). There's no 1-cycle delay of a single
-bridge. Both auto-bypass if `GVL_IO.IO_LINK_ENABLE = FALSE`.
+**Correct timing (zero delay):** `MAIN` already calls the `FB_IoLink_In` instance **before** the axis loop
+and `FB_IoLink_Out` **after** (next to `FB_Mapping_In/Out`). There's no 1-cycle bridge delay. Both
+auto-bypass when `xEnable := GVL_IO.IO_LINK_ENABLE` is FALSE.
 
 **Activation:** set `GVL_IO.IO_LINK_ENABLE := TRUE` and, in the configurator, link
 `GVL_IO.DriveOut[n]` to the RxPDOs and `GVL_IO.DriveIn[n]` to the TxPDOs of the drive.
@@ -154,7 +156,7 @@ Avoid a block `memcpy` between the mixed struct and the two halves: the padding 
 | | CoDeSys | TwinCAT |
 |---|---|---|
 | Idiomatic strategy | Direct link (I/O Mapping tab) | Bridge (`ST_DriveOut`/`ST_DriveIn` + copy) |
-| Extra code | none | bridge program (`PRG_IoLink_In`/`_Out`) |
+| Extra code | none | instantiate the library FBs `FB_IoLink_In`/`_Out` in MAIN |
 | `AT %I*/%Q*` | no (struct binding) | yes (on the two images) |
 | Bridge DUTs | optional (§3b variant) | required |
 | Library code (MAIN/FB/GVL) | identical | identical |

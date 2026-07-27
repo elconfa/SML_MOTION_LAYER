@@ -3,7 +3,7 @@
    SML v8 — Level B / MAPPING (new)
 
    Array of UNIONs to link to the fieldbus process image (or to
-   expose via ADS). PRG_Mapping_In/Out copy between these and GVL_AXIS.
+   expose via ADS). FB_Mapping_In/Out copy between these and GVL_AXIS.
 
    Typical direction (from the PLC's point of view):
      Ctrl[] , Data[]   : INPUTS   (command from outside)  -> %I* / RD
@@ -18,7 +18,7 @@
 {attribute 'qualified_only'}
 VAR_GLOBAL
     // MAPPING enable flag (design-time or runtime)
-    AXIS_MAP_ENABLE : BOOL := FALSE;   // TRUE = activate PRG_Mapping_In / PRG_Mapping_Out
+    AXIS_MAP_ENABLE : BOOL := FALSE;   // TRUE = activate FB_Mapping_In / FB_Mapping_Out
 
     Ctrl  : ARRAY[1..GVL_App.MAX_AXIS] OF U_AXIS_CTRL;    // command   (bus -> plc)
     Data  : ARRAY[1..GVL_App.MAX_AXIS] OF U_MOVE_DATA;    // setpoint  (bus -> plc)

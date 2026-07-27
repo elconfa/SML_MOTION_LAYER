@@ -23,12 +23,14 @@ Puoi importare tutto in un **progetto unico** (l'ordine in §1 funziona così co
 (`OpenSML_Axis`, `ST_CiA402_Status`, `ST_AXIS_CTRL`, `ST_MOVE_DATA`, `ST_AXIS_STATE`, `ST_AXIS_INFO`,
 `ST_DriveIn`, `ST_DriveOut`), funzioni (`f_GetProgress`, `f_GetState`), `I_Axis`, gli FB foglia
 (`SML_Power/Reset/Home/ProfilePosition/ProfileVelocity/ProfileVelocity_Jog/Stop/Status/Diagnostics/TouchProbe`,
-`FB_S7RTT_OTG`), `FB_AxisCtrl` (+ metodi) e le UNION (`U_AXIS_CTRL/MOVE_DATA/AXIS_STATE/AXIS_INFO`).
+`FB_S7RTT_OTG`), `FB_AxisCtrl` (+ metodi), le UNION (`U_AXIS_CTRL/MOVE_DATA/AXIS_STATE/AXIS_INFO`) e gli FB
+bridge (`FB_IoLink_In/_Out`, `FB_Mapping_In/_Out`).
 
 **Progetto applicazione** (creato per macchina; NON nella libreria):
-`GVL_App` (`MAX_AXIS`), `GVL_AXIS` (array di istanze + `Control : FB_AxisCtrl` + `ItfSmlAxis`), `MAIN`,
-e opzionalmente `GVL_IO` + `PRG_IoLink_In/_Out`, `GVL_AXIS_MAP` + `PRG_Mapping_In/_Out`. Anche gli esempi
-(`PLC_APP`, `FB_AxisCycleDemo`) e i banchi di test (`PRG_*_Test`) stanno qui.
+`GVL_App` (`MAX_AXIS`), `GVL_AXIS` (array di istanze + `Control : FB_AxisCtrl` + `ItfSmlAxis`) e `MAIN`
+(che istanzia gli FB bridge di libreria). Opzionalmente i GVL immagine `GVL_IO` (bridge I/O) e
+`GVL_AXIS_MAP` (MAPPING bus). Anche gli esempi (`PLC_APP`, `FB_AxisCycleDemo`) e i banchi di test
+(`PRG_*_Test`) stanno qui.
 
 > Con la libreria impacchettata sotto namespace `SML`, prefissa le referenze nell'applicazione
 > (`SML.FB_AxisCtrl`, `SML.AXIS_MOVE_ABS`, …). L'ordine §1 sotto è per la via a progetto unico.
@@ -50,6 +52,8 @@ e opzionalmente `GVL_IO` + `PRG_IoLink_In/_Out`, `GVL_AXIS_MAP` + `PRG_Mapping_I
       su CoDeSys).
 - [ ] Nota: `SML_TC3Link` e' **TwinCAT-specifico** (bridge all'I/O tree TwinCAT).
       In simulazione non serve; su CoDeSys puro l'I/O si mappa diversamente.
+- [ ] Gli FB bridge (`FB_IoLink_*`, `FB_Mapping_*`) usano `ARRAY[*]` `VAR_IN_OUT` a lunghezza
+      variabile — supportato su CoDeSys 3.5 e TwinCAT 3. Rilevante solo se usi il bridge I/O / MAPPING.
 
 ---
 
@@ -100,15 +104,16 @@ esplicitamente, es. il bridge TwinCAT `SML_TC3Link`):
       (usano `MAP_SIZE_*` di `GVL_SML_CONST`)
 
 ### 1i. Bridge I/O hardware (opzionale — solo se usi il bridge, vedi GUIDA_IO_Linking)
-- [ ] `ST_DriveOut`, `ST_DriveIn`  (DUT → Structure)
-- [ ] `GVL_IO`  (GVL; `DriveOut`/`DriveIn` array semplici + `IO_LINK_ENABLE`; niente `AT` → evita C0128, mappa nel configuratore)
-- [ ] `PRG_IoLink_In`, `PRG_IoLink_Out`  (POU → Program)
+- [ ] `ST_DriveOut`, `ST_DriveIn`  (DUT → Structure) — *libreria*
+- [ ] `FB_IoLink_In`, `FB_IoLink_Out`  (POU → Function Block; *libreria*, istanziati in MAIN)
+- [ ] `GVL_IO`  (GVL; *applicazione*: `DriveOut`/`DriveIn` array semplici + `IO_LINK_ENABLE`; niente `AT` → evita C0128, mappa nel configuratore)
 
 ### 1j. GVL e orchestrazione
-- [ ] `GVL_AXIS`      (usa FB_AxisCtrl, I_Axis, ST_*, OpenSML_Axis, MAX_AXIS)
-- [ ] `GVL_AXIS_MAP`  (usa le UNION)
-- [ ] `PRG_Mapping_In`, `PRG_Mapping_Out`  (POU → Program)
-- [ ] `MAIN`         (POU → Program; chiama IoLink + MAPPING + ciclo assi)
+- [ ] `FB_Mapping_In`, `FB_Mapping_Out`  (POU → Function Block; *libreria*, istanziati in MAIN)
+- [ ] `GVL_App`       (GVL; *applicazione*: `MAX_AXIS`)
+- [ ] `GVL_AXIS`      (*applicazione*; usa FB_AxisCtrl, I_Axis, ST_*, OpenSML_Axis, MAX_AXIS)
+- [ ] `GVL_AXIS_MAP`  (*applicazione*; usa le UNION)
+- [ ] `MAIN`         (POU → Program; *applicazione*: istanzia gli FB bridge + ciclo assi)
 
 ### 1j. Banchi di prova (POU → Program) — sviluppo
 - [ ] `PRG_LevelA_Test`, `PRG_LevelB_Test`, `PRG_MultiAxis_Test`
@@ -142,7 +147,7 @@ metodi/proprieta' dell'interfaccia non esistono come oggetti figli del FB.
       Per attivare il mapping poi: metterlo TRUE (design-time o online). Nessuna
       pragma di compilazione condizionale (`{IF defined(...)}` non e' supportata
       nella parte dichiarazione su CoDeSys). Per esclusione a compile-time,
-      opzionale: racchiudere il CORPO di PRG_Mapping_In/Out tra
+      opzionale: racchiudere il CORPO di FB_Mapping_In/Out tra
       `{IF defined (AXIS_MAP)} ... {END_IF}` nell'IMPLEMENTAZIONE.
 - [ ] Librerie: nessuna dipendenza da `memcpy` (copia via assegnazione). Servono
       solo Standard + eventuale lib dell'OTG.
@@ -176,7 +181,7 @@ metodi/proprieta' dell'interfaccia non esistono come oggetti figli del FB.
 ## 6. Verifica (dopo Build pulito)
 
 1. [ ] **Build**: zero errori nuovi; `E_*`, `ST_*`, `U_*`, `I_Axis`, `GVL_*`,
-       `FB_AxisCtrl`, `MAIN`, `PRG_Mapping_*` risolti.
+       `FB_AxisCtrl`, `MAIN`, `FB_Mapping_*` risolti.
 2. [ ] **Livello A** — task con `PRG_LevelA_Test`: `xTestPassed → TRUE`
        (`eProgress` INVALID→BUSY→DONE→ERROR→INVALID).
 3. [ ] **Livello B mono-asse** — `PRG_LevelB_Test`: `xTestPassed → TRUE`;

@@ -11,19 +11,19 @@
 
    The application commands each axis by writing GVL_AXIS.Ctrl[n].eCmd (+
    GVL_AXIS.Data[n]) and reads GVL_AXIS.State[n]/Info[n]. In production
-   link GVL_AXIS.Axis[n] to the I/O with SML_TC3Link (outside MAIN).
+   link GVL_AXIS.Axis[n] to the I/O (direct link, or the bridge below).
 
    NB: no dedicated INIT machine (unlike PLC_MOTION_LAYER): enabling
    happens per axis via eCmd = AXIS_ENABLE.
 
-   Optional I/O bridge: PRG_IoLink_In()/PRG_IoLink_Out() copy to/from
-   the hardware (GVL_IO) only if GVL_IO.IO_LINK_ENABLE = TRUE. In (drive->Axis)
-   before the loop, Out (Axis->drive) after: zero delay. On CoDeSys with a
-   direct link in the I/O Mapping tab, leave it FALSE.
+   Optional I/O bridge: the library FBs FB_IoLink_In / FB_IoLink_Out copy
+   to/from the hardware image (GVL_IO) only when GVL_IO.IO_LINK_ENABLE =
+   TRUE. In (drive->Axis) before the loop, Out (Axis->drive) after: zero
+   delay. On CoDeSys with a direct link in the I/O Mapping tab, leave it FALSE.
 
-   Optional MAPPING: PRG_Mapping_In()/PRG_Mapping_Out() copy to/from the bus
-   (GVL_AXIS_MAP) only if GVL_AXIS_MAP.AXIS_MAP_ENABLE = TRUE; otherwise
-   they auto-bypass (behavior identical to v7).
+   Optional MAPPING: the library FBs FB_Mapping_In / FB_Mapping_Out copy
+   to/from the bus UNIONs (GVL_AXIS_MAP) only when GVL_AXIS_MAP.AXIS_MAP_ENABLE
+   = TRUE; otherwise they auto-bypass (behavior identical to v7).
 
    SIMULATION: use PRG_MultiAxis_Test (emulator bench) INSTEAD of
    MAIN; do not run both in the same task (double-call of the same FBs).
@@ -31,15 +31,25 @@
 
 PROGRAM MAIN
 VAR
-    nAxis : UINT;
+    nAxis  : UINT;
+    ioIn   : FB_IoLink_In;    // library bridge FBs (instantiated here)
+    ioOut  : FB_IoLink_Out;
+    mapIn  : FB_Mapping_In;
+    mapOut : FB_Mapping_Out;
 END_VAR
 
 // /HW -> axis struct (bypass if IO_LINK_ENABLE = FALSE)
-PRG_IoLink_In();
+ioIn(xEnable := GVL_IO.IO_LINK_ENABLE,
+     DriveIn := GVL_IO.DriveIn,
+     Axis    := GVL_AXIS.Axis);
 // HW -> axis struct/
 
 // /bus -> internal (bypass if AXIS_MAP_ENABLE = FALSE)
-PRG_Mapping_In();
+mapIn(xEnable := GVL_AXIS_MAP.AXIS_MAP_ENABLE,
+      CtrlBus := GVL_AXIS_MAP.Ctrl,
+      DataBus := GVL_AXIS_MAP.Data,
+      Ctrl    := GVL_AXIS.Ctrl,
+      Data    := GVL_AXIS.Data);
 // bus -> internal/
 
 FOR nAxis := 1 TO GVL_App.MAX_AXIS
@@ -57,9 +67,15 @@ DO
 END_FOR
 
 // /internal -> bus (bypass if AXIS_MAP_ENABLE = FALSE)
-PRG_Mapping_Out();
+mapOut(xEnable  := GVL_AXIS_MAP.AXIS_MAP_ENABLE,
+       State    := GVL_AXIS.State,
+       Info     := GVL_AXIS.Info,
+       StateBus := GVL_AXIS_MAP.State,
+       InfoBus  := GVL_AXIS_MAP.Info);
 // internal -> bus/
 
 // /axis struct -> HW (bypass if IO_LINK_ENABLE = FALSE)
-PRG_IoLink_Out();
+ioOut(xEnable  := GVL_IO.IO_LINK_ENABLE,
+      Axis     := GVL_AXIS.Axis,
+      DriveOut := GVL_IO.DriveOut);
 // axis struct -> HW/

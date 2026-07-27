@@ -7,7 +7,7 @@
      - aRaw   : byte block      (raw view for fieldbus mapping)
 
    Fixed size = MAP_SIZE_CTRL (>= SIZEOF(ST_AXIS_CTRL), checked by
-   PRG_Mapping_In). Lets you link the element to the process image as
+   FB_Mapping_In). Lets you link the element to the process image as
    a struct or as a raw block without changing the mapped size.
    ============================================================ *)
 

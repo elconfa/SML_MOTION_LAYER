@@ -15,9 +15,9 @@ le istanze, l'orchestratore, il bridge I/O e gli esempi.
 |---|---|
 | `GVL_App` | **configurazione macchina**: `MAX_AXIS` (cambia solo qui per scalare) |
 | `GVL_AXIS` | array `[1..MAX_AXIS]` di Axis/Ctrl/Data/State/Info + `Control` (FB) + `ItfSmlAxis` |
-| `MAIN` | esegue tutti gli assi ogni ciclo; chiama I/O bridge + MAPPING |
-| `GVL_IO`, `PRG_IoLink_In/_Out` | bridge I/O verso i PDO del drive (opzionale) |
-| `GVL_AXIS_MAP`, `PRG_Mapping_In/_out` | esporre Ctrl/State su bus/ADS (opzionale) |
+| `MAIN` | esegue tutti gli assi ogni ciclo; **istanzia** gli FB bridge di libreria (I/O + MAPPING) |
+| `GVL_IO` | immagini `DriveIn/DriveOut` per il bridge I/O (opzionale; gli FB `SML.FB_IoLink_In/_Out` sono in libreria) |
+| `GVL_AXIS_MAP` | array UNION lato bus per esporre Ctrl/State su bus/ADS (opzionale; gli FB `SML.FB_Mapping_In/_Out` sono in libreria) |
 
 ## `examples/`
 - `FB_AxisCycleDemo` — ciclo A↔B di un asse (pattern comando→attesa).

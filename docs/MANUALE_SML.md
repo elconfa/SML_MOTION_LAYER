@@ -260,14 +260,14 @@ A touch-probe error goes into the **diagnostics** and into `Info.xTouchProbeErro
 | `OpenSML_Axis` | the axis's CiA402 PDO image (ControlWord/StatusWord/…); `GVL_AXIS.Axis[n]` |
 | `ST_DriveOut` / `ST_DriveIn` | output / input half of OpenSML_Axis, for the bridge |
 | `GVL_IO` | `AT %Q*/%I*` images + `IO_LINK_ENABLE` flag |
-| `PRG_IoLink_In` / `_Out` | drive↔struct copy (In before MAIN, Out after) |
+| `FB_IoLink_In` / `_Out` | drive↔struct copy loop (library FBs, instantiated in MAIN) |
 
 ### Bus MAPPING (expose Ctrl/State over ADS/fieldbus — optional)
 | File | Role |
 |---|---|
 | `U_AXIS_CTRL` / `U_MOVE_DATA` / `U_AXIS_STATE` / `U_AXIS_INFO` | struct/raw UNION |
 | `GVL_AXIS_MAP` | bus-side UNION array + `AXIS_MAP_ENABLE` flag |
-| `PRG_Mapping_In` / `PRG_Mapping_Out` | bus↔internal copy (gated by the flag) |
+| `FB_Mapping_In` / `FB_Mapping_Out` | bus↔internal copy (library FBs, gated by xEnable) |
 
 ### Utility / Test
 | File | Role |

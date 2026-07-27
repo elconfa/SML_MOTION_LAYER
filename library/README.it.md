@@ -38,7 +38,7 @@ oggetto referenzia in codice `MAX_AXIS`, i GVL di istanza, o file legacy/applica
 
 ---
 
-## Oggetti esportati (`src/`) — 33 oggetti, in ordine di build
+## Oggetti esportati (`src/`) — 37 oggetti, in ordine di build
 
 Crea gli oggetti **dal basso verso l'alto** (ogni riga dipende solo dalle precedenti):
 
@@ -62,6 +62,12 @@ Crea gli oggetti **dal basso verso l'alto** (ogni riga dipende solo dalle preced
    - `FB_AxisCtrl` (+ i corpi di metodi/proprietà da `FB_AxisCtrl_METHODS.txt`)
 8. **UNION** (per il layer MAPPING opzionale) — DUT → Union
    - `U_AXIS_CTRL`, `U_MOVE_DATA`, `U_AXIS_STATE`, `U_AXIS_INFO`
+9. **FB bridge I/O & MAPPING** (opzionali, loop di copia riusabili) — POU → Function Block
+   - `FB_IoLink_In`, `FB_IoLink_Out` — immagine drive ↔ `Axis[]`
+   - `FB_Mapping_In`, `FB_Mapping_Out` — UNION bus ↔ struct interne (con size check a runtime)
+   - Gli array sono passati via `VAR_IN_OUT` come `ARRAY[*]` (lunghezza variabile): l'applicazione istanzia
+     questi FB in `MAIN` e passa i propri array GVL + il flag di abilitazione. (Richiede il supporto
+     `ARRAY[*]` in VAR_IN_OUT — CoDeSys 3.5 e TwinCAT 3.)
 
 > I `.txt` sono **export ST testuali**: crea ogni oggetto a mano (Add Object → il tipo indicato) e incolla
 > dichiarazione/implementazione. Per i POU, separa header+VAR (dichiarazione) e corpo ST (implementazione)
@@ -110,8 +116,9 @@ non esistono come **oggetti figli**:
    [`../application/README.md`](../application/README.md) e
    [`../docs/IMPORT_CHECKLIST.it.md`](../docs/IMPORT_CHECKLIST.it.md)):
    `GVL_App` (`MAX_AXIS`), `GVL_AXIS` (gli array `[1..MAX_AXIS]` + `Control : SML.FB_AxisCtrl` +
-   `ItfSmlAxis : SML.I_Axis`), `MAIN`, e opzionalmente `GVL_IO` + `PRG_IoLink_In/_Out` e
-   `GVL_AXIS_MAP` + `PRG_Mapping_In/_Out`.
+   `ItfSmlAxis : SML.I_Axis`), e `MAIN`. Opzionalmente i GVL immagine `GVL_IO` (bridge I/O) e
+   `GVL_AXIS_MAP` (MAPPING bus): gli FB di copia `SML.FB_IoLink_In/_Out` e `SML.FB_Mapping_In/_Out` sono
+   nella libreria — basta **istanziarli in `MAIN`** e passare gli array GVL + il flag di abilitazione.
 
 ---
 
