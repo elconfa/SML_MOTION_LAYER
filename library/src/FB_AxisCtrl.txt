@@ -9,7 +9,7 @@
 
    SUPERSET of FB_SML (v9): it also integrates the full status decoder
    SML_Status (-> Info.Status, all CiA402 bits) and SML_TouchProbe
-   (-> Info.xTouchProbe*, commanded via Ctrl.xTouchProbe*). The TouchProbe
+   (-> Info.xTouchProbe* fields, commanded via Ctrl.xTouchProbe* inputs). The TouchProbe
    is PARALLEL to motion (it is not an eCmd) and its error feeds the
    diagnostics but NOT the combined motion state (eState).
 

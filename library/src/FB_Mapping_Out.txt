@@ -13,7 +13,7 @@
    and its enable flag, and instantiates this FB.
 
    GATE: copies only when xEnable = TRUE.
-   Runtime size check: if a struct exceeds its bus block (MAP_SIZE_*),
+   Runtime size check: if a struct exceeds its bus block (MAP_SIZE_STATE/INFO),
    the copy is blocked for safety (resize MAP_SIZE_* in GVL_SML_CONST).
    Precondition: all arrays have the same bounds (one entry per axis).
    ============================================================ *)

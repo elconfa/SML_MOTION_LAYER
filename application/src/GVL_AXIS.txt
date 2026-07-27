@@ -4,7 +4,7 @@
 
    Equivalent to GVL_AXIS of PLC_MOTION_LAYER, but:
      - the execution level is FB_AxisCtrl (SML leaf FBs),
-       not FB_McAxisCtrl (MC_*);
+       not FB_McAxisCtrl (MC_* wrappers);
      - wiring is via VAR_IN_OUT (no pointer array):
        MAIN passes Axis/Ctrl/Data/State/Info[nAxis] in the call.
 
