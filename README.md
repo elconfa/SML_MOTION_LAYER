@@ -1,173 +1,208 @@
+**English** | [Italiano](README.it.md)
+
 # SML_MOTION_LAYER
 
-**Motion layer per azionamenti CiA402 (SoftMotion Light) — CoDeSys 3.5 / TwinCAT 3**
+**A license-free motion layer for CiA402 drives — CoDeSys 3.5 & TwinCAT 3, pure IEC 61131-3 Structured Text.**
 
-Libreria di controllo assi per drive **CiA402** su EtherCAT che porta il pattern
-architetturale di [PLC_MOTION_LAYER](https://github.com/haud-ba/PLC_MOTION_LAYER)
-su **SML** (ramo di [OpenSML](https://github.com/feecat/opensml)): **SML sostituisce
-le librerie `Tc2_*`/NC** come livello di esecuzione. Un unico FB per asse
-(`FB_AxisCtrl`), comandato via **struttura dati** o **interfaccia**, pilota
-direttamente gli FB CiA402 di SML (Power/Home/ProfilePosition/ProfileVelocity/
-Jog/Stop) + **CSP/OTG**, con **Status completo** e **TouchProbe**.
+Control EtherCAT servo/stepper drives that speak the **CiA402** profile (homing, profile position/velocity,
+jog, cyclic-synchronous position with a jerk-limited online trajectory generator) **entirely in Structured Text** —
+one function block per axis, commanded through a data struct *or* an interface. No vendor motion runtime underneath.
 
-> I sorgenti sono **export ST testuali** (`.txt`) da importare in CoDeSys/TwinCAT.
-> Vedi [`docs/IMPORT_CHECKLIST.md`](docs/IMPORT_CHECKLIST.md).
+![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)
+![Platform](https://img.shields.io/badge/PLC-CoDeSys%203.5%20%7C%20TwinCAT%203-informational)
+![Language](https://img.shields.io/badge/IEC%2061131--3-Structured%20Text-orange)
+![Status](https://img.shields.io/badge/status-early%20%2F%20simulation--tested-yellow)
 
----
-
-## Caratteristiche
-
-- **Un solo entry-point per asse**: `FB_AxisCtrl` (comando `eCmd` + contratto
-  dati Ctrl/State/Info/Data) — superset delle vecchie facce (PP/PV/Jog **e** CSP+OTG).
-- **Interfaccia** `I_Axis` (Enable/Home/MoveAbsolute/MoveVelocity/Jog/MoveFollow/
-  Stop + proprietà) per coordinatori di alto livello.
-- **Avanzamento unificato** `E_PROGRESS` + **stato combinato** `E_AXIS_STATE`.
-- **Multi-asse**: `ARRAY[1..MAX_AXIS]` orchestrato da `MAIN`.
-- **Portabile**: stesso codice su CoDeSys e TwinCAT; cambia solo lo strato I/O.
-- **TouchProbe** e **decoder Status CiA402** integrati.
-- **Diagnostica** aggregata (`SML_DiagCode` + testo + primo guasto).
-- **MAPPING** opzionale (UNION) per esporre Ctrl/State su bus/ADS.
-- **Bridge I/O** pronto (`ST_DriveOut`/`ST_DriveIn` + `SML_IoLink_*`).
-- **Simulazione** senza hardware (banchi di test con emulatore CiA402).
+> **Sources are Structured Text text exports (`.txt`)** to be imported into a CoDeSys/TwinCAT project.
+> See [`docs/IMPORT_CHECKLIST.md`](docs/IMPORT_CHECKLIST.md).
 
 ---
 
-## Architettura
+## 💡 No axis/motion license required
+
+This is the headline. SML implements the **CiA402 drive state machine** and the **motion profiles** itself, in
+plain IEC 61131-3 ST, commanding the drive **directly over the EtherCAT process image** (PDOs). Therefore:
+
+- **CoDeSys** — you do **not** need **SoftMotion** (the paid, often per-axis motion add-on).
+- **TwinCAT** — you do **not** need **TF5000 TC3 NC PTP** (the PLCopen `MC_*` motion library).
+
+You keep only what you already have: the standard **PLC runtime** and an **EtherCAT master**. Motion — the part that
+normally costs a license — lives in this open-source code.
+
+> Honest scope: a base PLC-runtime license and the fieldbus still apply as usual on your platform. The point is that
+> **no *motion* option** is needed. And, as with any motion code, **you are responsible for validating it on your own
+> hardware and for machine safety** — see [Maturity & safety](#maturity--safety).
+
+---
+
+## Why you might want it
+
+- **License-free motion** on both CoDeSys and TwinCAT (see above).
+- **One entry point per axis** — `FB_AxisCtrl`: a command enum (`eCmd`) plus a clean `Ctrl / Data / State / Info`
+  data contract. It's a **superset** of the classic profile FBs: PP/PV/Jog **and** CSP+OTG, **status decoding**
+  and **touch-probe** all in one block.
+- **Two ways to command it**, use whichever fits your style: a **data struct** (great for HMI/recipe-driven code) or
+  an **interface** `I_Axis` (great for high-level coordinators).
+- **Portable** — the *same* ST runs on CoDeSys and TwinCAT; only the I/O mapping to the drive differs.
+- **Unified status model** — an `E_PROGRESS` progress enum and a combined `E_AXIS_STATE` so reading "where is this
+  axis" is one field, not a scavenger hunt across flags.
+- **Multi-axis by design** — an `ARRAY[1..MAX_AXIS]` orchestrated by one `MAIN`; scale by changing a single constant.
+- **Bus-agnostic MAPPING layer** (UNION-based) to expose axis Ctrl/State over a fieldbus or ADS with a fixed-size raw
+  image — optional, off by default.
+- **Simulate without hardware** — test benches drive a CiA402 emulator, so you can bring the logic up before wiring.
+- **Library + application split** — a reusable `library/` (namespace `SML`) and an `application/` template with a
+  real, worked **2-axis example machine**.
+
+---
+
+## Architecture
 
 ```
-   APPLICAZIONE  (scrive Ctrl+Data, legge State+Info)
+   YOUR APPLICATION   (writes Ctrl + Data, reads State + Info)
         │
         ▼
    MAIN  ──►  FOR n := 1..MAX_AXIS ──►  GVL_AXIS.Control[n]  (FB_AxisCtrl)
-        │                                      │  pilota gli FB foglia
-        │                                      ▼
-        │        SML_Power / Reset / Home / ProfilePosition / ProfileVelocity /
-        │        Jog / Stop / Status / Diagnostics / TouchProbe / OTG(CSP)
-        ▼
-   GVL_AXIS.Axis[n]  (OpenSML_Axis = immagine PDO CiA402)  ──►  DRIVE EtherCAT
+                                             │  drives the CiA402 leaf FBs
+                                             ▼
+        Power / Reset / Home / ProfilePosition / ProfileVelocity /
+        Jog / Stop / Status / Diagnostics / TouchProbe / CSP+OTG
+                                             │
+                                             ▼
+   GVL_AXIS.Axis[n]  (OpenSML_Axis = CiA402 PDO image)  ──►  EtherCAT DRIVE
 ```
 
-Comando di un asse (due modi equivalenti):
+---
+
+## Usage in 30 seconds
+
+Command axis 1 through the **data struct**:
+
 ```pascal
-// struttura
-GVL_AXIS.Data[1].lrTargetPosition := 50.0;
-GVL_AXIS.Ctrl[1].eCmd := AXIS_MOVE_ABS;
-// oppure interfaccia
-GVL_AXIS.ItfSmlAxis[1].MoveAbsolute(50.0, 100.0);
+// Enable, then home (issue commands as the axis becomes ready)
+GVL_AXIS.Ctrl[1].eCmd := AXIS_ENABLE;
+GVL_AXIS.Ctrl[1].eCmd := AXIS_HOME;
+
+// Absolute move: go to 250.0 units at 100.0 units/s
+GVL_AXIS.Data[1].lrTargetPosition := 250.0;
+GVL_AXIS.Data[1].lrVelocity       := 100.0;
+GVL_AXIS.Ctrl[1].eCmd             := AXIS_MOVE_ABS;
+
+// Read where it is
+IF GVL_AXIS.State[1].eProgress = PROGRESS_DONE THEN
+    // move finished — GVL_AXIS.Info[1].lrActualPosition is at target
+END_IF
+IF GVL_AXIS.State[1].xError THEN
+    GVL_AXIS.Ctrl[1].eCmd := AXIS_RESET;
+END_IF
 ```
 
+Or the exact same move through the **interface** `I_Axis`:
+
+```pascal
+GVL_AXIS.ItfSmlAxis[1].Enable();
+GVL_AXIS.ItfSmlAxis[1].Home();
+GVL_AXIS.ItfSmlAxis[1].MoveAbsolute(lrPosition := 250.0, lrVelocity := 100.0);
+```
+
+Continuous velocity, and a jerk-limited following move (CSP + OTG):
+
+```pascal
+GVL_AXIS.Data[1].lrVelocity := 80.0;                  // signed
+GVL_AXIS.Ctrl[1].eCmd       := AXIS_MOVE_VELOCITY;
+
+GVL_AXIS.ItfSmlAxis[1].MoveFollow(...);               // CSP with online trajectory generator
+```
+
+Commands (`eCmd`): `AXIS_ENABLE`, `AXIS_DISABLE`, `AXIS_RESET`, `AXIS_HOME`, `AXIS_MOVE_ABS`, `AXIS_MOVE_REL`,
+`AXIS_MOVE_VELOCITY`, `AXIS_JOG_POS`, `AXIS_JOG_NEG`, `AXIS_MOVE_CSP`, `AXIS_STOP`.
+
+Full command/API reference: [`docs/MANUALE_SML.md`](docs/MANUALE_SML.md) *(currently in Italian — English translation planned)*.
+
 ---
 
-## Struttura del repository (due livelli)
+## Repository layout (two levels)
 
-Il progetto è separato in **libreria** (core riusabile) e **applicazione**
-(config + istanze della macchina): vedi
-[perché](docs/NOTA_Pattern_MotionLayer.md) e i README dedicati.
-
-| Cartella | Contenuto |
+| Folder | What's in it |
 |---|---|
-| **`library/`** | core riusabile (enum, DUT, interfaccia, `FB_AxisCtrl`, FB foglia, funzioni, `GVL_SML_CONST`, OTG) — [README](library/README.md) |
-| `library/src/` | i sorgenti della libreria (nessun riferimento a `MAX_AXIS`/istanze) |
-| **`application/`** | template macchina che referenzia la libreria — [README](application/README.md) |
-| `application/src/` | `GVL_App` (`MAX_AXIS`), `GVL_AXIS`, `MAIN`, MAPPING, bridge I/O |
-| `application/examples/` | `FB_AxisCycleDemo`, `PLC_APP` (macchina 2 assi) |
-| `application/tests/` | banchi di simulazione (Livello A / B / multi-asse) |
-| `legacy/` | facce superate (FB_SML, SML_AxisController, …), preservate |
-| `docs/` | **manuali e guide** (vedi sotto) |
-| `docs/history/` | changelog v4→v9, session handoff, bozza Livello A |
-| `docs/origin/` | analisi originale OpenSML da cui siamo partiti |
-| `binaries/` | **progetti compilati CoDeSys (`codesys/`) e TwinCAT (`twincat/`)** |
-
-**Split libreria/applicazione**: le costanti di libreria (`PROGRESS_SPAN`,
-`MAP_SIZE_*`) stanno in `GVL_SML_CONST`; la config macchina (`MAX_AXIS`) in
-`GVL_App`. Il core (`FB_AxisCtrl`) è mono-asse e non referenzia né `MAX_AXIS`
-né le istanze.
-
-### Documentazione (`docs/`)
-- **[`MANUALE_SML.md`](docs/MANUALE_SML.md)** — manuale d'uso stile PLCopen:
-  comandi `eCmd`, struct, lettura stato, TouchProbe, cosa fa ogni file, sequenze,
-  diagnostica, + **Appendice A** (`FB_AxisCycleDemo`) e **Appendice B** (`PLC_APP`).
-- **[`GUIDA_IO_Linking.md`](docs/GUIDA_IO_Linking.md)** — collegamento dei PDO del
-  drive: link diretto (CoDeSys) vs bridge (TwinCAT), tabella campo↔oggetto CiA402.
-- **[`IMPORT_CHECKLIST.md`](docs/IMPORT_CHECKLIST.md)** — ordine e passi d'import,
-  errori tipici, verifica.
-- **[`NOTA_Pattern_MotionLayer.md`](docs/NOTA_Pattern_MotionLayer.md)** — il pattern
-  architetturale estratto da PLC_MOTION_LAYER.
+| **`library/`** | reusable core (enums, DUTs, `I_Axis`, `FB_AxisCtrl`, CiA402 leaf FBs, functions, OTG) — [README](library/README.md) |
+| **`application/`** | machine template that references the library — [README](application/README.md) |
+| `application/src/` | `GVL_App` (`MAX_AXIS`), `GVL_AXIS`, `MAIN`, MAPPING, optional I/O bridge |
+| `application/examples/` | `FB_AxisCycleDemo`, `PLC_APP` (the 2-axis machine) |
+| `application/tests/` | simulation benches (CiA402 emulator) |
+| `legacy/` | superseded facades, preserved for provenance |
+| `docs/` | manual, I/O linking guide, import checklist, the extracted design note |
+| `binaries/` | compiled CoDeSys (`codesys/`) and TwinCAT (`twincat/`) projects (Git LFS) |
 
 ---
 
-## Avvio rapido
+## Getting started
 
-1. Crea la **libreria** dai file `library/src/` (namespace `SML`) — vedi
-   [`library/README.md`](library/README.md) — oppure importa tutto in un progetto
-   unico (ordine in [`IMPORT_CHECKLIST`](docs/IMPORT_CHECKLIST.md)). Crea i METHOD/
-   PROPERTY di `I_Axis` sotto `FB_AxisCtrl` da `FB_AxisCtrl_METHODS.txt`.
-2. Nell'**applicazione** (`application/`) referenzia la libreria e imposta
-   `GVL_App.MAX_AXIS`.
-3. Metti `MAIN` in un task ciclico.
-4. Collega `GVL_AXIS.Axis[n]` ai PDO del drive — vedi [`GUIDA_IO_Linking`](docs/GUIDA_IO_Linking.md).
-5. Comanda: `GVL_AXIS.Ctrl[n].eCmd := ...` e leggi `GVL_AXIS.State[n]`/`Info[n]`.
+1. Build the **library** from `library/src/` (namespace `SML`) — see [`library/README.md`](library/README.md) — or
+   import everything into a single project following [`docs/IMPORT_CHECKLIST.md`](docs/IMPORT_CHECKLIST.md).
+   Create the `I_Axis` methods/properties under `FB_AxisCtrl` from `FB_AxisCtrl_METHODS.txt`.
+2. In the **application**, reference the library and set `GVL_App.MAX_AXIS`.
+3. Put `MAIN` in a cyclic task.
+4. Map `GVL_AXIS.Axis[n]` to the drive PDOs — see [`docs/GUIDA_IO_Linking.md`](docs/GUIDA_IO_Linking.md).
+5. Command with `GVL_AXIS.Ctrl[n].eCmd := ...` and read `GVL_AXIS.State[n]` / `Info[n]`.
 
-Prova senza hardware: `Ctrl[n].xSimulation := TRUE` o esegui un banco di `tests/`.
+**Try it without a drive:** set `Ctrl[n].xSimulation := TRUE`, or run one of the benches in `application/tests/`.
 
 ---
 
-## Esempio macchina (`examples/PLC_APP.txt`)
+## Worked example — `application/examples/PLC_APP`
 
-Macchina di misura/selezione pezzi a **2 assi**:
-- **Asse 1** = nastro a rotazione continua (velocity) + **TouchProbe**;
-- **Asse 2** = posizionatore.
+A 2-axis measure-and-sort machine:
 
-Ciclo: homing (una volta) → misura pezzo via TouchProbe tra fotocellula coperta e
-liberata → se **fuori misura** scarto **non bloccante** (nastro prosegue, pezzo
-espulso e contato in parallelo, **pipelining**: entra già il pezzo successivo) →
-se **buono** asse 2 avanti a +400 mm poi ritorno a 0 mentre il nastro riparte →
-**standby** con timeout (ri-azzerabile con home, ripresa con segnale esterno).
-I/O macchina puliti (comandi in ingresso, stato in uscita). Dettaglio in
-[`MANUALE_SML` Appendice B](docs/MANUALE_SML.md).
+- **Axis 1** = a continuously rotating belt (velocity mode) with **touch-probe**;
+- **Axis 2** = a positioner.
 
----
-
-## Progetti compilati (`binaries/`)
-
-Caricare qui i **progetti compilati**:
-- CoDeSys: archivio progetto / libreria (`.library`, `.compiled-library`, `.projectarchive`);
-- TwinCAT: soluzione / libreria (`.tsproj`, `.library`, `.tmc`).
-
-Vedi [`binaries/README.md`](binaries/README.md).
+Cycle: home once → measure each piece via touch-probe between "photocell covered" and "photocell cleared" → if the
+piece is **out of tolerance**, a **non-blocking reject** (belt keeps running, the piece is ejected and counted by a
+parallel tracker, and the **next piece is already entering** — pipelined) → if **good**, axis 2 goes to +400 then
+back to 0 while the belt restarts → **standby** with timeout (re-home with a command, resume on an external signal).
+Clean machine I/O in and out. Details in [`docs/MANUALE_SML.md`](docs/MANUALE_SML.md) (Appendix B).
 
 ---
 
-## Evoluzione
+## Maturity & safety
 
-Da libreria di facce (v4) a motion layer completo (v9): Livello A (`E_PROGRESS`),
-Livello B (contratto + interfaccia + FB comando + multi-asse + MAPPING), superset
-(Status + TouchProbe), bridge I/O, manuali ed esempi. Changelog in `docs/history/`.
+Be aware of what this is:
 
-## Crediti / origine
+- **Young project, simulation-tested.** The core compiled cleanly in CoDeSys 3.5 and runs against a CiA402 emulator
+  in the test benches. The recent two-level reorganization and object renaming are **import-ready** but should be
+  re-verified with a Build after you import them (the sources are `.txt` exports, so there's no binary to trust yet).
+- **Motion control is safety-relevant.** This code moves real hardware. **Validate every function on your own drive**,
+  keep a hardware **STO / emergency-stop** path independent of this logic, and respect the machinery safety rules that
+  apply to you. The license disclaims warranty (GPL-3.0, "as is").
 
-- Base: **OpenSML** (feecat/opensml) — SoftMotion Light CiA402.
-- Pattern architetturale: **PLC_MOTION_LAYER** (haud-ba) — TwinCAT NC/PLCopen.
-- OTG: `FB_S7RTT_OTG` (generatore di traiettoria jerk-limited).
+Feedback, issues and real-world reports are very welcome — this is exactly the stage where they help most.
 
-## Licenza
+---
 
-**GPL-3.0** — vedi [`LICENSE`](LICENSE).
+## Origin & credits — and the honest bit about how it was made
 
-> Copyright (C) 2024-2026 Massimo Confalonieri
->
-> Questo programma è software libero: puoi ridistribuirlo e/o modificarlo secondo
-> i termini della GNU General Public License versione 3, pubblicata dalla Free
-> Software Foundation.
+This project stands openly on two shoulders, and it was built with the help of an AI assistant. None of that is hidden:
 
-SML deriva da **OpenSML** (feecat/opensml), rilasciato sotto **GPL-3.0**: per
-copyleft l'intera opera è quindi GPL-3.0 (una licenza permissiva non sarebbe
-compatibile). L'OTG (`FB_S7RTT_OTG`) e le librerie del produttore mantengono le
-rispettive licenze.
+- **[OpenSML](https://github.com/feecat/opensml)** (feecat) — the "SoftMotion Light" CiA402 execution FBs this layer
+  drives. SML is a **derivative of OpenSML**, which is why this repo is **GPL-3.0** (see [License](#license)).
+- **[PLC_MOTION_LAYER](https://github.com/haud-ba/PLC_MOTION_LAYER)** (haud-ba) — the **architectural pattern**
+  (Ctrl/State/Info/Data contract, combined progress state, per-axis FB, array orchestration, UNION mapping) was
+  extracted from this TwinCAT NC/PLCopen project and re-applied on top of SML.
+- **AI-assisted development.** The design extraction, the porting to SML, the multi-axis and MAPPING layers, the
+  example machine and this documentation were produced in collaboration with **Anthropic's Claude**. A human reviewed
+  and directed the work; the AI wrote and refactored code and docs under that direction. The value on offer is the
+  *integration* — a coherent, license-free motion layer for two runtimes — not a claim of hand-crafted novelty.
 
-### Git LFS
-I binari in [`binaries/`](binaries/) (`.library`, `.compiled-library*`,
-`.projectarchive`, `.tpzip`, `.tszip`, `.zip`) sono tracciati con **Git LFS**
-(vedi [`.gitattributes`](.gitattributes)). Per lavorarci: installa git-lfs
-(`brew install git-lfs` o equivalente) e `git lfs install` una volta; poi
-`git add`/`push` dei binari usa automaticamente LFS.
+So: what's new here is putting OpenSML's execution FBs behind PLC_MOTION_LAYER's contract, on both CoDeSys and TwinCAT,
+with no motion license. The OTG (`FB_S7RTT_OTG`) and any vendor libraries keep their own licenses.
+
+---
+
+## License
+
+**GPL-3.0** — see [`LICENSE`](LICENSE). Because SML derives from OpenSML (GPL-3.0), the whole work is GPL-3.0 by
+copyleft (a permissive license would not be compatible, and a closed compiled-library redistributed to third parties
+would violate the GPL).
+
+> Copyright (C) 2024-2026 Massimo Confalonieri. This is free software; you can redistribute it and/or modify it under
+> the terms of the GNU General Public License version 3 as published by the Free Software Foundation.
