@@ -116,7 +116,7 @@ GVL_AXIS.ItfSmlAxis[1].MoveFollow(...);               // CSP with online traject
 Commands (`eCmd`): `AXIS_ENABLE`, `AXIS_DISABLE`, `AXIS_RESET`, `AXIS_HOME`, `AXIS_MOVE_ABS`, `AXIS_MOVE_REL`,
 `AXIS_MOVE_VELOCITY`, `AXIS_JOG_POS`, `AXIS_JOG_NEG`, `AXIS_MOVE_CSP`, `AXIS_STOP`.
 
-Full command/API reference: [`docs/MANUALE_SML.md`](docs/MANUALE_SML.md) *(currently in Italian — English translation planned)*.
+Full command/API reference: [`docs/MANUALE_SML.md`](docs/MANUALE_SML.md).
 
 ---
 

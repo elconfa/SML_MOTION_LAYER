@@ -1,167 +1,161 @@
-# SML v8 — Checklist di import in CoDeSys (primo Build)
+**English** | [Italiano](IMPORT_CHECKLIST.it.md)
 
-**Scopo:** portare `SML_v8/*.txt` in un progetto CoDeSys con il primo Build il
-piu' liscio possibile. I `.txt` sono **export ST testuali** (dichiarazione +
-implementazione), da **incollare** in oggetti creati a mano — non sono file di
-progetto importabili.
+# SML v9 — CoDeSys import checklist (first Build)
 
-Convenzione: per DUT/GVL/interfacce il file e' tutto "dichiarazione". Per POU
-(FB/FUNCTION/PROGRAM) il file contiene l'header + le VAR (dichiarazione) e il
-corpo ST (implementazione): separarli nei due riquadri dell'editor.
+**Goal:** bring `SML_v9/*.txt` into a CoDeSys project with the smoothest possible first Build. The
+`.txt` files are **textual ST exports** (declaration + implementation), to be **pasted** into
+manually-created objects — they are not importable project files.
+
+Convention: for DUT/GVL/interfaces the file is all "declaration". For POUs (FB/FUNCTION/PROGRAM) the
+file contains the header + the VARs (declaration) and the ST body (implementation): split them into the
+editor's two panes.
 
 ---
 
 ## 0. Pre-flight
 
-- [ ] **Versione CoDeSys** 3.5 (o TwinCAT 3, essendo CoDeSys-based).
-- [ ] **FB_S7RTT_OTG** disponibile: e' incluso come `.txt`, ma dipende dal
-      generatore di traiettoria (Ruckig/Struckig light). Verificare che compili
-      standalone.
-- [ ] **Libreria Standard** referenziata (TON/TOF, CONCAT, SIZEOF, MEMSET…).
-- [ ] Decidere il modo del primo Build: **simulazione** (nessun HW, usa i banchi
-      di test) — consigliato per il primo Build.
-- [ ] MAPPING **disattivo** al primo Build: `GVL_AXIS_MAP.AXIS_MAP_ENABLE = FALSE`
-      (flag runtime; il MAPPING si auto-bypassa → comportamento come v7).
-      NB: niente pragma `{IF defined(...)}` nella dichiarazione (non portabile
-      su CoDeSys).
-- [ ] Nota: `SML_TC3Link` e' **TwinCAT-specifico** (bridge all'I/O tree TwinCAT).
-      In simulazione non serve; su CoDeSys puro l'I/O si mappa diversamente.
+- [ ] **CoDeSys version** 3.5 (or TwinCAT 3, being CoDeSys-based).
+- [ ] **FB_S7RTT_OTG** available: it's included as `.txt`, but it depends on the trajectory generator
+      (Ruckig/Struckig light). Verify it compiles standalone.
+- [ ] **Standard library** referenced (TON/TOF, CONCAT, SIZEOF, MEMSET…).
+- [ ] Decide the first-Build mode: **simulation** (no HW, use the test benches) — recommended for the
+      first Build.
+- [ ] MAPPING **off** for the first Build: `GVL_AXIS_MAP.AXIS_MAP_ENABLE = FALSE` (runtime flag; MAPPING
+      auto-bypasses → behavior as in v7). NB: no `{IF defined(...)}` pragma in the declaration (not
+      portable on CoDeSys).
+- [ ] Note: `SML_TC3Link` is **TwinCAT-specific** (bridge to the TwinCAT I/O tree). Not needed in
+      simulation; on plain CoDeSys the I/O maps differently.
 
 ---
 
-## 1. Ordine di import (le dipendenze si risolvono dal basso verso l'alto)
+## 1. Import order (dependencies resolve bottom-up)
 
-Creare gli oggetti in QUEST'ORDINE (Add Object → tipo indicato):
+Create the objects in THIS ORDER (Add Object → indicated type):
 
-### 1a. Costanti — **per prime** (usate come bound degli array)
-- [ ] `GVL_SML_CONST`  → GVL  (libreria: `PROGRESS_SPAN`, `MAP_SIZE_*`)
-- [ ] `GVL_App`        → GVL  (applicazione: `MAX_AXIS` — bound degli array)
+### 1a. Constants — **first** (used as array bounds)
+- [ ] `GVL_SML_CONST`  → GVL  (library: `PROGRESS_SPAN`, `MAP_SIZE_*`)
+- [ ] `GVL_App`        → GVL  (application: `MAX_AXIS` — array bound)
 
-### 1b. Enum (DUT → Enumeration)
-- [ ] `SML_DiagCode` (se non gia' presente dalla base)
+### 1b. Enums (DUT → Enumeration)
+- [ ] `SML_DiagCode` (if not already present from the base)
 - [ ] `E_PROGRESS`
 - [ ] `E_AXIS_CTRL`
 - [ ] `E_AXIS_STATE`
 
-### 1c. Struct (DUT → Structure)
-- [ ] `OpenSML_Axis`, `OpenSML_Control` (base, se non presenti)
-- [ ] `ST_CiA402_Status`  (usato da ST_AXIS_INFO)
+### 1c. Structs (DUT → Structure)
+- [ ] `OpenSML_Axis`, `OpenSML_Control` (base, if not present)
+- [ ] `ST_CiA402_Status`  (used by ST_AXIS_INFO)
 - [ ] `ST_AXIS_CTRL`
 - [ ] `ST_MOVE_DATA`
-- [ ] `ST_AXIS_STATE`  (usa `SML_DiagCode`, `E_PROGRESS`, `E_AXIS_CTRL`)
-- [ ] `ST_AXIS_INFO`   (usa `ST_CiA402_Status`)
+- [ ] `ST_AXIS_STATE`  (uses `SML_DiagCode`, `E_PROGRESS`, `E_AXIS_CTRL`)
+- [ ] `ST_AXIS_INFO`   (uses `ST_CiA402_Status`)
 
-### 1d. Funzioni (POU → Function)
-- [ ] `f_GetProgress`  (usa `E_PROGRESS`, `GVL_SML_CONST`)
+### 1d. Functions (POU → Function)
+- [ ] `f_GetProgress`  (uses `E_PROGRESS`, `GVL_SML_CONST`)
 - [ ] `f_GetState`
 
-### 1e. Interfaccia (POU → Interface) — vedi §2
-- [ ] `I_Axis` + i suoi METHOD/PROPERTY figli
+### 1e. Interface (POU → Interface) — see §2
+- [ ] `I_Axis` + its child METHODs/PROPERTYs
 
-### 1f. FB foglia CiA402 (livello esecuzione) — base della libreria
-Set **minimo** richiesto da `FB_AxisCtrl` (v9 include Status + TouchProbe):
+### 1f. CiA402 leaf FBs (execution level) — the library base
+**Minimum** set required by `FB_AxisCtrl` (v9 includes Status + touch-probe):
 - [ ] `SML_Power`, `SML_Reset`, `SML_Home`, `SML_ProfilePosition`,
       `SML_ProfileVelocity`, `SML_ProfileVelocity_Jog`, `SML_Stop`,
       `SML_Diagnostics`, `SML_Status`, `SML_TouchProbe`, `FB_S7RTT_OTG`
-Oggetti **legacy** (in `legacy/`, non istanziati — importare solo se ti servono
-esplicitamente, es. il bridge TwinCAT `SML_TC3Link`):
+**Legacy** objects (in `legacy/`, not instantiated — import only if you specifically need them, e.g. the
+TwinCAT bridge `SML_TC3Link`):
 - [ ] `SML_SyncPosition`, `SML_SyncVelocity`, `FB_SML`, `SML_AxisController`,
       `SML_TC3Link`
 
-### 1g. FB di controllo (POU → Function Block) — vedi §2
-- [ ] `FB_AxisCtrl` (`IMPLEMENTS I_Axis`) + i suoi METHOD/PROPERTY
+### 1g. Control FB (POU → Function Block) — see §2
+- [ ] `FB_AxisCtrl` (`IMPLEMENTS I_Axis`) + its METHODs/PROPERTYs
 
-### 1h. UNION (DUT → Union)
+### 1h. UNIONs (DUT → Union)
 - [ ] `U_AXIS_CTRL`, `U_MOVE_DATA`, `U_AXIS_STATE`, `U_AXIS_INFO`
-      (usano `MAP_SIZE_*` di `GVL_SML_CONST`)
+      (use `MAP_SIZE_*` from `GVL_SML_CONST`)
 
-### 1i. Bridge I/O hardware (opzionale — solo se usi il bridge, vedi GUIDA_IO_Linking)
+### 1i. Hardware I/O bridge (optional — only if you use the bridge, see GUIDA_IO_Linking)
 - [ ] `ST_DriveOut`, `ST_DriveIn`  (DUT → Structure)
-- [ ] `GVL_IO`  (GVL; contiene `DriveOut AT %Q*` / `DriveIn AT %I*` + `IO_LINK_ENABLE`)
+- [ ] `GVL_IO`  (GVL; `DriveOut`/`DriveIn` plain arrays + `IO_LINK_ENABLE`; no `AT` → avoids C0128, map in the configurator)
 - [ ] `PRG_IoLink_In`, `PRG_IoLink_Out`  (POU → Program)
 
-### 1j. GVL e orchestrazione
-- [ ] `GVL_AXIS`      (usa FB_AxisCtrl, I_Axis, ST_*, OpenSML_Axis, MAX_AXIS)
-- [ ] `GVL_AXIS_MAP`  (usa le UNION)
+### 1j. GVL and orchestration
+- [ ] `GVL_AXIS`      (uses FB_AxisCtrl, I_Axis, ST_*, OpenSML_Axis, MAX_AXIS)
+- [ ] `GVL_AXIS_MAP`  (uses the UNIONs)
 - [ ] `PRG_Mapping_In`, `PRG_Mapping_Out`  (POU → Program)
-- [ ] `MAIN`         (POU → Program; chiama IoLink + MAPPING + ciclo assi)
+- [ ] `MAIN`         (POU → Program; calls IoLink + MAPPING + axis loop)
 
-### 1j. Banchi di prova (POU → Program) — sviluppo
+### 1k. Test benches (POU → Program) — development
 - [ ] `PRG_LevelA_Test`, `PRG_LevelB_Test`, `PRG_MultiAxis_Test`
 
 ---
 
-## 2. I metodi di I_Axis (punto critico)
+## 2. The I_Axis methods (critical point)
 
-`FB_AxisCtrl` dichiara `IMPLEMENTS I_Axis`: **non compila** finche' tutti i
-metodi/proprieta' dell'interfaccia non esistono come oggetti figli del FB.
+`FB_AxisCtrl` declares `IMPLEMENTS I_Axis`: it **won't compile** until all the interface's
+methods/properties exist as child objects of the FB.
 
-1. [ ] Creare l'INTERFACE `I_Axis`. Per ogni voce in `I_Axis.txt` aggiungere
-       un **Method** figlio (Enable/Disable/Reset/Home/MoveAbsolute/MoveRelative/
-       MoveVelocity/Jog/MoveFollow/Stop) e una **Property** figlia con **Get**
-       (Position, Enabled). Incollare le firme (tipo di ritorno + VAR_INPUT).
-2. [ ] Su `FB_AxisCtrl`: tasto destro → **Implement interfaces…** (genera gli
-       stub dei metodi/proprieta') **oppure** aggiungerli a mano come Method/
-       Property figli.
-3. [ ] Incollare i **corpi reali** da `FB_AxisCtrl_METHODS.txt` in ciascun
-       metodo/Get corrispondente.
+1. [ ] Create the INTERFACE `I_Axis`. For every entry in `I_Axis.txt` add a child **Method**
+       (Enable/Disable/Reset/Home/MoveAbsolute/MoveRelative/MoveVelocity/Jog/MoveFollow/Stop) and a
+       child **Property** with a **Get** (Position, Enabled). Paste the signatures (return type +
+       VAR_INPUT).
+2. [ ] On `FB_AxisCtrl`: right-click → **Implement interfaces…** (generates the method/property stubs)
+       **or** add them by hand as child Method/Property.
+3. [ ] Paste the **real bodies** from `FB_AxisCtrl_METHODS.txt` into each corresponding method/Get.
 
 ---
 
-## 3. Impostazioni di progetto
+## 3. Project settings
 
-- [ ] **Enum non-strict**: gli enum sono senza `{attribute 'strict'}`. Il codice
-      usa `TO_INT(enum)` (stato combinato) e assegna INT→enum in `f_GetProgress`:
-      con enum non-strict compila. Se il progetto forza enum strict (attributo o
-      opzione), adattare `f_GetProgress` (mappatura esplicita) e i `TO_INT`.
-- [ ] **Flag MAPPING** `GVL_AXIS_MAP.AXIS_MAP_ENABLE`: **FALSE** al primo Build.
-      Per attivare il mapping poi: metterlo TRUE (design-time o online). Nessuna
-      pragma di compilazione condizionale (`{IF defined(...)}` non e' supportata
-      nella parte dichiarazione su CoDeSys). Per esclusione a compile-time,
-      opzionale: racchiudere il CORPO di PRG_Mapping_In/Out tra
-      `{IF defined (AXIS_MAP)} ... {END_IF}` nell'IMPLEMENTAZIONE.
-- [ ] Librerie: nessuna dipendenza da `memcpy` (copia via assegnazione). Servono
-      solo Standard + eventuale lib dell'OTG.
+- [ ] **Non-strict enums**: the enums have no `{attribute 'strict'}`. The code uses `TO_INT(enum)`
+      (combined state) and assigns INT→enum in `f_GetProgress`: with non-strict enums it compiles. If
+      the project forces strict enums (attribute or option), adapt `f_GetProgress` (explicit mapping)
+      and the `TO_INT`s.
+- [ ] **MAPPING flag** `GVL_AXIS_MAP.AXIS_MAP_ENABLE`: **FALSE** for the first Build. To enable mapping
+      later: set it TRUE (design-time or online). No conditional-compile pragma (`{IF defined(...)}` is
+      not supported in the declaration part on CoDeSys). For compile-time exclusion, optional: wrap the
+      BODY of PRG_Mapping_In/Out in `{IF defined (AXIS_MAP)} ... {END_IF}` in the IMPLEMENTATION.
+- [ ] Libraries: no dependency on `memcpy` (copy via assignment). Only Standard + the optional OTG lib
+      are needed.
 
 ---
 
-## 4. Configurazione task
+## 4. Task configuration
 
-- [ ] Aggiungere **UN SOLO** program-chiamante al task ciclico:
-      - produzione/HW: `MAIN` (+ bridge I/O per `GVL_AXIS.Axis[]`);
-      - simulazione: **uno** dei banchi (`PRG_MultiAxis_Test` o `PRG_LevelB_Test`).
-      **NON** mettere MAIN e un banco insieme (doppia chiamata degli stessi FB).
-- [ ] Impostare il tempo di ciclo del task e allineare `Ctrl.CycleTime`
-      (o `GVL_AXIS.Ctrl[n].CycleTime`) allo **stesso** valore (correttezza OTG).
+- [ ] Add **ONLY ONE** caller program to the cyclic task:
+      - production/HW: `MAIN` (+ I/O bridge for `GVL_AXIS.Axis[]`);
+      - simulation: **one** of the benches (`PRG_MultiAxis_Test` or `PRG_LevelB_Test`).
+      **DON'T** put MAIN and a bench together (double-call of the same FBs).
+- [ ] Set the task cycle time and align `Ctrl.CycleTime` (or `GVL_AXIS.Ctrl[n].CycleTime`) to the
+      **same** value (OTG correctness).
 
 ---
 
-## 5. Errori tipici al primo Build e rimedi
+## 5. Typical first-Build errors and fixes
 
-| Sintomo | Causa | Rimedio |
+| Symptom | Cause | Fix |
 |---|---|---|
-| `FB_AxisCtrl` non implementa I_Axis | metodi/proprieta' mancanti | creare i Method/Property (§2) |
-| `FB_S7RTT_OTG` non trovato | OTG non importato/licenza | importare il FB/libreria OTG |
-| conversione INT→E_PROGRESS non consentita | enum in modalita' strict | vedi §3 (adattare) |
-| `GVL_SML_CONST.MAX_AXIS` non valido come bound | costante non risolta | importare `GVL_SML_CONST` per primo |
-| pragma `{IF defined}` non supportata in dichiarazione | conditional-compile in VAR | usare il flag `AXIS_MAP_ENABLE` (gia' applicato) o spostare la pragma nel corpo |
-| `CONCAT`/`TON` non definiti | Standard non referenziata | aggiungere libreria Standard |
+| `FB_AxisCtrl` doesn't implement I_Axis | missing methods/properties | create the Method/Property (§2) |
+| `FB_S7RTT_OTG` not found | OTG not imported/licensed | import the OTG FB/library |
+| INT→E_PROGRESS conversion not allowed | enum in strict mode | see §3 (adapt) |
+| `GVL_App.MAX_AXIS` invalid as bound | constant not resolved | import `GVL_App` (and `GVL_SML_CONST`) first |
+| `{IF defined}` pragma not supported in declaration | conditional-compile in VAR | use the `AXIS_MAP_ENABLE` flag (already applied) or move the pragma into the body |
+| `CONCAT`/`TON` undefined | Standard not referenced | add the Standard library |
 
 ---
 
-## 6. Verifica (dopo Build pulito)
+## 6. Verification (after a clean Build)
 
-1. [ ] **Build**: zero errori nuovi; `E_*`, `ST_*`, `U_*`, `I_Axis`, `GVL_*`,
-       `FB_AxisCtrl`, `MAIN`, `PRG_Mapping_*` risolti.
-2. [ ] **Livello A** — task con `PRG_LevelA_Test`: `xTestPassed → TRUE`
+1. [ ] **Build**: zero new errors; `E_*`, `ST_*`, `U_*`, `I_Axis`, `GVL_*`, `FB_AxisCtrl`, `MAIN`,
+       `PRG_Mapping_*` resolved.
+2. [ ] **Level A** — task with `PRG_LevelA_Test`: `xTestPassed → TRUE`
        (`eProgress` INVALID→BUSY→DONE→ERROR→INVALID).
-3. [ ] **Livello B mono-asse** — `PRG_LevelB_Test`: `xTestPassed → TRUE`;
-       osservare `State.eState` (es. 306 = IDLE+DONE, 502 = MOVING+BUSY) e
-       `eStProg = eProgress`.
-4. [ ] **Multi-asse** — `PRG_MultiAxis_Test`: `xTestPassed → TRUE`, `xIndependent`
-       TRUE (asse 1 CSP e asse 2 JOG in parallelo).
-5. [ ] **MAPPING** — mettere `GVL_AXIS_MAP.AXIS_MAP_ENABLE := TRUE`, collegare/
-       forzare `GVL_AXIS_MAP.Ctrl[n].stData.eCmd` e verificare la propagazione a
-       `GVL_AXIS.Ctrl[n]` e il ritorno in `GVL_AXIS_MAP.State[n].stData`.
-6. [ ] **Check dimensioni**: abbassare temporaneamente un `MAP_SIZE_*` sotto la
-       SIZEOF della struct → il mapping deve bloccarsi (nessuna copia).
+3. [ ] **Level B single-axis** — `PRG_LevelB_Test`: `xTestPassed → TRUE`; observe `State.eState`
+       (e.g. 306 = IDLE+DONE, 502 = MOVING+BUSY) and `eStProg = eProgress`.
+4. [ ] **Multi-axis** — `PRG_MultiAxis_Test`: `xTestPassed → TRUE`, `xIndependent` TRUE (axis 1 CSP and
+       axis 2 JOG in parallel).
+5. [ ] **MAPPING** — set `GVL_AXIS_MAP.AXIS_MAP_ENABLE := TRUE`, link/force
+       `GVL_AXIS_MAP.Ctrl[n].stData.eCmd` and verify propagation to `GVL_AXIS.Ctrl[n]` and the return
+       into `GVL_AXIS_MAP.State[n].stData`.
+6. [ ] **Size check**: temporarily lower a `MAP_SIZE_*` below the SIZEOF of the struct → the mapping
+       must block (no copy).

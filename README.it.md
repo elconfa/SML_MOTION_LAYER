@@ -15,7 +15,7 @@ motion del produttore sotto.
 ![Status](https://img.shields.io/badge/status-early%20%2F%20simulation--tested-yellow)
 
 > **I sorgenti sono export testuali Structured Text (`.txt`)** da importare in un progetto CoDeSys/TwinCAT.
-> Vedi [`docs/IMPORT_CHECKLIST.md`](docs/IMPORT_CHECKLIST.md).
+> Vedi [`docs/IMPORT_CHECKLIST.it.md`](docs/IMPORT_CHECKLIST.it.md).
 
 ---
 
@@ -117,7 +117,7 @@ GVL_AXIS.ItfSmlAxis[1].MoveFollow(...);               // CSP con generatore di t
 Comandi (`eCmd`): `AXIS_ENABLE`, `AXIS_DISABLE`, `AXIS_RESET`, `AXIS_HOME`, `AXIS_MOVE_ABS`, `AXIS_MOVE_REL`,
 `AXIS_MOVE_VELOCITY`, `AXIS_JOG_POS`, `AXIS_JOG_NEG`, `AXIS_MOVE_CSP`, `AXIS_STOP`.
 
-Riferimento completo comandi/API: [`docs/MANUALE_SML.md`](docs/MANUALE_SML.md).
+Riferimento completo comandi/API: [`docs/MANUALE_SML.it.md`](docs/MANUALE_SML.it.md).
 
 ---
 
@@ -139,11 +139,11 @@ Riferimento completo comandi/API: [`docs/MANUALE_SML.md`](docs/MANUALE_SML.md).
 ## Avvio rapido
 
 1. Crea la **libreria** da `library/src/` (namespace `SML`) — vedi [`library/README.md`](library/README.md) — oppure
-   importa tutto in un progetto unico seguendo [`docs/IMPORT_CHECKLIST.md`](docs/IMPORT_CHECKLIST.md). Crea i
+   importa tutto in un progetto unico seguendo [`docs/IMPORT_CHECKLIST.it.md`](docs/IMPORT_CHECKLIST.it.md). Crea i
    metodi/proprietà di `I_Axis` sotto `FB_AxisCtrl` da `FB_AxisCtrl_METHODS.txt`.
 2. Nell'**applicazione** referenzia la libreria e imposta `GVL_App.MAX_AXIS`.
 3. Metti `MAIN` in un task ciclico.
-4. Mappa `GVL_AXIS.Axis[n]` sui PDO del drive — vedi [`docs/GUIDA_IO_Linking.md`](docs/GUIDA_IO_Linking.md).
+4. Mappa `GVL_AXIS.Axis[n]` sui PDO del drive — vedi [`docs/GUIDA_IO_Linking.it.md`](docs/GUIDA_IO_Linking.it.md).
 5. Comanda con `GVL_AXIS.Ctrl[n].eCmd := ...` e leggi `GVL_AXIS.State[n]` / `Info[n]`.
 
 **Provalo senza drive:** metti `Ctrl[n].xSimulation := TRUE`, o esegui uno dei banchi in `application/tests/`.
@@ -161,7 +161,7 @@ Ciclo: homing una volta → misura di ogni pezzo via touch-probe tra "fotocellul
 se il pezzo è **fuori tolleranza**, **scarto non bloccante** (il nastro prosegue, il pezzo viene espulso e contato da
 un tracker parallelo, e **il pezzo successivo sta già entrando** — pipelining) → se **buono**, l'asse 2 va a +400 poi
 torna a 0 mentre il nastro riparte → **standby** con timeout (ri-azzeri con un comando, riprendi con un segnale
-esterno). I/O macchina puliti in ingresso e in uscita. Dettagli in [`docs/MANUALE_SML.md`](docs/MANUALE_SML.md)
+esterno). I/O macchina puliti in ingresso e in uscita. Dettagli in [`docs/MANUALE_SML.it.md`](docs/MANUALE_SML.it.md)
 (Appendice B).
 
 ---

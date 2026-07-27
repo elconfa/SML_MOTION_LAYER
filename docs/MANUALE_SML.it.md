@@ -1,0 +1,517 @@
+[English](MANUALE_SML.md) | **Italiano**
+
+# Manuale SML — Gestione Asse (Motion Layer CiA402)
+
+**Versione:** SML_v9 · **Target:** CoDeSys 3.5 / TwinCAT 3 · CiA402 su EtherCAT
+
+Manuale d'uso per un programmatore che non conosce il progetto ma deve **comandare
+uno o più assi**. Se vieni da PLCopen (`MC_Power`, `MC_MoveAbsolute`, …): qui **non**
+istanzi un FB per ogni funzione con decine di ingressi; scrivi **un comando** in una
+struct e leggi lo **stato** in un'altra. Un solo FB per asse fa tutto.
+
+---
+
+## 1. Concetto in 1 minuto
+
+Ogni asse è gestito da un'istanza di **`FB_AxisCtrl`**. Tu interagisci con
+**quattro strutture** (il "contratto dati"):
+
+```
+   APPLICAZIONE
+      │  scrive Ctrl (comando) + Data (setpoint)
+      ▼
+   ┌───────────────────────────────┐
+   │  FB_AxisCtrl  (un per asse) │  ← esegue, pilota gli FB CiA402
+   └───────────────────────────────┘
+      │  scrive State (esito) + Info (valori attuali)
+      ▼
+   APPLICAZIONE legge
+```
+
+- **`Ctrl`** — cosa deve fare l'asse (`eCmd`) + configurazione.  *(tu scrivi)*
+- **`Data`** — numeri del movimento: posizione, velocità, acc, dec, jerk (unità utente).  *(tu scrivi)*
+- **`State`** — esito: avanzamento, fatto/errore, diagnostica.  *(tu leggi)*
+- **`Info`** — valori attuali: posizione, velocità, bit di stato, TouchProbe.  *(tu leggi)*
+
+Comandi in **due modi equivalenti**:
+1. **Struct**: `GVL_AXIS.Ctrl[1].eCmd := AXIS_MOVE_ABS;`
+2. **Metodi** (interfaccia `I_Axis`): `GVL_AXIS.ItfSmlAxis[1].MoveAbsolute(50.0, 100.0);`
+
+Il comando **`eCmd` è "a livello"** (level): resta attivo finché non lo cambi.
+Un solo `eCmd` per asse → un solo movimento alla volta (niente conflitti).
+
+---
+
+## 2. Avvio rapido (copia-incolla)
+
+Asse 1, in simulazione o su HW già collegato:
+
+```pascal
+// una-tantum / configurazione
+GVL_AXIS.Ctrl[1].Scale     := 4096.0;   // counts per unità (mm, giri, …)
+GVL_AXIS.Ctrl[1].CycleTime := 0.001;    // = periodo del task [s]
+
+// 1) abilita
+GVL_AXIS.Ctrl[1].eCmd := AXIS_ENABLE;
+// attendi: GVL_AXIS.Info[1].xEnabled = TRUE  (State.eProgress = PROGRESS_DONE)
+
+// 2) homing
+GVL_AXIS.Ctrl[1].eCmd := AXIS_HOME;
+// attendi: GVL_AXIS.State[1].xDone = TRUE
+
+// 3) muovi a 50 mm a 100 mm/s
+GVL_AXIS.Data[1].lrTargetPosition := 50.0;
+GVL_AXIS.Data[1].lrVelocity       := 100.0;
+GVL_AXIS.Ctrl[1].eCmd := AXIS_MOVE_ABS;
+// attendi: GVL_AXIS.State[1].xDone = TRUE
+```
+
+Nota: `MAIN` chiama già `FB_AxisCtrl` per tutti gli assi ogni ciclo. Tu tocchi
+solo `GVL_AXIS.Ctrl[]`/`Data[]` e leggi `State[]`/`Info[]`.
+
+---
+
+## 3. Riferimento comandi `eCmd` (come le pagine MC_*)
+
+Imposti `Ctrl.eCmd` al valore voluto. La colonna "DONE quando" dice quando
+`State.xDone` diventa TRUE (`State.eProgress = PROGRESS_DONE`).
+
+| eCmd | Cosa fa | Data usati | DONE quando | Note |
+|---|---|---|---|---|
+| `AXIS_NULL` | nessun comando; mantiene lo stato | — | — | l'asse resta com'è (idle o in errore) |
+| `AXIS_ENABLE` | abilita il drive (Power on) | — | `Info.xEnabled` | equivale a MC_Power |
+| `AXIS_DISABLE` | disabilita il drive | — | drive non abilitato | Shutdown CiA402 |
+| `AXIS_RESET` | reset fault (drive + FB) | — | fault sparito | equivale a MC_Reset |
+| `AXIS_HOME` | homing | `HomeOffset` (in Ctrl) | homing completato | MC_Home |
+| `AXIS_MOVE_ABS` | move assoluto (PP) | `lrTargetPosition`, `lrVelocity`, `lrAcceleration`, `lrDeceleration` | target raggiunto | MC_MoveAbsolute |
+| `AXIS_MOVE_REL` | move relativo (PP) | come sopra (`lrTargetPosition` = distanza) | target raggiunto | MC_MoveRelative |
+| `AXIS_MOVE_VELOCITY` | velocità continua (PV) | `lrVelocity` (con **segno**), `lrAcceleration`, `lrDeceleration` | velocità raggiunta | MC_MoveVelocity |
+| `AXIS_JOG_POS` | jog positivo (tenuto) | `lrVelocity` (magnitudo) | — (moto continuo) | MC_Jog + |
+| `AXIS_JOG_NEG` | jog negativo (tenuto) | `lrVelocity` (magnitudo) | — (moto continuo) | MC_Jog − |
+| `AXIS_MOVE_CSP` | inseguimento CSP+OTG jerk-limited | `lrTargetPosition`, `lrVelocity`, `lrAcceleration`, `lrJerk` | entro `PositionWindow` | ri-targettabile **online** |
+| `AXIS_STOP` | Halt (decelerazione controllata) | — | asse fermo | MC_Halt |
+
+**Regole d'oro**
+- Per **abilitare** basta un qualsiasi comando ≠ `AXIS_NULL`/`AXIS_DISABLE`
+  (l'enable è implicito). Consigliato: `AXIS_ENABLE` esplicito prima di muovere.
+- **`AXIS_DISABLE`** toglie l'abilitazione. **`AXIS_NULL`** la mantiene.
+- **Move discreto (PP)**: imposta `Data` **poi** `eCmd`. Per un **nuovo** target
+  discreto, ri-triggera (passa da `AXIS_NULL` e torna a `AXIS_MOVE_ABS`, oppure
+  emetti un altro comando). Per re-targeting **fluido/online** usa `AXIS_MOVE_CSP`
+  (aggiorni `lrTargetPosition` mentre l'asse insegue).
+- **Jog**: tieni `AXIS_JOG_POS`/`NEG`; rilascia mettendo `AXIS_NULL` o `AXIS_STOP`.
+
+---
+
+## 4. Comandare via interfaccia `I_Axis` (metodi)
+
+Alternativa alla struct, utile per coordinatori/librerie. I metodi sono **setter**:
+impostano `Ctrl.eCmd`+`Data` e ritornano l'avanzamento (`E_PROGRESS`). L'esecuzione
+avviene al normale ciclo del FB.
+
+```pascal
+VAR ax : I_Axis; END_VAR
+ax := GVL_AXIS.ItfSmlAxis[1];
+
+ax.Enable();
+ax.Home();
+ax.MoveAbsolute(lrPosition := 50.0, lrVelocity := 100.0);
+ax.MoveVelocity(lrVelocity := -30.0);      // PV, segno = direzione
+ax.Jog(xForward := TRUE, xReverse := FALSE, lrVelocity := 20.0);
+ax.MoveFollow(lrPosition := 120.0, lrVelocity := 80.0);  // CSP online
+ax.Stop();
+ax.Disable();
+ax.Reset();
+
+// proprietà (lettura)
+rPos := ax.Position;      // posizione attuale [unità]
+bOn  := ax.Enabled;       // drive abilitato
+```
+
+Usa **o** i metodi **o** la struct sullo stesso asse, non entrambi nello stesso ciclo.
+
+---
+
+## 5. Leggere lo stato
+
+### 5.1 `State` — esito del comando
+| Campo | Tipo | Significato |
+|---|---|---|
+| `eProgress` | `E_PROGRESS` | avanzamento: INVALID / INIT / BUSY / PREPARE / STARTUP / CHECK / **DONE** / **ERROR** |
+| `eState` | INT | **stato combinato** = stato funzionale + avanzamento (vedi 5.2) |
+| `eCmdActive` | `E_AXIS_CTRL` | comando attualmente in esecuzione |
+| `xDone` | BOOL | comando corrente completato (= `eProgress = DONE`) |
+| `xError` | BOOL | errore di moto (aggregato) |
+| `DiagCode` / `DiagText` | `SML_DiagCode` / STRING | condizione live + testo |
+| `FirstFaultCode` / `FirstFaultText` | | primo guasto latchato (root cause) |
+
+### 5.2 Stato combinato `eState`
+`eState = E_AXIS_STATE + E_PROGRESS`. Esempi: `306` = `AXIS_STATE_IDLE(300)` +
+`PROGRESS_DONE(6)`; `502` = `AXIS_STATE_MOVING(500)` + `PROGRESS_BUSY(2)`.
+Per scomporlo usa le funzioni:
+```pascal
+eBase := f_GetState(State.eState);      // 500  (parte funzionale)
+eProg := f_GetProgress(State.eState);   // 2    (E_PROGRESS.PROGRESS_BUSY)
+```
+Stati funzionali: `NULL 0, INIT 100, DISABLED 200, IDLE 300, HOMING 400,
+MOVING 500, VELOCITY 600, STOPPING 700, ERROR 900`.
+
+### 5.3 `Info` — valori attuali
+| Campo | Significato |
+|---|---|
+| `lrActualPosition` / `lrActualVelocity` | posizione / velocità attuali [unità] |
+| `xEnabled` | drive in OperationEnabled |
+| `xHomed` | homing eseguito almeno una volta |
+| `xMoving` | asse in movimento |
+| `xInPosition` | entro `PositionWindow` (percorso CSP) |
+| `Status` | decoder CiA402 completo (vedi 5.4) |
+| `xTouchProbeDoneR/F`, `TouchProbeRisingValue/FallingValue`, `xTouchProbeBusy`, `xTouchProbeError` | risultati TouchProbe |
+
+### 5.4 `Info.Status` — bit CiA402 (da SML_Status)
+`OperationEnabled, SwitchedOn, ReadyToSwitchOn, Fault, Warning, QuickStopActive,
+VoltageEnabled, TargetReached, Halted, InternalLimit, Moving, StandStill, Homed,
+ProfilePositionMode, ProfileVelocityMode, SyncPositionMode(CSP), HomingMode, …`
+più `Err`, `ErrId` (0x603F), `ActTorque`, `FollowingError`.
+
+---
+
+## 6. TouchProbe (latch di posizione)
+
+È **parallelo** al moto (non è un `eCmd`). Comandi via `Ctrl`, leggi via `Info`.
+```pascal
+GVL_AXIS.Ctrl[1].xTouchProbeEnable := TRUE;   // arma l'hardware
+GVL_AXIS.Ctrl[1].xTouchProbeRising := TRUE;   // arma fronte di salita
+// ... al trigger:
+// Info.xTouchProbeDoneR = TRUE
+// Info.TouchProbeRisingValue = posizione latchata [encoder counts]
+```
+Un errore TouchProbe va nella **diagnostica** e in `Info.xTouchProbeError`, ma
+**non** mette l'asse in stato di moto ERROR.
+
+---
+
+## 7. Configurazione (`Ctrl`)
+
+| Campo | Default | Significato |
+|---|---|---|
+| `xEmergencyStop` | TRUE | **TRUE = marcia**, FALSE = quick-stop (CiA402 bit 2). Tienilo TRUE per funzionare |
+| `xSimulation` | FALSE | specchia `Target → Actual` (test senza drive) |
+| `Scale` | 4096.0 | counts per unità utente. **> 0** |
+| `CycleTime` | 0.001 | periodo del task [s]. Deve combaciare (per l'OTG) |
+| `PositionWindow` | 0.01 | deadband "in posizione" [unità] (CSP) |
+| `HomeOffset` | 0 | offset homing [encoder counts → 0x607C] |
+| `xTouchProbe*` | FALSE | controllo TouchProbe (vedi 6) |
+
+`Data`: `lrTargetPosition` [unità], `lrVelocity` [unità/s, con segno per PV],
+`lrAcceleration`, `lrDeceleration` [unità/s²], `lrJerk` [unità/s³, solo CSP].
+
+---
+
+## 8. Cosa fa ogni file
+
+### Contratto dati (DUT)
+| File | Ruolo |
+|---|---|
+| `ST_AXIS_CTRL` | comando (`eCmd`) + configurazione. App → layer |
+| `ST_MOVE_DATA` | setpoint di moto in unità utente. App → layer |
+| `ST_AXIS_STATE` | esito + stato combinato + diagnostica. Layer → app |
+| `ST_AXIS_INFO` | valori attuali + Status CiA402 + TouchProbe. Layer → app |
+| `ST_CiA402_Status` | tutti i bit di stato CiA402 (dentro `Info.Status`) |
+
+### Enum (DUT)
+| File | Ruolo |
+|---|---|
+| `E_AXIS_CTRL` | i comandi (`eCmd`) |
+| `E_AXIS_STATE` | stati funzionali (×100, per lo stato combinato) |
+| `E_PROGRESS` | avanzamento unificato (INVALID…DONE/ERROR) |
+| `SML_DiagCode` | codici diagnostici categorizzati |
+
+### Controllo
+| File | Ruolo |
+|---|---|
+| `FB_AxisCtrl` | **il FB di controllo asse**: traduce `eCmd` in chiamate ai FB foglia + CSP/OTG; popola State/Info; implementa `I_Axis` |
+| `FB_AxisCtrl_METHODS` | corpo dei metodi/proprietà di `I_Axis` (oggetti figli del FB) |
+| `I_Axis` | interfaccia a metodi (Enable/Home/MoveAbsolute/…) |
+
+### Esecuzione (FB foglia CiA402 — pilotati da FB_AxisCtrl)
+| File | Ruolo (≈ PLCopen) |
+|---|---|
+| `SML_Power` | abilitazione drive (≈ MC_Power) |
+| `SML_Reset` | reset fault (≈ MC_Reset) |
+| `SML_Home` | homing (≈ MC_Home) |
+| `SML_ProfilePosition` | move assoluto/relativo, modo PP (≈ MC_MoveAbsolute) |
+| `SML_ProfileVelocity` | velocità, modo PV (≈ MC_MoveVelocity) |
+| `SML_ProfileVelocity_Jog` | jog (≈ MC_Jog) |
+| `SML_Stop` | Halt (≈ MC_Halt) |
+| `SML_TouchProbe` | latch di posizione su fronte |
+| `SML_Status` | decoder di tutti i bit CiA402 |
+| `SML_Diagnostics` | aggrega errori → DiagCode/DiagText + primo guasto |
+| `FB_S7RTT_OTG` | generatore di traiettoria jerk-limited (CSP) |
+
+### Orchestrazione
+| File | Ruolo |
+|---|---|
+| `GVL_App` | configurazione applicazione: `MAX_AXIS` (numero assi) |
+| `GVL_SML_CONST` | costanti di libreria: `PROGRESS_SPAN`, `MAP_SIZE_*` |
+| `GVL_AXIS` | array `[1..MAX_AXIS]` di Axis/Ctrl/Data/State/Info + `Control` (FB) + `ItfSmlAxis` |
+| `MAIN` | esegue tutti gli assi ogni ciclo; chiama I/O bridge e MAPPING |
+
+### I/O verso il drive (vedi `GUIDA_IO_Linking.it.md`)
+| File | Ruolo |
+|---|---|
+| `OpenSML_Axis` | immagine PDO CiA402 dell'asse (ControlWord/StatusWord/…); `GVL_AXIS.Axis[n]` |
+| `ST_DriveOut` / `ST_DriveIn` | metà output / input di OpenSML_Axis, per il bridge |
+| `GVL_IO` | immagini `AT %Q*/%I*` + flag `IO_LINK_ENABLE` |
+| `PRG_IoLink_In` / `_Out` | copia drive↔struct (In prima di MAIN, Out dopo) |
+
+### MAPPING bus (esporre Ctrl/State su ADS/fieldbus — opzionale)
+| File | Ruolo |
+|---|---|
+| `U_AXIS_CTRL` / `U_MOVE_DATA` / `U_AXIS_STATE` / `U_AXIS_INFO` | UNION struct/grezzo |
+| `GVL_AXIS_MAP` | array UNION lato bus + flag `AXIS_MAP_ENABLE` |
+| `PRG_Mapping_In` / `PRG_Mapping_Out` | copia bus↔interno (gate dal flag) |
+
+### Utility / Test
+| File | Ruolo |
+|---|---|
+| `f_GetProgress` / `f_GetState` | scompongono lo stato combinato |
+| `PRG_LevelA_Test` / `PRG_LevelB_Test` / `PRG_MultiAxis_Test` | banchi in simulazione |
+
+---
+
+## 9. Sequenze tipiche
+
+### 9.1 Abilita → homing → move (con attese di stato)
+```pascal
+CASE iSeq OF
+  0: GVL_AXIS.Ctrl[1].eCmd := AXIS_ENABLE;
+     IF GVL_AXIS.Info[1].xEnabled THEN iSeq := 10; END_IF
+ 10: GVL_AXIS.Ctrl[1].eCmd := AXIS_HOME;
+     IF GVL_AXIS.State[1].xDone THEN iSeq := 20; END_IF
+ 20: GVL_AXIS.Data[1].lrTargetPosition := 50.0;
+     GVL_AXIS.Data[1].lrVelocity       := 100.0;
+     GVL_AXIS.Ctrl[1].eCmd := AXIS_MOVE_ABS;
+     IF GVL_AXIS.State[1].xDone THEN iSeq := 30; END_IF
+ 30: GVL_AXIS.Ctrl[1].eCmd := AXIS_NULL;  // fermo, abilitato
+END_CASE
+```
+
+### 9.2 Gestione errore
+```pascal
+IF GVL_AXIS.State[1].xError THEN
+    // leggi GVL_AXIS.State[1].DiagText / FirstFaultText
+    GVL_AXIS.Ctrl[1].eCmd := AXIS_RESET;      // pulisci il fault
+    // poi ri-abilita: AXIS_ENABLE
+END_IF
+```
+
+---
+
+## 10. Integrazione nel progetto
+
+1. **Import** dei file (ordine e passi in `IMPORT_CHECKLIST.it.md`). Ricorda di creare
+   i METHOD/PROPERTY di `I_Axis` sotto `FB_AxisCtrl` (`FB_AxisCtrl_METHODS`).
+2. **Numero assi**: imposta `GVL_App.MAX_AXIS`.
+3. **Task**: metti **`MAIN`** in un task ciclico. (In simulazione usa un banco di
+   test AL POSTO di MAIN.)
+4. **I/O**: collega `GVL_AXIS.Axis[n]` ai PDO del drive — vedi `GUIDA_IO_Linking.it.md`
+   (CoDeSys: link diretto; TwinCAT: bridge + `IO_LINK_ENABLE := TRUE`).
+5. **Applicazione**: scrivi `GVL_AXIS.Ctrl[n]`/`Data[n]`, leggi `State[n]`/`Info[n]`.
+
+---
+
+## 11. Simulazione (senza drive)
+
+Metti `Ctrl.xSimulation := TRUE` (specchia posizione). I banchi
+`PRG_LevelB_Test` / `PRG_MultiAxis_Test` includono un mini-emulatore CiA402 e
+provano la sequenza comandi: metti UN banco nel task (non MAIN) e verifica
+`xTestPassed = TRUE`.
+
+---
+
+## 12. Diagnostica (`SML_DiagCode`)
+
+Leggi `State.DiagCode`/`DiagText` (condizione live) e
+`State.FirstFaultCode`/`FirstFaultText` (primo guasto). Categorie:
+- `1..9` warning (moto continua) — es. `DIAG_INTERNAL_LIMIT`
+- `10..19` fault del drive — es. `DIAG_DRIVE_FAULT`, `DIAG_FOLLOWING_ERROR`, `DIAG_QUICK_STOP`
+- `20..29` fault di un FB — es. `DIAG_HOME_ERROR`, `DIAG_MOVE_ERROR`, `DIAG_OTG_ERROR`, `DIAG_TOUCHPROBE_ERROR`
+
+Reset: `AXIS_RESET` (pulisce il fault del drive e degli FB foglia).
+
+---
+
+## 13. Errori tipici (gotchas)
+
+- **Non parte / non si abilita** → `Ctrl.xEmergencyStop` deve essere **TRUE**
+  (TRUE = marcia). Controlla `Info.Status.Fault`/`DiagText`.
+- **Muove a posizione sbagliata** → `Ctrl.Scale` errato (counts/unità).
+- **CSP non insegue / traiettoria strana** → `CycleTime` ≠ periodo reale del task.
+- **Secondo move PP non parte** → è discreto: ri-triggera (passa da `AXIS_NULL`) o
+  usa `AXIS_MOVE_CSP` per re-targeting online.
+- **In posizione mai TRUE (CSP)** → `PositionWindow` troppo stretto.
+- **TouchProbe non latcha** → PDO 0x60B8/9/A/B non mappati, o DC non attivo.
+
+---
+
+## 14. Glossario rapido
+
+- **PP / PV / CSP**: Profile Position / Profile Velocity / Cyclic Synchronous Position (modo 8, con OTG).
+- **OTG**: online trajectory generator (jerk-limited) = `FB_S7RTT_OTG`.
+- **Unità utente**: le tue (mm, giri…); il layer converte in counts con `Scale`.
+- **Stato combinato**: `eState = stato funzionale + avanzamento`.
+
+---
+
+## Appendice A — FB applicativa d'esempio (`FB_AxisCycleDemo`)
+
+Esempio completo e importabile (`FB_AxisCycleDemo.txt`, **non** parte della
+libreria) che mostra il pattern reale d'uso: una macchina a stati che comanda
+un asse in un **ciclo continuo A↔B** con enable, homing una-tantum, soste,
+stop e reset automatico su errore.
+
+### A.1 Cosa fa
+```
+ENABLE → HOME (se non già azzerato) → A → sosta → B → sosta → A → … (fino a xStop)
+errore in qualsiasi punto → RESET automatico → idle (serve nuovo xStart)
+```
+
+### A.2 Interfaccia
+| Ingresso | Tipo | Uso |
+|---|---|---|
+| `nAxis` | UINT | indice asse in `GVL_AXIS` [1..MAX_AXIS] |
+| `xStart` | BOOL | avvia il ciclo |
+| `xStop` | BOOL | ferma (Halt) e chiude il ciclo |
+| `lrPosA` / `lrPosB` | LREAL | le due posizioni [unità] |
+| `lrVel` | LREAL | velocità dei move [unità/s] |
+| `tDwell` | TIME | sosta a ogni estremo |
+
+| Uscita | Tipo | Uso |
+|---|---|---|
+| `xBusy` / `xDone` / `xError` | BOOL | stato del ciclo |
+| `iStep` | INT | passo corrente (per debug) |
+| `sDiag` | STRING | testo diagnostico dell'asse |
+
+### A.3 Le due tecniche dimostrate
+1. **Comando → attesa esito**: ogni passo imposta `Ctrl.eCmd` (+ `Data`) e attende
+   `GVL_AXIS.State[nAxis].xDone` prima di proseguire.
+2. **Re-trigger dei move PP discreti**: tra `A` e `B` si passa per un passo con
+   `AXIS_NULL` (la sosta), che crea il **fronte** necessario a far ripartire il
+   move successivo. (Per re-targeting fluido useresti `AXIS_MOVE_CSP`.)
+3. **Homing una-tantum**: salta l'homing se `Info.xHomed` è già TRUE.
+4. **Gestione errore**: la supervisione in testa al FB intercetta `State.xError`
+   e salta al passo di RESET.
+
+### A.4 Come usarla
+```pascal
+PROGRAM PLC_APP
+VAR
+    cycleAx1 : FB_AxisCycleDemo;
+    xAvvia, xFerma : BOOL;   // da HMI / pulsanti
+END_VAR
+
+cycleAx1(
+    nAxis  := 1,
+    xStart := xAvvia,
+    xStop  := xFerma,
+    lrPosA := 0.0,
+    lrPosB := 250.0,
+    lrVel  := 150.0,
+    tDwell := T#1S);
+// leggibili: cycleAx1.xBusy, cycleAx1.xError, cycleAx1.iStep, cycleAx1.sDiag
+```
+Mettila in un task **insieme a `MAIN`** (che esegue gli assi). Per due assi in
+ciclo indipendente: due istanze con `nAxis := 1` e `nAxis := 2`.
+
+### A.5 Provala in simulazione
+Imposta `GVL_AXIS.Ctrl[1].xSimulation := TRUE` (o usa un banco con emulatore),
+metti `MAIN` + `PLC_APP` nel task, forza `xAvvia := TRUE` e osserva `iStep`
+avanzare 10→20→30→40→50→60→30… e `Info[1].lrActualPosition` oscillare tra A e B.
+
+---
+
+## Appendice B — Macchina completa a 2 assi (`PLC_APP`)
+
+`PLC_APP.txt` è un esempio **realistico** e importabile (non parte della libreria):
+misura/selezione pezzi su nastro. Asse 1 = nastro continuo (velocity + TouchProbe),
+Asse 2 = posizionatore. Dimostra: due assi, TouchProbe, transizione velocity→PP
+senza fermarsi, decisione su misura, moti simultanei, I/O macchina puliti.
+
+### B.1 Ingressi / Uscite (integrazione)
+| Ingresso (`PLC_APP.`) | Uso |
+|---|---|
+| `xStart` | avvia/mantiene il ciclo automatico |
+| `xStop` | ferma (Halt) e va in idle |
+| `xSafetyOk` | consenso sicurezza (TRUE = marcia; → `xEmergencyStop`) |
+| `xPhotocell` | fotocellula misura, TRUE = coperta da un pezzo |
+| `xExitPhotocell` | fotocellula di uscita, TRUE = pezzo scartato in transito |
+| `xResume` | segnale esterno: riattiva il nastro dallo standby |
+| `xHomeBelt` | ri-azzera (home) il nastro fermo in standby |
+| `lrScale, lrCycleTime, lrBeltVel, lrBeltMove, lrThreshold, lrAx2Home, lrAx2Fwd, lrAx2Zero, lrAx2Vel, tWait, tIdle` | parametri (default d'esempio) |
+
+| Uscita (`PLC_APP.`) | Uso |
+|---|---|
+| `xHomed` | homing completato |
+| `xRunning` | ciclo attivo |
+| `xStandby` | nastro fermo in standby (nessun pezzo) |
+| `xError` / `sDiag` | errore asse + testo |
+| `xOversize` | ultimo pezzo fuori misura |
+| `xEjected` | impulso: scarto certificato espulso (fotocellula di uscita) |
+| `nRejectCount` | contatore scarti espulsi |
+| `lrLastMeasure` | ultima misura pezzo [mm] |
+| `iStep` | passo corrente (debug) |
+
+### B.2 Mappa dei passi (`iStep`)
+```
+ 0 idle → 5 enable(2 assi) → [10 home nastro → 20 home asse2] (una volta)
+   ↓
+ 30 nastro VELOCITY + arma TouchProbe
+ 40 attesa fotocellula COPERTA → nastro passa a PP relativo (lrBeltMove)
+    │  (se nessun pezzo per tIdle → 100 STANDBY)
+ 50 attesa fotocellula LIBERATA → misura = |TP_falling − TP_rising|/Scale
+      ├─ misura > soglia → nastro resta in VELOCITY, si torna a 30 SUBITO
+      │                     (scarto espulso e contato in PARALLELO, pipelining)
+      └─ misura ≤ soglia → 70 attesa nastro fermo → 75 attesa+asse2 avanti a +400
+                            → 80 attesa asse2 → 85 attesa+(asse2→0 ∥ nastro velocity) → 30
+
+ 100 STANDBY: nastro decelera e ferma → 110 fermo
+ 110 attende xHomeBelt (→120 ri-azzera) o xResume (→30 riparte)
+ 120 home nastro sul posto → 110
+
+ PARALLELO (sempre): fronte discesa xExitPhotocell → nRejectCount++, xEjected
+200 STOP (Halt 2 assi) → idle     900 ERRORE (reset 2 assi) → idle
+```
+
+### B.3 Uso
+```pascal
+// nel task, INSIEME a MAIN:
+PLC_APP.xSafetyOk      := xConsensoSicurezza;
+PLC_APP.xPhotocell     := xFotocellulaMisura;
+PLC_APP.xExitPhotocell := xFotocellulaUscita;
+PLC_APP.xStart         := xAvviaMacchina;
+PLC_APP.xStop          := xFermaMacchina;
+PLC_APP.xResume        := xRipresaDaStandby;   // segnale esterno
+PLC_APP.xHomeBelt      := xAzzeraNastro;       // in standby
+// (opz.) PLC_APP.lrThreshold := 300.0;  PLC_APP.tIdle := T#5S;  ecc.
+// leggi: PLC_APP.xRunning, PLC_APP.xStandby, PLC_APP.lrLastMeasure,
+//        PLC_APP.xOversize, PLC_APP.nRejectCount, PLC_APP.iStep
+```
+
+### B.4 Requisiti sul drive (importante)
+- **Fotocellula misura** cablata al **trigger TouchProbe** del drive dell'asse 1
+  (per i latch rising/falling) **e** all'ingresso PLC `xPhotocell` (per sequenziare).
+- **Fotocellula di uscita** (`xExitPhotocell`) a valle: certifica il passaggio del
+  pezzo scartato (nessun attuatore: il pezzo cade dal nastro).
+- **Homing asse 1**: metodo "set position" (sul posto).
+- **Homing asse 2**: metodo con sensore in negativo + tacca encoder; il
+  riferimento diventa `lrAx2Home` grazie a `HomeOffset` (impostato dall'app in
+  counts). Sensore/indice li gestisce il metodo di homing del drive.
+- **DC (Distributed Clocks)** attivi per il TouchProbe.
+- Nastro rotativo: se l'encoder va in **modulo** (wrap), la misura
+  `falling − rising` va gestita con l'aritmetica modulo (non coperto qui).
+
+### B.5 Assunzioni (adattabili)
+Corsa nastro PP = **relativa** dal trigger (`lrBeltMove`); asse2 "avanti" =
+**assoluto** `lrAx2Fwd` (+400), "ritorno" = **assoluto** `lrAx2Zero` (0); scarto =
+nastro che continua in velocity + certifica su `xExitPhotocell` (`nRejectCount`).
+Se il tuo layout differisce, cambia i parametri o segnala e adatto la logica.

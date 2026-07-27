@@ -1,41 +1,41 @@
-# SML — Guida al collegamento I/O degli assi fisici (CoDeSys e TwinCAT)
+**English** | [Italiano](GUIDA_IO_Linking.it.md)
 
-**Versione:** SML_v9 · **Data:** 2026-07-23
+# SML — Physical-axis I/O linking guide (CoDeSys and TwinCAT)
 
-Come agganciare `GVL_AXIS.Axis[n]` (la struct `OpenSML_Axis`, cioè l'immagine
-PDO CiA402) ai PDO reali del drive EtherCAT — su **CoDeSys** e su **TwinCAT**.
+**Version:** SML_v9 · **Date:** 2026-07-23
 
----
-
-## 1. Concetto chiave
-
-`GVL_AXIS.Axis[n]` è una **struct software** (senza `AT %I*/%Q*`): così il codice
-resta **portabile** e **testabile in simulazione**. Il codice della libreria
-(`MAIN`, `FB_AxisCtrl`, `GVL_AXIS`) è **identico** su CoDeSys e TwinCAT.
-Cambia **solo il sottile strato di aggancio I/O**.
-
-I campi di `OpenSML_Axis` sono **già ordinati output-poi-input**:
-- primi 10 campi = **PLC → Drive** (RxPDO)
-- restanti 12 campi = **Drive → PLC** (TxPDO)
-
-Questo ordine è ciò che rende puliti sia il link diretto sia il bridge.
-
-Due strategie di aggancio:
-- **(A) Link diretto** — ogni oggetto PDO è legato al membro della struct. Nessun
-  codice extra. Idiomatico su **CoDeSys**.
-- **(B) Bridge** — i PDO sono mappati su due immagini `AT %Q*`/`AT %I*`
-  (`ST_DriveOut`/`ST_DriveIn`) e un FB copia immagine↔struct ogni ciclo.
-  Idiomatico su **TwinCAT** (è ciò che faceva `SML_TC3Link`).
-
-Passo comune a entrambe: nel drive, assicurarsi che gli oggetti siano
-nell'**assegnazione PDO** (RxPDO 0x160x, TxPDO 0x1A0x). Se un oggetto non è nel
-PDO, non compare per il link.
+How to hook `GVL_AXIS.Axis[n]` (the `OpenSML_Axis` struct, i.e. the CiA402 PDO image) to the real PDOs
+of the EtherCAT drive — on **CoDeSys** and on **TwinCAT**.
 
 ---
 
-## 2. Tabella di riferimento (campo ↔ oggetto CiA402)
+## 1. The key idea
 
-| Campo `Axis[n].` | Oggetto | Dir. | PDO |
+`GVL_AXIS.Axis[n]` is a **software struct** (without `AT %I*/%Q*`): this keeps the code **portable**
+and **testable in simulation**. The library code (`MAIN`, `FB_AxisCtrl`, `GVL_AXIS`) is **identical**
+on CoDeSys and TwinCAT. Only the **thin I/O-hookup layer** changes.
+
+The fields of `OpenSML_Axis` are **already ordered outputs-then-inputs**:
+- first 10 fields = **PLC → Drive** (RxPDO)
+- remaining 12 fields = **Drive → PLC** (TxPDO)
+
+This ordering is what keeps both the direct link and the bridge clean.
+
+Two hookup strategies:
+- **(A) Direct link** — each PDO object is bound to a struct member. No extra code. Idiomatic on
+  **CoDeSys**.
+- **(B) Bridge** — the PDOs are mapped onto two `AT %Q*`/`AT %I*` images
+  (`ST_DriveOut`/`ST_DriveIn`) and an FB copies image↔struct every cycle. Idiomatic on **TwinCAT**
+  (this is what `SML_TC3Link` used to do).
+
+Step common to both: in the drive, make sure the objects are in the **PDO assignment**
+(RxPDO 0x160x, TxPDO 0x1A0x). If an object isn't in the PDO, it won't appear for linking.
+
+---
+
+## 2. Reference table (field ↔ CiA402 object)
+
+| Field `Axis[n].` | Object | Dir. | PDO |
 |---|---|---|---|
 | ControlWord | 0x6040 | →Drive | RxPDO |
 | Modes_of_operation | 0x6060 | →Drive | RxPDO |
@@ -62,109 +62,99 @@ PDO, non compare per il link.
 
 ---
 
-## 3. CoDeSys — link diretto nella scheda I/O Mapping (consigliato)
+## 3. CoDeSys — direct link in the I/O Mapping tab (recommended)
 
-Nessun codice bridge, nessun `AT`: si lega ogni canale PDO al membro della struct.
+No bridge code, no `AT`: you bind each PDO channel to a struct member.
 
-1. Albero **Devices** → EtherCAT Master → drive → tab **`<Slave> I/O Mapping`**
-   (o *EtherCAT I/O Mapping*).
-2. Per ogni riga (oggetto PDO), colonna **Variable** → doppio clic → **Browse** →
-   seleziona il membro, es. `GVL_AXIS.Axis[1].ControlWord`,
-   `GVL_AXIS.Axis[1].StatusWord`, … (indice **1-based**: `[1]`, `[2]`, …).
-3. Ripeti per l'asse 2 → `GVL_AXIS.Axis[2].…`, e così via.
-4. Sul modulo, **"Always update variables" = Enabled 2 (always in bus cycle
-   task)**, così i campi si aggiornano anche se non usati esplicitamente nel codice.
-5. Se un oggetto PDO manca: abilita **Expert settings** sul drive e aggiungilo
-   alla RxPDO/TxPDO.
+1. **Devices** tree → EtherCAT Master → drive → **`<Slave> I/O Mapping`** tab
+   (or *EtherCAT I/O Mapping*).
+2. For each row (PDO object), the **Variable** column → double-click → **Browse** → pick the member,
+   e.g. `GVL_AXIS.Axis[1].ControlWord`, `GVL_AXIS.Axis[1].StatusWord`, … (**1-based** index:
+   `[1]`, `[2]`, …).
+3. Repeat for axis 2 → `GVL_AXIS.Axis[2].…`, and so on.
+4. On the module, set **"Always update variables" = Enabled 2 (always in bus cycle task)**, so the
+   fields update even if not used explicitly in the code.
+5. If a PDO object is missing: enable **Expert settings** on the drive and add it to the RxPDO/TxPDO.
 
-> In alternativa si possono usare indirizzi `%IW/%QW` con `AT`, ma il binding
-> nella scheda I/O Mapping alla struct è l'idioma CoDeSys corretto e portabile.
+> Alternatively you can use `%IW/%QW` addresses with `AT`, but binding the struct in the I/O Mapping
+> tab is the correct, portable CoDeSys idiom.
 
-### 3b. CoDeSys — variante con bridge (opzionale, come TwinCAT)
-Se preferisci un unico punto di mappatura anche su CoDeSys, usa i due DUT
-`ST_DriveOut`/`ST_DriveIn` come al §4: dichiari le due immagini, le mappi nella
-scheda I/O e usi lo stesso codice bridge del §5.
+### 3b. CoDeSys — bridge variant (optional, like TwinCAT)
+If you prefer a single mapping point on CoDeSys too, use the two DUTs `ST_DriveOut`/`ST_DriveIn` as in
+§4: declare the two images, map them in the I/O tab and use the same bridge code as in §5.
 
 ---
 
-## 4. TwinCAT — bridge con immagine `AT %I*/%Q*` (idiomatico)
+## 4. TwinCAT — bridge with `AT %I*/%Q*` image (idiomatic)
 
-TwinCAT non ama linkare una struct a direzione mista. Approccio pulito
-(quello di `SML_TC3Link`): **due immagini separate** + copia ciclica.
+TwinCAT doesn't like linking a mixed-direction struct. The clean approach (that of `SML_TC3Link`):
+**two separate images** + cyclic copy.
 
-1. Le due metà sono già in `GVL_IO` come **array semplici** (DUT `ST_DriveOut`/
-   `ST_DriveIn`, stesso ordine/tipi della struct):
+1. The two halves are already in `GVL_IO` as **plain arrays** (DUTs `ST_DriveOut`/`ST_DriveIn`, same
+   order/types as the struct):
    ```pascal
    VAR_GLOBAL
-       DriveOut : ARRAY[1..GVL_SML_CONST.MAX_AXIS] OF ST_DriveOut; // -> RxPDO
-       DriveIn  : ARRAY[1..GVL_SML_CONST.MAX_AXIS] OF ST_DriveIn;   // <- TxPDO
+       DriveOut : ARRAY[1..GVL_App.MAX_AXIS] OF ST_DriveOut; // -> RxPDO
+       DriveIn  : ARRAY[1..GVL_App.MAX_AXIS] OF ST_DriveIn;   // <- TxPDO
    END_VAR
    ```
-   > **Niente `AT %Q*/%I*`**: in un GVL l'indirizzo incompleto richiede un
-   > VAR_CONFIG/mappatura, altrimenti CoDeSys da' errore **C0128**. Con array
-   > semplici il codice compila e si mappa nel configuratore. Su TwinCAT puoi
-   > riaggiungere `AT %Q*`/`AT %I*` se vuoi l'immagine di processo esplicita.
-2. Nel drive EtherCAT: **Change Link** su ogni oggetto PDO → collega a
-   `DriveOut[1].ControlWord`, `DriveIn[1].StatusWord`, … (blocchi contigui →
-   link rapido; oppure "one-to-one" se i tipi combaciano).
-3. Copia ciclica (vedi §5), con l'ordine corretto rispetto a `MAIN`.
+   > **No `AT %Q*/%I*`**: in a GVL an incomplete address requires a VAR_CONFIG/mapping, otherwise
+   > CoDeSys throws error **C0128**. With plain arrays the code compiles and you map it in the
+   > configurator. On TwinCAT you can re-add `AT %Q*`/`AT %I*` if you want the explicit process image.
+2. In the EtherCAT drive: **Change Link** on each PDO object → link to `DriveOut[1].ControlWord`,
+   `DriveIn[1].StatusWord`, … (contiguous blocks → quick link; or "one-to-one" if the types match).
+3. Cyclic copy (see §5), with the correct ordering relative to `MAIN`.
 
-> Alternativa TwinCAT senza bridge: **Change Link** diretto di ogni PDO a
-> `GVL_AXIS.Axis[1].<membro>`. Funziona, ma sono ~22 link × N assi a mano.
+> TwinCAT alternative without the bridge: directly **Change Link** each PDO to
+> `GVL_AXIS.Axis[1].<member>`. It works, but it's ~22 links × N axes by hand.
 
 ---
 
-## 5. Il bridge pronto (file già nel progetto)
+## 5. The ready-made bridge (files already in the project)
 
-Oggetti forniti (import da `.txt`):
-- **`ST_DriveOut`** = primi 10 campi di `OpenSML_Axis` (output), stesso ordine/tipi.
-- **`ST_DriveIn`**  = restanti 12 campi (input), stesso ordine/tipi.
-- **`GVL_IO`** — `DriveOut AT %Q*` / `DriveIn AT %I*` (`ARRAY[1..MAX_AXIS]`) +
-  flag `IO_LINK_ENABLE : BOOL`.
+Supplied objects (import from `.txt`):
+- **`ST_DriveOut`** = first 10 fields of `OpenSML_Axis` (outputs), same order/types.
+- **`ST_DriveIn`**  = remaining 12 fields (inputs), same order/types.
+- **`GVL_IO`** — `DriveOut` / `DriveIn` (`ARRAY[1..GVL_App.MAX_AXIS]`, plain arrays; see the C0128
+  note in §4) + flag `IO_LINK_ENABLE : BOOL`.
 - **`PRG_IoLink_In`** — PROGRAM: `DriveIn[n] -> Axis[n]` (input).
 - **`PRG_IoLink_Out`** — PROGRAM: `Axis[n] -> DriveOut[n]` (output).
 
-**Timing corretto (zero ritardo):** `MAIN` chiama già `PRG_IoLink_In()` **prima**
-del ciclo assi e `PRG_IoLink_Out()` **dopo** (accanto a PRG_Mapping_In/Out). Non c'è
-il ritardo di 1 ciclo del bridge singolo. Entrambi si auto-bypassano se
-`GVL_IO.IO_LINK_ENABLE = FALSE`.
+**Correct timing (zero delay):** `MAIN` already calls `PRG_IoLink_In()` **before** the axis loop and
+`PRG_IoLink_Out()` **after** (next to PRG_Mapping_In/Out). There's no 1-cycle delay of a single
+bridge. Both auto-bypass if `GVL_IO.IO_LINK_ENABLE = FALSE`.
 
-**Attivazione:** metti `GVL_IO.IO_LINK_ENABLE := TRUE` e collega nel configuratore
-`GVL_IO.DriveOut[n]` ai RxPDO e `GVL_IO.DriveIn[n]` ai TxPDO del drive.
+**Activation:** set `GVL_IO.IO_LINK_ENABLE := TRUE` and, in the configurator, link
+`GVL_IO.DriveOut[n]` to the RxPDOs and `GVL_IO.DriveIn[n]` to the TxPDOs of the drive.
 
-> **CoDeSys con link diretto (§3):** NON usare il bridge — lascia
-> `IO_LINK_ENABLE = FALSE` e mappa `GVL_AXIS.Axis[n]` direttamente. I due
-> approcci sono mutuamente esclusivi (il flag evita conflitti).
+> **CoDeSys with direct link (§3):** do NOT use the bridge — leave `IO_LINK_ENABLE = FALSE` and map
+> `GVL_AXIS.Axis[n]` directly. The two approaches are mutually exclusive (the flag prevents conflicts).
 
-### Nota: copia campo-a-campo vs blocco
-Poiché `ST_DriveOut`/`ST_DriveIn` hanno gli **stessi tipi e lo stesso ordine**
-delle rispettive metà di `OpenSML_Axis`, i due programmi copiano **campo-a-campo**:
-la scelta più sicura (indipendente dal padding). Evita `memcpy` di blocco tra la
-struct mista e le due metà: il padding potrebbe non coincidere.
+### Note: field-by-field copy vs block copy
+Because `ST_DriveOut`/`ST_DriveIn` have the **same types and the same order** as the respective halves
+of `OpenSML_Axis`, the two programs copy **field by field**: the safest choice (padding-independent).
+Avoid a block `memcpy` between the mixed struct and the two halves: the padding might not match.
 
 ---
 
-## 6. Verifiche e accortezze (entrambe le piattaforme)
+## 6. Checks and precautions (both platforms)
 
-- **Distributed Clocks (DC)**: attivali sul drive se usi CSP (`AXIS_MOVE_CSP`) o
-  TouchProbe (latch sincronizzato).
-- **Modi supportati**: CSP (modo 8) per il percorso OTG; PP(1)/PV(3)/HM(6) per gli
-  altri comandi.
-- **`Ctrl.Scale`** = counts/unità dell'encoder; **`Ctrl.CycleTime`** = periodo
-  reale del task (per l'OTG).
-- **PDO TouchProbe** (0x60B8/0x60B9/0x60BA/0x60BB): spesso non nel PDO di default →
-  aggiungili se usi il TouchProbe.
-- **"Always update variables"** (CoDeSys) o mapping completo (TwinCAT): assicura
-  che tutti i campi si aggiornino.
+- **Distributed Clocks (DC)**: enable them on the drive if you use CSP (`AXIS_MOVE_CSP`) or touch-probe
+  (synchronized latch).
+- **Supported modes**: CSP (mode 8) for the OTG path; PP(1)/PV(3)/HM(6) for the other commands.
+- **`Ctrl.Scale`** = encoder counts/unit; **`Ctrl.CycleTime`** = the real task period (for the OTG).
+- **Touch-probe PDOs** (0x60B8/0x60B9/0x60BA/0x60BB): often not in the default PDO → add them if you
+  use the touch-probe.
+- **"Always update variables"** (CoDeSys) or full mapping (TwinCAT): ensures all fields update.
 
 ---
 
-## 7. Riassunto
+## 7. Summary
 
 | | CoDeSys | TwinCAT |
 |---|---|---|
-| Strategia idiomatica | Link diretto (scheda I/O Mapping) | Bridge (`ST_DriveOut`/`ST_DriveIn` + copia) |
-| Codice extra | nessuno | programma bridge (`SML_IoLink`) |
-| `AT %I*/%Q*` | no (binding alla struct) | sì (sulle due immagini) |
-| DUT bridge | opzionali (variante §3b) | necessari |
-| Codice libreria (MAIN/FB/GVL) | identico | identico |
+| Idiomatic strategy | Direct link (I/O Mapping tab) | Bridge (`ST_DriveOut`/`ST_DriveIn` + copy) |
+| Extra code | none | bridge program (`PRG_IoLink_In`/`_Out`) |
+| `AT %I*/%Q*` | no (struct binding) | yes (on the two images) |
+| Bridge DUTs | optional (§3b variant) | required |
+| Library code (MAIN/FB/GVL) | identical | identical |
