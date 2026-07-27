@@ -1,6 +1,6 @@
 (* ============================================================
-   E_PROGRESS — Unified progress for all SML FBs
-   SML v5 — Level A (new)
+   E_PROGRESS - Unified progress for all SML FBs
+   SML v5 - Level A (new)
 
    Common progress vocabulary, readable by application / HMI /
    diagnostics, replacing the ad-hoc iState:INT semantics used by

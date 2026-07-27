@@ -1,6 +1,6 @@
 (* ============================================================
-   f_GetProgress — Extracts the progress from a combined state
-   SML v5 — Level A (new)
+   f_GetProgress - Extracts the progress from a combined state
+   SML v5 - Level A (new)
 
    eCombined = functional_state + E_PROGRESS  (progress band = 0..99)
    Returns only the progress part.

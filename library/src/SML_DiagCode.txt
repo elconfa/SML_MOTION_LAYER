@@ -1,6 +1,6 @@
 (* ============================================================
-   SML_DiagCode — Diagnostic Code Enumeration
-   SML v4 — New in v4 (runtime diagnostics)
+   SML_DiagCode - Diagnostic Code Enumeration
+   SML v4 - New in v4 (runtime diagnostics)
 
    Single categorized code used by SML_Diagnostics for both the
    current condition (DiagCode) and the latched first cause
@@ -18,17 +18,17 @@ TYPE SML_DiagCode :
 (
     DIAG_OK               := 0,    // No fault, no warning
 
-    // ── Warnings (1..9) ───────────────────────────────────────
+    // -- Warnings (1..9) ---------------------------------------
     DIAG_WARNING          := 1,    // CiA402 StatusWord bit 7 (generic warning)
     DIAG_INTERNAL_LIMIT   := 2,    // StatusWord bit 11 (internal limit active)
 
-    // ── Drive-level faults (10..19) ───────────────────────────
+    // -- Drive-level faults (10..19) ---------------------------
     DIAG_DRIVE_FAULT      := 10,   // StatusWord bit 3 (Fault), no specific code
     DIAG_DRIVE_ERRORCODE  := 11,   // StatusWord bit 3 + Error_Code (0x603F) > 0
     DIAG_QUICK_STOP       := 12,   // QuickStopActive (StatusWord bit 5 = 0)
     DIAG_FOLLOWING_ERROR  := 13,   // StatusWord bit 13 (following error)
 
-    // ── Library / motion-FB faults (20..29) ───────────────────
+    // -- Library / motion-FB faults (20..29) -------------------
     DIAG_POWER_ERROR      := 20,   // SML_Power sequence error
     DIAG_HOME_ERROR       := 21,   // SML_Home error (stall/timeout/abort)
     DIAG_MOVE_ERROR       := 22,   // SML_ProfilePosition error (MoveAbs/MoveHome)

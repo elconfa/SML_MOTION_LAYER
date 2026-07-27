@@ -1,6 +1,6 @@
 (* ============================================================
-   ST_AXIS_INFO — Info structure (layer -> app)
-   SML v6 — Level B (new)
+   ST_AXIS_INFO - Info structure (layer -> app)
+   SML v6 - Level B (new)
 
    The "Info" data contract. Actual values and axis status bits,
    in user units.
@@ -15,10 +15,10 @@ STRUCT
     xMoving          : BOOL;     // axis is moving
     xInPosition      : BOOL;     // within PositionWindow (CSP path)
 
-    // ── full CiA402 decoder (from SML_Status) ─────────────────
+    // -- full CiA402 decoder (from SML_Status) -----------------
     Status           : ST_CiA402_Status;
 
-    // ── TouchProbe results (from SML_TouchProbe) ──────────────
+    // -- TouchProbe results (from SML_TouchProbe) --------------
     xTouchProbeDoneR       : BOOL;
     xTouchProbeDoneF       : BOOL;
     xTouchProbeBusy        : BOOL;

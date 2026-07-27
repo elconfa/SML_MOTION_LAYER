@@ -1,6 +1,6 @@
 (* ============================================================
-   FB_AxisCtrl — Methods and properties of I_Axis
-   SML v6 — Level B (new)
+   FB_AxisCtrl - Methods and properties of I_Axis
+   SML v6 - Level B (new)
 
    REAL code (not commented out) of the methods/properties that
    FB_AxisCtrl must implement to satisfy I_Axis.

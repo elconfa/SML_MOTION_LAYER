@@ -1,6 +1,6 @@
 (* ============================================================
-   I_Axis — Axis interface (equivalent of I_McAxis)
-   SML v6 — Level B (new)
+   I_Axis - Axis interface (equivalent of I_McAxis)
+   SML v6 - Level B (new)
 
    A method facade to drive an axis without depending on the
    implementation. It serves high-level coordinators (in the
@@ -18,7 +18,7 @@
 
 INTERFACE I_Axis
 
-// ── METHODS (return E_PROGRESS) ────────────────────────────────
+// -- METHODS (return E_PROGRESS) --------------------------------
 
 METHOD Enable : E_PROGRESS
 // (no parameters)
@@ -58,14 +58,14 @@ END_VAR
 
 METHOD MoveFollow : E_PROGRESS   // CSP + OTG (jerk-limited)
 VAR_INPUT
-    lrPosition : LREAL;   // [units] — online re-targetable
+    lrPosition : LREAL;   // [units] - online re-targetable
     lrVelocity : LREAL;   // [units/s]
 END_VAR
 
 METHOD Stop : E_PROGRESS
 // (no parameters)
 
-// ── PROPERTIES (get) ───────────────────────────────────────────
+// -- PROPERTIES (get) -------------------------------------------
 
 PROPERTY Position : LREAL     // actual position [units]  (get)
 PROPERTY Enabled  : BOOL      // drive OperationEnabled     (get)

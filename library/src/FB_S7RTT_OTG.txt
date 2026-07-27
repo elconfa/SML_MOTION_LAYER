@@ -1,21 +1,21 @@
 (* ============================================================
-   FB_S7RTT_OTG — Online Trajectory Generator (OTG)
-   SML v4 — Native implementation (replaces StruckigLight dependency)
+   FB_S7RTT_OTG - Online Trajectory Generator (OTG)
+   SML v4 - Native implementation (replaces StruckigLight dependency)
 
    WHAT IT DOES:
    Generates a smooth, jerk-limited motion profile every PLC cycle.
    Given a target (position or velocity) and motion limits, it
    computes the next commanded position that respects:
      - MaxVelocity     [units/s]
-     - MaxAcceleration [units/s²]
-     - MaxJerk         [units/s³]
+     - MaxAcceleration [units/s^2]
+     - MaxJerk         [units/s^3]
 
    TWO INTERFACES selected by ControlInterface:
    - FALSE (position): drive axis to TargetPosition; decelerate to
      stop at target without overshoot.
    - TRUE  (velocity): ramp to TargetVelocity; integrate to position.
 
-   INITIALIZATION (v4 — explicit seed, fixes the fragile v3 auto-detect):
+   INITIALIZATION (v4 - explicit seed, fixes the fragile v3 auto-detect):
    In the mode-switch state, assert xInit = TRUE and write the actual
    axis position to CurrentPosition:
        otg.xInit           := TRUE;
@@ -27,25 +27,25 @@
    moved, the OTG re-initialized every cycle and never advanced.  xInit makes
    the seed deterministic and decouples it from value comparison.
 
-   ALGORITHM — S-curve (jerk-limited trapezoidal):
+   ALGORITHM - S-curve (jerk-limited trapezoidal):
    Each cycle:
    1. Compute desired velocity:
       - Position mode: braking-limited velocity toward target
         v_brake = sqrt(2 * MaxAcceleration * |position_error|)
-        (limits speed proportionally as target approaches — no overshoot)
+        (limits speed proportionally as target approaches - no overshoot)
       - Velocity mode: directly use TargetVelocity
    2. Compute desired acceleration = (v_desired - v_current) / dt
-      Clamped to ±MaxAcceleration
+      Clamped to +/-MaxAcceleration
    3. Apply jerk limit: change in acceleration limited to MaxJerk * dt
-   4. Integrate acceleration → velocity (clamped to ±MaxVelocity)
-   5. Integrate velocity → position
+   4. Integrate acceleration -> velocity (clamped to +/-MaxVelocity)
+   5. Integrate velocity -> position
    6. Snap to target in position mode when within one-step distance
 
    NAMING NOTE:
-   "CycleTIme" (capital I) is intentional — matches the typo present
+   "CycleTIme" (capital I) is intentional - matches the typo present
    in the original OpenSML calls throughout the library.  Do not rename.
    All callers MUST use "CycleTIme :=" (v3 SyncPosition/SyncVelocity used the
-   wrong "CycleTime" and did not compile — fixed in v4).
+   wrong "CycleTime" and did not compile - fixed in v4).
 
    COMPATIBILITY:
    Based on the StruckigLight FB_S7RTT_OTG.  v4 adds the xInit seed input,
@@ -55,16 +55,16 @@
 FUNCTION_BLOCK FB_S7RTT_OTG
 VAR_INPUT
     ControlInterface : BOOL;    // FALSE = position interface, TRUE = velocity interface
-    TargetPosition   : LREAL;   // Target position [user units] — used when ControlInterface=FALSE
-    TargetVelocity   : LREAL;   // Target velocity [user units/s] — used when ControlInterface=TRUE
-    CycleTIme        : LREAL;   // PLC task cycle time [s] — MUST match actual task period
-    MaxVelocity      : LREAL;   // Velocity ceiling [user units/s] — must be > 0
-    MaxAcceleration  : LREAL;   // Acceleration limit [user units/s²] — must be > 0
-    MaxJerk          : LREAL;   // Jerk limit [user units/s³] — must be > 0
-    // ── Seeding inputs ────────────────────────────────────────
+    TargetPosition   : LREAL;   // Target position [user units] - used when ControlInterface=FALSE
+    TargetVelocity   : LREAL;   // Target velocity [user units/s] - used when ControlInterface=TRUE
+    CycleTIme        : LREAL;   // PLC task cycle time [s] - MUST match actual task period
+    MaxVelocity      : LREAL;   // Velocity ceiling [user units/s] - must be > 0
+    MaxAcceleration  : LREAL;   // Acceleration limit [user units/s^2] - must be > 0
+    MaxJerk          : LREAL;   // Jerk limit [user units/s^3] - must be > 0
+    // -- Seeding inputs ----------------------------------------
     // xInit: assert TRUE in the caller's mode-switch state to (re)seed the
     // integrator to CurrentPosition with zero velocity/acceleration.  Set FALSE
-    // in the motion loop so the trajectory runs.  Deterministic — no value diff.
+    // in the motion loop so the trajectory runs.  Deterministic - no value diff.
     xInit            : BOOL := FALSE;
     // CurrentPosition: actual axis position [user units], valid while xInit=TRUE.
     // Usage:  otg.CurrentPosition := DINT_TO_LREAL(Axis.Position_Actual_Value) / Scale;
@@ -77,15 +77,15 @@ VAR_OUTPUT
     xError      : BOOL;  // TRUE if inputs are invalid (zero limits or cycle time)
 END_VAR
 VAR
-    // ── Internal integrator state ─────────────────────────────
+    // -- Internal integrator state -----------------------------
     _pos         : LREAL;   // Commanded position [user units]
     _vel         : LREAL;   // Commanded velocity [user units/s]
-    _acc         : LREAL;   // Commanded acceleration [user units/s²]
+    _acc         : LREAL;   // Commanded acceleration [user units/s^2]
 
-    // ── Initialization tracking ───────────────────────────────
+    // -- Initialization tracking -------------------------------
     _initialized : BOOL;    // FALSE until first seed is applied
 
-    // ── Temporaries (declared here — no VAR_TEMP in FB) ──────
+    // -- Temporaries (declared here - no VAR_TEMP in FB) ------
     _desiredVel  : LREAL;
     _desiredAcc  : LREAL;
     _deltaAcc    : LREAL;
@@ -94,21 +94,21 @@ VAR
     _snapDist    : LREAL;
 END_VAR
 
-// ── Input validation ──────────────────────────────────────────────────────
+// -- Input validation ------------------------------------------------------
 IF CycleTIme <= 0.0 OR MaxVelocity <= 0.0 OR MaxAcceleration <= 0.0 THEN
     xError := TRUE;
-    RETURN; // Outputs unchanged — caller must fix configuration
+    RETURN; // Outputs unchanged - caller must fix configuration
 END_IF
 xError := FALSE;
 
 // If MaxJerk is zero or negative, disable jerk limiting by setting it very high
-// (jerk limit is effectively infinite — pure trapezoidal profile)
+// (jerk limit is effectively infinite - pure trapezoidal profile)
 IF MaxJerk <= 0.0 THEN MaxJerk := MaxAcceleration / CycleTIme; END_IF
 
-// ── Explicit seed (v4) ────────────────────────────────────────────────────
+// -- Explicit seed (v4) ----------------------------------------------------
 // Caller asserts xInit=TRUE in its mode-switch state and writes CurrentPosition.
 // While xInit is held (or until the first seed) the integrator is parked at the
-// seed position with zero velocity/acceleration — deterministic, no value diff.
+// seed position with zero velocity/acceleration - deterministic, no value diff.
 IF NOT _initialized OR xInit THEN
     _pos         := CurrentPosition;
     _vel         := 0.0; // Start from rest at seed position
@@ -119,7 +119,7 @@ IF NOT _initialized OR xInit THEN
     RETURN; // Do not move on the initialization cycle
 END_IF
 
-// ── Step 1: Compute desired velocity ──────────────────────────────────────
+// -- Step 1: Compute desired velocity --------------------------------------
 IF NOT ControlInterface THEN
 
     // POSITION INTERFACE: compute braking-limited velocity toward target
@@ -136,7 +136,7 @@ IF NOT ControlInterface THEN
         _brakeVel   := SQRT(2.0 * MaxAcceleration * ABS(_posError));
         _brakeVel   := MIN(_brakeVel, MaxVelocity);
 
-        // Apply direction: positive error → positive velocity, negative → negative
+        // Apply direction: positive error -> positive velocity, negative -> negative
         IF _posError > 0.0 THEN
             _desiredVel := _brakeVel;
         ELSE
@@ -154,7 +154,7 @@ END_IF
 // Clamp desired velocity to configured limits
 _desiredVel := MAX(-MaxVelocity, MIN(MaxVelocity, _desiredVel));
 
-// ── Step 2: Compute desired acceleration ──────────────────────────────────
+// -- Step 2: Compute desired acceleration ----------------------------------
 // Instantaneous acceleration needed to reach desired velocity in one step
 // (before applying limits)
 _desiredAcc := (_desiredVel - _vel) / CycleTIme;
@@ -162,7 +162,7 @@ _desiredAcc := (_desiredVel - _vel) / CycleTIme;
 // Clamp to MaxAcceleration
 _desiredAcc := MAX(-MaxAcceleration, MIN(MaxAcceleration, _desiredAcc));
 
-// ── Step 3: Apply jerk limit ──────────────────────────────────────────────
+// -- Step 3: Apply jerk limit ----------------------------------------------
 // Maximum change in acceleration per cycle = MaxJerk * dt
 _deltaAcc := _desiredAcc - _acc;
 _deltaAcc := MAX(-(MaxJerk * CycleTIme), MIN(MaxJerk * CycleTIme, _deltaAcc));
@@ -171,14 +171,14 @@ _acc := _acc + _deltaAcc;
 // Re-clamp acceleration after jerk limiting (belt-and-suspenders)
 _acc := MAX(-MaxAcceleration, MIN(MaxAcceleration, _acc));
 
-// ── Step 4: Integrate acceleration → velocity ─────────────────────────────
+// -- Step 4: Integrate acceleration -> velocity -----------------------------
 _vel := _vel + _acc * CycleTIme;
 _vel := MAX(-MaxVelocity, MIN(MaxVelocity, _vel));
 
-// ── Step 5: Integrate velocity → position ────────────────────────────────
+// -- Step 5: Integrate velocity -> position --------------------------------
 _pos := _pos + _vel * CycleTIme;
 
-// ── Step 6: Snap to target in position mode ────────────────────────────────
+// -- Step 6: Snap to target in position mode --------------------------------
 // When we are within one step distance of the target and velocity is small
 // enough to stop within one cycle, snap to exact target to avoid steady-state
 // oscillation around the target due to floating-point accumulation.
@@ -192,6 +192,6 @@ IF NOT ControlInterface THEN
     END_IF
 END_IF
 
-// ── Outputs ───────────────────────────────────────────────────────────────
+// -- Outputs ---------------------------------------------------------------
 NewPosition := _pos;
 NewVelocity := _vel;

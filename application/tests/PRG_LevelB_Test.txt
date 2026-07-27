@@ -1,6 +1,6 @@
 (* ============================================================
-   PRG_LevelB_Test — FB_AxisCtrl test (Level B)
-   SML v6 — new
+   PRG_LevelB_Test - FB_AxisCtrl test (Level B)
+   SML v6 - new
 
    Drives FB_AxisCtrl in xSimulation with a small inline CiA402
    emulator (StatusWord derived from ControlWord) through a
@@ -19,7 +19,7 @@
 
 PROGRAM PRG_LevelB_Test
 VAR
-    // ── data contract + FB under test ────────────────────────
+    // -- data contract + FB under test ------------------------
     Axis  : OpenSML_Axis;
     Ctrl  : ST_AXIS_CTRL;
     Data  : ST_MOVE_DATA;
@@ -27,11 +27,11 @@ VAR
     Info  : ST_AXIS_INFO;
     Ax    : FB_AxisCtrl;
 
-    // ── sequencer ────────────────────────────────────────────
+    // -- sequencer --------------------------------------------
     step  : INT;
     tStep : TON;
 
-    // ── observation ──────────────────────────────────────────
+    // -- observation ------------------------------------------
     eProg   : E_PROGRESS;   // State.eProgress
     eStBase : DINT;         // f_GetState(State.eState)
     eStProg : E_PROGRESS;   // f_GetProgress(State.eState)
@@ -44,7 +44,7 @@ VAR
     xTestDone       : BOOL;
 END_VAR
 
-// ── configuration (every cycle) ──────────────────────────────
+// -- configuration (every cycle) ------------------------------
 Ctrl.xSimulation    := TRUE;
 Ctrl.xEmergencyStop := TRUE;
 Ctrl.Scale          := 1.0;      // 1 count/unit for simplicity
@@ -54,7 +54,7 @@ Data.lrAcceleration := 1000.0;
 Data.lrDeceleration := 1000.0;
 Data.lrJerk         := 10000.0;
 
-// ── sequencer ~300 ms/step ───────────────────────────────────
+// -- sequencer ~300 ms/step -----------------------------------
 tStep(IN := NOT xTestDone, PT := T#300MS);
 IF tStep.Q THEN
     tStep(IN := FALSE);
@@ -73,10 +73,10 @@ CASE step OF
     11: xTestDone := TRUE;
 END_CASE
 
-// ── FB under test ────────────────────────────────────────────
+// -- FB under test --------------------------------------------
 Ax(Axis := Axis, Ctrl := Ctrl, Data := Data, State := State, Info := Info);
 
-// ── mini CiA402 emulator (after the FB) ──────────────────────
+// -- mini CiA402 emulator (after the FB) ----------------------
 Axis.Modes_of_operation_display := Axis.Modes_of_operation;      // the drive echoes the mode
 Axis.StatusWord.0  := Axis.ControlWord.1;                        // ReadyToSwitchOn
 Axis.StatusWord.1  := Axis.ControlWord.0 AND Axis.ControlWord.1; // SwitchedOn
@@ -84,7 +84,7 @@ Axis.StatusWord.2  := Axis.ControlWord.3 AND Axis.StatusWord.1;  // OperationEna
 Axis.StatusWord.5  := TRUE;                                      // QuickStop not active
 Axis.StatusWord.10 := Axis.ControlWord.8;                        // standstill when Halt
 
-// ── observation: combined-state decomposition ───────────────
+// -- observation: combined-state decomposition ---------------
 eProg   := State.eProgress;
 eStBase := f_GetState(State.eState);      // functional base (E_AXIS_STATE)
 eStProg := f_GetProgress(State.eState);   // progress (E_PROGRESS)

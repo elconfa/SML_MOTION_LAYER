@@ -1,13 +1,13 @@
 (* ============================================================
-   FB_IoLink_Out — I/O bridge FB: axis struct -> OUTPUT image
-   SML — I/O bridge (library FB)
+   FB_IoLink_Out - I/O bridge FB: axis struct -> OUTPUT image
+   SML - I/O bridge (library FB)
 
    Copies Axis[] (output fields) into DriveOut[] (the drive RxPDO
    image), for all axes. Call at the END of the task, AFTER the axis
    loop, so the outputs reflect the current cycle (zero delay).
 
    Reusable: the arrays are passed by VAR_IN_OUT as ARRAY[*]
-   (variable length) — no dependency on MAX_AXIS or on any
+   (variable length) - no dependency on MAX_AXIS or on any
    application GVL. The application keeps the process image (e.g.
    GVL_IO.DriveOut) and its enable flag, and instantiates this FB.
 

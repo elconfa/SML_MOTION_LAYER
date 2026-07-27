@@ -1,16 +1,16 @@
 (* ============================================================
-   SML_SyncPosition — Cyclic Synchronous Position (CSP, mode 8)
-   SML v4 — Merged (OpenSML_SyncPosition fixed + Confa improvements)
+   SML_SyncPosition - Cyclic Synchronous Position (CSP, mode 8)
+   SML v4 - Merged (OpenSML_SyncPosition fixed + Confa improvements)
 
    v4 fixes:
-   - C1: otg called with correct param name CycleTIme (v3 used CycleTime →
+   - C1: otg called with correct param name CycleTIme (v3 used CycleTime ->
      did not compile).
    - M1: explicit OTG seed via xInit.
    - M2: simulation path now passes through the seed state (state 10).
    - B4: simplified signed LREAL_TO_DINT conversion.
 
    PLC generates a jerk-limited trajectory every cycle via OTG
-   and writes Target_Position directly — drive acts as pure
+   and writes Target_Position directly - drive acts as pure
    torque/current controller.
 
    REQUIRES: StruckigLight library (FB_S7RTT_OTG)
@@ -25,12 +25,12 @@ VAR_IN_OUT
 END_VAR
 VAR_INPUT
     xEnable         : BOOL;
-    xSimulation     : BOOL;           // Mirror target→actual (no hardware needed)
+    xSimulation     : BOOL;           // Mirror target->actual (no hardware needed)
     TargetPosition  : LREAL;          // [user units]; online re-targetable
     MaxVelocity     : LREAL := 2000.0;
     MaxAcceleration : LREAL := 200.0;
     MaxJerk         : LREAL := 200.0;
-    CycleTime       : LREAL := 0.001; // [s] — must match actual task period
+    CycleTime       : LREAL := 0.001; // [s] - must match actual task period
     lrScale         : LREAL := 1.0;   // [counts/unit]; must be > 0
 END_VAR
 VAR_OUTPUT
@@ -64,7 +64,7 @@ CASE iState OF
             END_IF
         END_IF
 
-    10: // Mode Switch to CSP (8) — also seeds the OTG
+    10: // Mode Switch to CSP (8) - also seeds the OTG
         // M1: call OTG here with xInit=TRUE so the integrator is (re)seeded to
         // the actual position every cycle while in this state. Re-entry after an
         // error therefore restarts from the real position, never from stale _pos.
@@ -113,7 +113,7 @@ CASE iState OF
         END_IF
 END_CASE
 
-// ── Level A: unified progress projection (E_PROGRESS) ──────────────
+// -- Level A: unified progress projection (E_PROGRESS) --------------
 // Continuous sync: no discrete "DONE".
 IF    xError     THEN eProgress := PROGRESS_ERROR;
 ELSIF iState = 0 THEN eProgress := PROGRESS_INVALID;

@@ -1,6 +1,6 @@
 (* ============================================================
-   E_AXIS_STATE — Axis functional state
-   SML v6 — Level B (new)
+   E_AXIS_STATE - Axis functional state
+   SML v6 - Level B (new)
 
    Values that are multiples of 100 (= PROGRESS_SPAN) so they can
    compose the COMBINED STATE with E_PROGRESS:

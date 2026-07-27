@@ -1,6 +1,6 @@
 (* ============================================================
-   GVL_AXIS_MAP — Bus side of the Motion Layer (per-axis UNION)
-   SML v8 — Level B / MAPPING (new)
+   GVL_AXIS_MAP - Bus side of the Motion Layer (per-axis UNION)
+   SML v8 - Level B / MAPPING (new)
 
    Array of UNIONs to link to the fieldbus process image (or to
    expose via ADS). FB_Mapping_In/Out copy between these and GVL_AXIS.

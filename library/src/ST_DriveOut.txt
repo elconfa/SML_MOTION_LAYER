@@ -1,6 +1,6 @@
 (* ============================================================
-   ST_DriveOut — OUTPUT process image (PLC -> Drive)
-   SML v9 — I/O bridge (new)
+   ST_DriveOut - OUTPUT process image (PLC -> Drive)
+   SML v9 - I/O bridge (new)
 
    The "output" half of OpenSML_Axis, SAME order and same types.
    Used for the I/O bridge: declared AT %Q* (mapped to the drive's
@@ -16,8 +16,8 @@ STRUCT
     ControlWord            : UINT;   // 0x6040
     Modes_of_operation     : SINT;   // 0x6060
     Target_Position        : DINT;   // 0x607A [encoder counts]
-    Profile_Velocity       : UDINT;  // 0x6081 [drive velocity units — PP]
-    Target_Velocity        : DINT;   // 0x60FF [drive velocity units — PV/CSV]
+    Profile_Velocity       : UDINT;  // 0x6081 [drive velocity units - PP]
+    Target_Velocity        : DINT;   // 0x60FF [drive velocity units - PV/CSV]
     Target_Torque          : INT;    // 0x6071 [0.1 % rated]
     Profile_Acceleration   : UDINT;  // 0x6083 [drive accel units]
     Profile_Deceleration   : UDINT;  // 0x6084 [drive accel units]

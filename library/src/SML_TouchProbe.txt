@@ -1,6 +1,6 @@
 (* ============================================================
-   SML_TouchProbe — CiA402 Touch Probe (high-speed position latch)
-   SML v4 — Merged (from Confa; added capture timeout)
+   SML_TouchProbe - CiA402 Touch Probe (high-speed position latch)
+   SML v4 - Merged (from Confa; added capture timeout)
 
    Objects used:
      0x60B8  TouchProbe_ControlWord  (output)
@@ -12,8 +12,8 @@
      Bit 0  Enable Touch Probe 1
      Bit 1  Capture mode (0=single, 1=continuous)
      Bit 2  Trigger source (0=DI13, 1=encoder Z-pulse)
-     Bit 4  Enable rising-edge capture → 0x60BA
-     Bit 5  Enable falling-edge capture → 0x60BB
+     Bit 4  Enable rising-edge capture -> 0x60BA
+     Bit 5  Enable falling-edge capture -> 0x60BB
 
    StatusWord 0x60B9:
      Bit 0  Touch Probe 1 enabled
@@ -52,7 +52,7 @@ VAR
     tonCapture : TON; // Guards against trigger never arriving
 END_VAR
 
-// ── Enable/disable Touch Probe hardware every cycle ───────────────────────
+// -- Enable/disable Touch Probe hardware every cycle -----------------------
 IF xExecute AND NOT xError THEN
     Axis.TouchProbe_ControlWord.0 := TRUE;  // Enable
     Axis.TouchProbe_ControlWord.1 := FALSE; // Single-shot
@@ -65,7 +65,7 @@ END_IF
 
 CASE iState OF
 
-    0: // Idle — wait for drive ready and probe hardware enabled
+    0: // Idle - wait for drive ready and probe hardware enabled
         xDone_R := FALSE; xDone_F := FALSE;
         xBusy   := FALSE; xError  := FALSE;
         TouchProbe_Rising_Value  := 0;
@@ -90,7 +90,7 @@ CASE iState OF
             END_IF
         END_IF
 
-    10: // Armed — wait for rising or falling capture request
+    10: // Armed - wait for rising or falling capture request
         IF Axis.StatusWord.3 OR NOT xEnable THEN
             iState := 999;
         ELSIF xRisingCapture THEN
@@ -157,7 +157,7 @@ CASE iState OF
             iState := 0;
         END_IF
 
-    40: // Rising result hold — wait for application to drop xRisingCapture
+    40: // Rising result hold - wait for application to drop xRisingCapture
         IF Axis.StatusWord.3 OR NOT xEnable THEN
             iState := 999;
         ELSIF NOT xRisingCapture THEN
@@ -166,7 +166,7 @@ CASE iState OF
             iState := 10;
         END_IF
 
-    50: // Falling result hold — wait for application to drop xFallingCapture
+    50: // Falling result hold - wait for application to drop xFallingCapture
         IF Axis.StatusWord.3 OR NOT xEnable THEN
             iState := 999;
         ELSIF NOT xFallingCapture THEN
@@ -188,7 +188,7 @@ CASE iState OF
 
 END_CASE
 
-// ── Level A: unified progress projection (E_PROGRESS) ──────────────
+// -- Level A: unified progress projection (E_PROGRESS) --------------
 IF    xError               THEN eProgress := PROGRESS_ERROR;
 ELSIF xDone_R OR xDone_F    THEN eProgress := PROGRESS_DONE;   // at least one latch captured
 ELSIF iState = 0            THEN eProgress := PROGRESS_INVALID;

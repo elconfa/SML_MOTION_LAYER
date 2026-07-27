@@ -1,6 +1,6 @@
 (* ============================================================
-   GVL_AXIS — Per-axis arrays of the SML Motion Layer
-   SML v7 — Level B (new)
+   GVL_AXIS - Per-axis arrays of the SML Motion Layer
+   SML v7 - Level B (new)
 
    Equivalent to GVL_AXIS of PLC_MOTION_LAYER, but:
      - the execution level is FB_AxisCtrl (SML leaf FBs),

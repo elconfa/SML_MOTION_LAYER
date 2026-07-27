@@ -1,6 +1,6 @@
 (* ============================================================
-   SML_AxisController — CSP+OTG All-in-One Orchestrator
-   SML v4 — Merged (OpenSML_AxisController fully revised)
+   SML_AxisController - CSP+OTG All-in-One Orchestrator
+   SML v4 - Merged (OpenSML_AxisController fully revised)
 
    Combines Power + Home + CSP motion into a single FB using
    OpenSML_Control for configuration and status.
@@ -38,15 +38,15 @@ VAR
     MoveVel       : LREAL;
 END_VAR
 
-// ── Scale guard ───────────────────────────────────────────────────────────
+// -- Scale guard -----------------------------------------------------------
 IF Control.Scale = 0.0 THEN Control.Scale := 1.0; END_IF
 
-// ── Simulation: mirror target → actual ────────────────────────────────────
+// -- Simulation: mirror target -> actual ------------------------------------
 IF Control.xSimulation THEN
     Axis.Position_Actual_Value := Axis.Target_Position;
 END_IF
 
-// ── Sub-FBs ───────────────────────────────────────────────────────────────
+// -- Sub-FBs ---------------------------------------------------------------
 Power(
     Axis           := Axis,
     xExecute       := Control.xAxisEnable,
@@ -62,10 +62,10 @@ Home(
     xDone        => Control.xHomeDone,
     xError       =>);
 
-// ── Actual position in user units ─────────────────────────────────────────
+// -- Actual position in user units -----------------------------------------
 Control.lrActualPosition := DINT_TO_LREAL(Axis.Position_Actual_Value) / Control.Scale;
 
-// ── Status defaults ───────────────────────────────────────────────────────
+// -- Status defaults -------------------------------------------------------
 Control.xInPosition := FALSE;
 Control.xBusy       := (iState > 0 AND iState < 999);
 
@@ -88,7 +88,7 @@ CASE iState OF
             END_IF
         END_IF
 
-    10: // Mode Switch to CSP (8) — also seeds the OTG
+    10: // Mode Switch to CSP (8) - also seeds the OTG
         // M1: call OTG here with xInit=TRUE so the integrator is (re)seeded to
         // the actual position every cycle while in this state. Re-entry after an
         // error therefore restarts from the real position, never from stale _pos.
@@ -108,7 +108,7 @@ CASE iState OF
         END_IF
 
     20: // Motion loop
-        // ── Determine OTG interface and setpoints ──────────────
+        // -- Determine OTG interface and setpoints --------------
         IF Control.xFollowEnable AND Control.lrFollowVelocity > 0.0 THEN
             InterfaceType := FALSE; // Position interface
             MoveVel       := MIN(Control.lrFollowVelocity, Control.MaxVelocity);
@@ -137,14 +137,14 @@ CASE iState OF
             MaxAcceleration  := Control.MaxAcceleration,
             MaxJerk          := Control.MaxJerk);
 
-        // Convert OTG output [user units] → encoder counts (B4: signed conversion)
+        // Convert OTG output [user units] -> encoder counts (B4: signed conversion)
         Axis.Target_Position := LREAL_TO_DINT(otg.NewPosition * Control.Scale);
 
         // In-position check using configurable window
         Control.xInPosition := ABS(otg.NewPosition - Control.lrActualPosition)
                                 < Control.PositionWindow;
 
-        // ── Error monitoring ────────────────────────────────────
+        // -- Error monitoring ------------------------------------
         IF Axis.StatusWord.13 THEN       // Following error
             iState := 999;
         ELSIF Axis.StatusWord.3 THEN     // Drive fault
@@ -157,7 +157,7 @@ CASE iState OF
             iState := 0;
         END_IF
 
-    999: // Error — latched
+    999: // Error - latched
         Control.xError      := TRUE;
         Control.xInPosition := FALSE;
         IF NOT Control.xMoveEnable THEN
@@ -167,7 +167,7 @@ CASE iState OF
 
 END_CASE
 
-// ── Aggregated diagnostics ──────────────────────────────────────────────────
+// -- Aggregated diagnostics --------------------------------------------------
 // Called AFTER the CASE so otg.xError reflects this cycle's OTG call.
 // CSP path uses only Power/Home/OTG errors; the PP/PV/Jog/TouchProbe inputs
 // are FALSE here (handled by FB_SML for that path).
@@ -192,7 +192,7 @@ Diag(
     FollowingError   => Control.FollowingError,
     FaultCount       => Control.FaultCount);
 
-// ── Level A: unified progress projection (E_PROGRESS) ──────────────
+// -- Level A: unified progress projection (E_PROGRESS) --------------
 IF    Control.xError                      THEN eProgress := PROGRESS_ERROR;
 ELSIF iState = 20 AND Control.xInPosition THEN eProgress := PROGRESS_DONE;
 ELSIF iState = 0                          THEN eProgress := PROGRESS_INVALID;

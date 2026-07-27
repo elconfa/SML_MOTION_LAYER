@@ -1,6 +1,6 @@
 (* ============================================================
-   SML_Diagnostics — Aggregated Runtime Diagnostics
-   SML v4 — New in v4
+   SML_Diagnostics - Aggregated Runtime Diagnostics
+   SML v4 - New in v4
 
    PURPOSE
    Turns scattered status bits and per-FB error flags into a single,
@@ -33,7 +33,7 @@
 
    NOTE: DiagText carries only the category. The numeric drive code is
    in DriveErrorCode (compose "Drive error " + code on the HMI if needed)
-   — this keeps the FB free of string-library dependencies.
+   - this keeps the FB free of string-library dependencies.
    ============================================================ *)
 
 FUNCTION_BLOCK SML_Diagnostics
@@ -44,7 +44,7 @@ VAR_INPUT
     xReset           : BOOL;   // Pulse: clear the latched first-fault (and acknowledge)
     xResetCount      : BOOL;   // Pulse: clear the cumulative FaultCount
 
-    // ── Aggregated per-FB error flags (wire from FB_SML / application) ──
+    // -- Aggregated per-FB error flags (wire from FB_SML / application) --
     xPowerError      : BOOL;
     xHomeError       : BOOL;
     xMoveError       : BOOL;   // ProfilePosition (MoveAbs + MoveHome)
@@ -54,21 +54,21 @@ VAR_INPUT
     xOtgError        : BOOL;   // FB_S7RTT_OTG constraint error (CSP/OTG paths)
 END_VAR
 VAR_OUTPUT
-    // ── Live condition ────────────────────────────────────────
+    // -- Live condition ----------------------------------------
     DiagCode       : SML_DiagCode;  // Highest-priority active condition this cycle
     DiagText       : STRING(80);    // Human-readable text for DiagCode
     xActiveFault   : BOOL;          // TRUE while any fault condition is present
     xActiveWarning : BOOL;          // TRUE while a warning (no fault) is present
 
-    // ── Latched first cause ───────────────────────────────────
+    // -- Latched first cause -----------------------------------
     FirstFaultCode : SML_DiagCode;  // First fault seen since last xReset
     FirstFaultText : STRING(80);    // Text of the first fault
 
-    // ── Drive detail (always live) ────────────────────────────
+    // -- Drive detail (always live) ----------------------------
     DriveErrorCode : UINT;          // 0x603F raw drive error number (0 = none)
     FollowingError : DINT;          // 0x60F4 following error [encoder counts]
 
-    // ── Maintenance ───────────────────────────────────────────
+    // -- Maintenance -------------------------------------------
     FaultCount     : UINT;          // Cumulative count of fault events (rising edges)
 END_VAR
 VAR
@@ -76,7 +76,7 @@ VAR
     _prevFault : BOOL;  // Edge detect for FaultCount / first-fault latch
 END_VAR
 
-// ── Always-live drive detail ───────────────────────────────────────────────
+// -- Always-live drive detail -----------------------------------------------
 DriveErrorCode := Axis.Error_Code;
 FollowingError := Axis.Following_Error_Actual_Value;
 
@@ -84,9 +84,9 @@ FollowingError := Axis.Following_Error_Actual_Value;
 _quickStop := Axis.StatusWord.0 AND Axis.StatusWord.1 AND Axis.StatusWord.2
               AND NOT Axis.StatusWord.5;
 
-// ── Determine the live condition by priority ───────────────────────────────
+// -- Determine the live condition by priority -------------------------------
 IF Axis.StatusWord.3 THEN
-    // Drive fault — distinguish coded vs uncoded
+    // Drive fault - distinguish coded vs uncoded
     IF Axis.Error_Code > 0 THEN
         DiagCode := DIAG_DRIVE_ERRORCODE;
         DiagText := 'Drive fault - see DriveErrorCode (0x603F)';
@@ -144,11 +144,11 @@ ELSE
     DiagText := 'OK';
 END_IF
 
-// ── Classify (codes >= DIAG_DRIVE_FAULT (10) are faults; 1..9 warnings) ────
+// -- Classify (codes >= DIAG_DRIVE_FAULT (10) are faults; 1..9 warnings) ----
 xActiveFault   := (DiagCode >= DIAG_DRIVE_FAULT);
 xActiveWarning := (DiagCode >= DIAG_WARNING) AND (DiagCode < DIAG_DRIVE_FAULT);
 
-// ── First-fault latch + fault event counter (rising edge of any fault) ─────
+// -- First-fault latch + fault event counter (rising edge of any fault) -----
 IF xActiveFault AND NOT _prevFault THEN
     FaultCount := FaultCount + 1;
     IF FirstFaultCode = DIAG_OK THEN
@@ -158,7 +158,7 @@ IF xActiveFault AND NOT _prevFault THEN
 END_IF
 _prevFault := xActiveFault;
 
-// ── Acknowledge / reset ────────────────────────────────────────────────────
+// -- Acknowledge / reset ----------------------------------------------------
 IF xReset THEN
     FirstFaultCode := DIAG_OK;
     FirstFaultText := 'OK';

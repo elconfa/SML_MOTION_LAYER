@@ -1,5 +1,5 @@
 (* ============================================================
-   GVL_SML_CONST — LIBRARY constants (invariants)
+   GVL_SML_CONST - LIBRARY constants (invariants)
    SML
 
    Only constants owned by the library (machine-independent).
@@ -12,7 +12,7 @@ VAR_GLOBAL CONSTANT
     PROGRESS_SPAN : DINT := 100;   // progress band width in the combined state
                                    // (E_AXIS_STATE values are multiples of this)
 
-    // ── MAPPING: fixed size (bytes) of the bus blocks for the UNIONs ──
+    // -- MAPPING: fixed size (bytes) of the bus blocks for the UNIONs --
     // Must be >= SIZEOF of the corresponding struct (checked at runtime
     // by FB_Mapping_In/Out via Check). Fixed for a stable process image
     // on the fieldbus.

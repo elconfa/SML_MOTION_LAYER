@@ -1,13 +1,13 @@
 (* ============================================================
-   FB_IoLink_In — I/O bridge FB: INPUT image -> axis struct
-   SML — I/O bridge (library FB)
+   FB_IoLink_In - I/O bridge FB: INPUT image -> axis struct
+   SML - I/O bridge (library FB)
 
    Copies DriveIn[] (the drive TxPDO image) into Axis[] (input
    fields), for all axes. Call at the START of the task, BEFORE the
    axis loop, so the computation uses fresh inputs (zero delay).
 
    Reusable: the arrays are passed by VAR_IN_OUT as ARRAY[*]
-   (variable length) — no dependency on MAX_AXIS or on any
+   (variable length) - no dependency on MAX_AXIS or on any
    application GVL. The application keeps the process image (e.g.
    GVL_IO.DriveIn) and its enable flag, and instantiates this FB.
 

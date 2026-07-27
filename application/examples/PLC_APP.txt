@@ -1,6 +1,6 @@
 (* ============================================================
-   PLC_APP — 2-axis machine application (SML usage example)
-   SML v9 — example (NOT part of the library)
+   PLC_APP - 2-axis machine application (SML usage example)
+   SML v9 - example (NOT part of the library)
 
    Piece measuring/sorting machine on a belt:
      - Axis 1 (nBelt) = continuously rotating belt (velocity), with TouchProbe
@@ -47,7 +47,7 @@
 
 PROGRAM PLC_APP
 VAR_INPUT
-    // ── machine commands ─────────────────────────────────────
+    // -- machine commands -------------------------------------
     xStart      : BOOL;                 // TRUE = start/hold the automatic cycle
     xStop       : BOOL;                 // TRUE = stop the cycle (Halt) and go to idle
     xReset      : BOOL;                 // (reserved) external reset
@@ -57,7 +57,7 @@ VAR_INPUT
     xResume     : BOOL;                 // external signal: reactivate the belt from standby
     xHomeBelt   : BOOL;                 // command: re-home the belt while stopped in standby
 
-    // ── parameters (example defaults) ────────────────────────
+    // -- parameters (example defaults) ------------------------
     lrScale     : LREAL := 4096.0;      // counts/mm (same for both axes in this example)
     lrCycleTime : LREAL := 0.001;       // task period [s]
     lrBeltVel   : LREAL := 200.0;       // belt velocity [mm/s]
@@ -132,7 +132,7 @@ xEjected := FALSE;   // pulse: TRUE only when a piece passes the exit (parallel 
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-// /reject ejection — PARALLEL (the belt does not stop; a new piece can
+// /reject ejection - PARALLEL (the belt does not stop; a new piece can
 //   already enter while the reject travels toward the exit photocell)
 //------------------------------------------------------------------------------
 ftExit(CLK := xExitPhotocell);
@@ -161,14 +161,14 @@ CASE iStep OF
             IF xHomed THEN iStep := 30; ELSE iStep := 10; END_IF   // homing once
         END_IF
 
-    10: // HOMING axis1 (belt) — in place (drive method)
+    10: // HOMING axis1 (belt) - in place (drive method)
         GVL_AXIS.Ctrl[nBelt].eCmd := AXIS_HOME;
         IF GVL_AXIS.State[nBelt].xDone THEN
             GVL_AXIS.Ctrl[nBelt].eCmd := AXIS_NULL;
             iStep := 20;
         END_IF
 
-    20: // HOMING axis2 — sensor + encoder index, reference = lrAx2Home
+    20: // HOMING axis2 - sensor + encoder index, reference = lrAx2Home
         GVL_AXIS.Ctrl[nPos].HomeOffset := LREAL_TO_DINT(lrAx2Home * lrScale);
         GVL_AXIS.Ctrl[nPos].eCmd       := AXIS_HOME;
         IF GVL_AXIS.State[nPos].xDone THEN
@@ -261,7 +261,7 @@ CASE iStep OF
             iStep := 110;
         END_IF
 
-    200: // STOP requested — Halt both axes, then idle
+    200: // STOP requested - Halt both axes, then idle
         GVL_AXIS.Ctrl[nBelt].eCmd := AXIS_STOP;
         GVL_AXIS.Ctrl[nPos].eCmd  := AXIS_STOP;
         IF (NOT GVL_AXIS.Info[nBelt].xMoving) AND (NOT GVL_AXIS.Info[nPos].xMoving) THEN
@@ -271,7 +271,7 @@ CASE iStep OF
             iStep := 0;
         END_IF
 
-    900: // ERROR — reset both axes, then idle (needs a new xStart)
+    900: // ERROR - reset both axes, then idle (needs a new xStart)
         GVL_AXIS.Ctrl[nBelt].eCmd := AXIS_RESET;
         GVL_AXIS.Ctrl[nPos].eCmd  := AXIS_RESET;
         IF NOT xError THEN

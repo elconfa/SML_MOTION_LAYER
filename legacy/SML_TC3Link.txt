@@ -1,12 +1,12 @@
 (* ============================================================
-   SML_TC3Link — TwinCAT 3 Hardware I/O Bridge
-   SML v4 — Merged
+   SML_TC3Link - TwinCAT 3 Hardware I/O Bridge
+   SML v4 - Merged
 
    Bridges the OpenSML_Axis software struct to the TwinCAT %Q*/%I*
    hardware image.  All motion FBs work on the struct; this FB
    copies outputs to hardware and reads hardware inputs back.
 
-   CALL ORDER — CRITICAL:
+   CALL ORDER - CRITICAL:
    Call this FB LAST in every PLC task cycle, after all motion FBs.
    Reason: motion FBs write commands into the struct; this FB flushes
    them to %Q*. If called first, %Q* outputs are one cycle stale and
@@ -26,7 +26,7 @@
 
 FUNCTION_BLOCK SML_TC3Link
 VAR_INPUT
-    // ── Drive → PLC (%I*) — link to EtherCAT slave PDO inputs ─
+    // -- Drive -> PLC (%I*) - link to EtherCAT slave PDO inputs -
     StatusWord                   AT %I* : UINT;  // 0x6041
     Modes_of_operation_display   AT %I* : SINT;  // 0x6061
     Torque_Actual_Value          AT %I* : INT;   // 0x6077
@@ -41,7 +41,7 @@ VAR_INPUT
     TouchProbe_Falling_Value     AT %I* : DINT;  // 0x60BB
 END_VAR
 VAR_OUTPUT
-    // ── PLC → Drive (%Q*) — link to EtherCAT slave PDO outputs ─
+    // -- PLC -> Drive (%Q*) - link to EtherCAT slave PDO outputs -
     ControlWord          AT %Q* : UINT;   // 0x6040
     Modes_of_operation   AT %Q* : SINT;   // 0x6060
     Target_Position      AT %Q* : DINT;   // 0x607A
@@ -54,10 +54,10 @@ VAR_OUTPUT
     TouchProbe_ControlWord AT %Q* : UINT; // 0x60B8
 END_VAR
 VAR_IN_OUT
-    Axis : OpenSML_Axis; // Shared axis struct — written by motion FBs
+    Axis : OpenSML_Axis; // Shared axis struct - written by motion FBs
 END_VAR
 
-// ── Flush struct outputs → hardware %Q* image (PLC → drive) ──────────────
+// -- Flush struct outputs -> hardware %Q* image (PLC -> drive) --------------
 ControlWord          := Axis.ControlWord;
 Modes_of_operation   := Axis.Modes_of_operation;
 Target_Position      := Axis.Target_Position;
@@ -69,7 +69,7 @@ Profile_Deceleration := Axis.Profile_Deceleration;
 Home_Offset          := Axis.Home_Offset;
 TouchProbe_ControlWord := Axis.TouchProbe_ControlWord;
 
-// ── Read hardware %I* feedback → struct (drive → PLC) ────────────────────
+// -- Read hardware %I* feedback -> struct (drive -> PLC) --------------------
 Axis.StatusWord                   := StatusWord;
 Axis.Modes_of_operation_display   := Modes_of_operation_display;
 Axis.Torque_Actual_Value          := Torque_Actual_Value;

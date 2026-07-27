@@ -1,6 +1,6 @@
 (* ============================================================
-   SML_Status — CiA402 StatusWord Decoder + Position/Speed Readout
-   SML v4 — Merged (from Confa; not in original OpenSML)
+   SML_Status - CiA402 StatusWord Decoder + Position/Speed Readout
+   SML v4 - Merged (from Confa; not in original OpenSML)
 
    Decodes the CiA402 state machine and all relevant status bits
    into named BOOL flags.  Useful for HMI display, interlock
@@ -32,7 +32,7 @@ VAR_INPUT
     xEnable : BOOL; // Level: enable decoding
 END_VAR
 VAR_OUTPUT
-    // ── CiA402 state machine ──────────────────────────────────
+    // -- CiA402 state machine ----------------------------------
     Status_NotReadyToSwitchOn  : BOOL;
     Status_SwitchOnDisabled    : BOOL;
     Status_ReadyToSwitchOn     : BOOL;
@@ -41,13 +41,13 @@ VAR_OUTPUT
     Status_QuickStopActive     : BOOL;
     Status_FaultReactionActive : BOOL;
     Status_Fault               : BOOL;
-    // ── General status ────────────────────────────────────────
+    // -- General status ----------------------------------------
     Status_Warning             : BOOL; // Non-fatal (bit 7)
     Status_TargetReached       : BOOL; // Mode-dependent (bit 10)
     Status_Halted              : BOOL; // Halt active + standstill confirmed
     Status_VoltageEnabled      : BOOL; // DC bus present (bit 4)
     Status_InternalLimit       : BOOL; // Software limit active (bit 11)
-    // ── Operating mode ────────────────────────────────────────
+    // -- Operating mode ----------------------------------------
     Status_ProfilePositionMode : BOOL; // Active mode = PP (1)
     Status_ProfileVelocityMode : BOOL; // Active mode = PV (3)
     Status_VelocityMode        : BOOL; // Active mode = Velocity (2, legacy)
@@ -55,14 +55,14 @@ VAR_OUTPUT
     Status_HomingMode          : BOOL; // Active mode = Homing (6)
     Status_SyncPositionMode    : BOOL; // Active mode = CSP (8)
     Status_SyncVelocityMode    : BOOL; // Active mode = CSV (9)
-    // ── Motion ────────────────────────────────────────────────
+    // -- Motion ------------------------------------------------
     Status_Moving              : BOOL; // ABS(velocity) > threshold
     Status_StandStill          : BOOL; // ABS(velocity) <= threshold
     Status_Homed               : BOOL; // Drive DI0 = homed (drive-specific)
-    // ── Error ─────────────────────────────────────────────────
+    // -- Error -------------------------------------------------
     StatusErr                  : BOOL; // Error_Code PDO is non-zero
     ErrId                      : UINT; // Drive error number (0x603F)
-    // ── Actual values ─────────────────────────────────────────
+    // -- Actual values -----------------------------------------
     ActPosition                : DINT; // [encoder counts]
     ActSpeed                   : DINT; // [drive velocity units]
     ActTorque                  : INT;  // [0.1 % of rated]
@@ -75,11 +75,11 @@ END_CONST
 
 IF NOT xEnable THEN RETURN; END_IF
 
-// ── Error code ────────────────────────────────────────────────────────────
+// -- Error code ------------------------------------------------------------
 StatusErr := Axis.Error_Code > 0;
 ErrId     := Axis.Error_Code;
 
-// ── CiA402 state machine decode ──────────────────────────────────────────
+// -- CiA402 state machine decode ------------------------------------------
 Status_NotReadyToSwitchOn :=
     NOT Axis.StatusWord.0 AND NOT Axis.StatusWord.1 AND NOT Axis.StatusWord.2
     AND NOT Axis.StatusWord.3 AND NOT Axis.StatusWord.6;
@@ -112,14 +112,14 @@ Status_Fault :=
     NOT Axis.StatusWord.0 AND NOT Axis.StatusWord.1 AND NOT Axis.StatusWord.2
     AND Axis.StatusWord.3 AND NOT Axis.StatusWord.6;
 
-// ── General status bits ───────────────────────────────────────────────────
+// -- General status bits ---------------------------------------------------
 Status_Warning        := Axis.StatusWord.7;   // Non-fatal warning
 Status_TargetReached  := Axis.StatusWord.10;  // Move complete / at velocity (mode-dependent)
 Status_InternalLimit  := Axis.StatusWord.11;  // Software limit reached
 Status_VoltageEnabled := Axis.StatusWord.4;   // DC bus energized
 Status_Halted         := Axis.ControlWord.8 AND Axis.StatusWord.10;
 
-// ── Operating mode ────────────────────────────────────────────────────────
+// -- Operating mode --------------------------------------------------------
 Status_ProfilePositionMode := (Axis.Modes_of_operation_display = 1);
 Status_VelocityMode        := (Axis.Modes_of_operation_display = 2);
 Status_ProfileVelocityMode := (Axis.Modes_of_operation_display = 3);
@@ -128,15 +128,15 @@ Status_HomingMode          := (Axis.Modes_of_operation_display = 6);
 Status_SyncPositionMode    := (Axis.Modes_of_operation_display = 8);
 Status_SyncVelocityMode    := (Axis.Modes_of_operation_display = 9);
 
-// ── Motion detection — consistent threshold (no dead zone) ───────────────
+// -- Motion detection - consistent threshold (no dead zone) ---------------
 Status_Moving     := ABS(Axis.Velocity_Actual_Value) > STANDSTILL_THRESHOLD;
 Status_StandStill := ABS(Axis.Velocity_Actual_Value) <= STANDSTILL_THRESHOLD;
 
-// ── Actual values ─────────────────────────────────────────────────────────
+// -- Actual values ---------------------------------------------------------
 ActPosition    := Axis.Position_Actual_Value;
 ActSpeed       := Axis.Velocity_Actual_Value;
 ActTorque      := Axis.Torque_Actual_Value;
 FollowingError := Axis.Following_Error_Actual_Value;
 
-// ── Homed flag (drive-specific — requires DI0 configured for homed status) ─
+// -- Homed flag (drive-specific - requires DI0 configured for homed status) -
 Status_Homed := Axis.Digital_Inputs.0;

@@ -1,6 +1,6 @@
 (* ============================================================
-   FB_Mapping_In — MAPPING bridge FB: bus -> internal (command)
-   SML — Level B / MAPPING (library FB)
+   FB_Mapping_In - MAPPING bridge FB: bus -> internal (command)
+   SML - Level B / MAPPING (library FB)
 
    Copies the command/setpoint from the bus UNIONs into the internal
    Ctrl/Data structs, for all axes:
@@ -8,7 +8,7 @@
    Call at the START of the task, before the axis loop.
 
    Reusable: arrays passed by VAR_IN_OUT as ARRAY[*] (variable
-   length) — no dependency on MAX_AXIS or on any application GVL. The
+   length) - no dependency on MAX_AXIS or on any application GVL. The
    application keeps the bus UNION arrays (e.g. GVL_AXIS_MAP.Ctrl/Data)
    and its enable flag, and instantiates this FB.
 
@@ -35,12 +35,12 @@ END_VAR
 
 IF NOT xEnable THEN RETURN; END_IF
 
-// ── Bus block size check (safety) ────────────────────────────
+// -- Bus block size check (safety) ----------------------------
 bSizeOk := (SIZEOF(ST_AXIS_CTRL) <= GVL_SML_CONST.MAP_SIZE_CTRL)
        AND (SIZEOF(ST_MOVE_DATA) <= GVL_SML_CONST.MAP_SIZE_DATA);
 IF NOT bSizeOk THEN RETURN; END_IF   // blocked: resize MAP_SIZE_*
 
-// ── Copy bus -> internal ─────────────────────────────────────
+// -- Copy bus -> internal -------------------------------------
 FOR i := LOWER_BOUND(Ctrl, 1) TO UPPER_BOUND(Ctrl, 1) DO
     Ctrl[i] := CtrlBus[i].stData;
     Data[i] := DataBus[i].stData;

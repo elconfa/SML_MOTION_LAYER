@@ -1,6 +1,6 @@
 (* ============================================================
-   f_GetState — Extracts the functional-state base from a combined state
-   SML v5 — Level A (new)
+   f_GetState - Extracts the functional-state base from a combined state
+   SML v5 - Level A (new)
 
    eCombined = functional_state + E_PROGRESS
    Returns functional_state (a multiple of PROGRESS_SPAN).

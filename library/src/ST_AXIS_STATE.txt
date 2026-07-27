@@ -1,6 +1,6 @@
 (* ============================================================
-   ST_AXIS_STATE — State structure (layer -> app)
-   SML v6 — Level B (new)
+   ST_AXIS_STATE - State structure (layer -> app)
+   SML v6 - Level B (new)
 
    The "State" data contract. Command result + progress.
    eState is the COMBINED STATE (E_AXIS_STATE + E_PROGRESS);
@@ -15,7 +15,7 @@ STRUCT
     xDone          : BOOL;           // current command complete
     xError         : BOOL;           // aggregated error
 
-    // ── diagnostics (from SML_Diagnostics) ───────────────────
+    // -- diagnostics (from SML_Diagnostics) -------------------
     DiagCode       : SML_DiagCode;
     DiagText       : STRING(80);
     FirstFaultCode : SML_DiagCode;

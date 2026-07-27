@@ -1,6 +1,6 @@
 (* ============================================================
-   ST_CiA402_Status — Full CiA402 status decoder
-   SML v9 — Level B (new)
+   ST_CiA402_Status - Full CiA402 status decoder
+   SML v9 - Level B (new)
 
    Mirrors the outputs of the SML_Status decoder, made available in
    the data contract as a sub-struct of ST_AXIS_INFO (Info.Status).
@@ -10,7 +10,7 @@
 
 TYPE ST_CiA402_Status :
 STRUCT
-    // ── CiA402 state machine ──────────────────────────────────
+    // -- CiA402 state machine ----------------------------------
     NotReadyToSwitchOn  : BOOL;
     SwitchOnDisabled    : BOOL;
     ReadyToSwitchOn     : BOOL;
@@ -20,14 +20,14 @@ STRUCT
     FaultReactionActive : BOOL;
     Fault               : BOOL;
 
-    // ── general status ────────────────────────────────────────
+    // -- general status ----------------------------------------
     Warning             : BOOL;   // bit 7
     TargetReached       : BOOL;   // bit 10 (mode-dependent)
     Halted              : BOOL;
     VoltageEnabled      : BOOL;   // bit 4
     InternalLimit       : BOOL;   // bit 11
 
-    // ── active operating mode ─────────────────────────────────
+    // -- active operating mode ---------------------------------
     ProfilePositionMode : BOOL;   // 1
     ProfileVelocityMode : BOOL;   // 3
     VelocityMode        : BOOL;   // 2 (legacy)
@@ -36,12 +36,12 @@ STRUCT
     SyncPositionMode    : BOOL;   // 8 (CSP)
     SyncVelocityMode    : BOOL;   // 9 (CSV)
 
-    // ── motion ────────────────────────────────────────────────
+    // -- motion ------------------------------------------------
     Moving              : BOOL;
     StandStill          : BOOL;
     Homed               : BOOL;
 
-    // ── error / detail ────────────────────────────────────────
+    // -- error / detail ----------------------------------------
     Err                 : BOOL;   // Error_Code != 0
     ErrId               : UINT;   // 0x603F
     ActTorque           : INT;    // 0x6077 [0.1% of rated]

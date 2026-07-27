@@ -1,6 +1,6 @@
 (* ============================================================
-   GVL_App — APPLICATION configuration (machine-dependent)
-   SML — application level
+   GVL_App - APPLICATION configuration (machine-dependent)
+   SML - application level
 
    Constants owned by the machine project, NOT by the SML library.
    The number of axes lives here: change only this to scale the

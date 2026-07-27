@@ -1,6 +1,6 @@
 (* ============================================================
-   FB_AxisCtrl — Command-driven axis control FB (Level B)
-   SML v6 — new
+   FB_AxisCtrl - Command-driven axis control FB (Level B)
+   SML v6 - new
 
    Brings the Motion Layer pattern of PLC_MOTION_LAYER onto SML:
    instead of wrapping the Beckhoff MC_*, this FB drives DIRECTLY
@@ -38,7 +38,7 @@ VAR_IN_OUT
     Info  : ST_AXIS_INFO;
 END_VAR
 VAR
-    // ── leaf FBs (execution level, in place of the MC_*) ──────
+    // -- leaf FBs (execution level, in place of the MC_*) ------
     inst_Power   : SML_Power;
     inst_Reset   : SML_Reset;
     inst_Home    : SML_Home;
@@ -51,16 +51,16 @@ VAR
     inst_TouchProbe : SML_TouchProbe;     // TouchProbe (parallel to motion)
     otg          : FB_S7RTT_OTG;
 
-    // ── command ───────────────────────────────────────────────
+    // -- command -----------------------------------------------
     _eCmd, _eCmdOld : E_AXIS_CTRL;
 
-    // ── latch / pulse ────────────────────────────────────────
+    // -- latch / pulse ----------------------------------------
     _bEnableReq  : BOOL;       // enable request (ENABLE/DISABLE)
     _xReset      : BOOL;       // reset active (level)
     _xHomedLatch : BOOL;       // homing done at least once
     _eCspState   : INT;        // CSP sub-state: 0 seed, 1 run
 
-    // ── unit conversions (user -> raw drive) ─────────────────
+    // -- unit conversions (user -> raw drive) -----------------
     _diPos   : DINT;
     _diVelSg : DINT;           // signed velocity (PV)
     _diVelMg : DINT;           // magnitude (Jog)
@@ -68,10 +68,10 @@ VAR
     _udiAcc  : UDINT;
     _udiDec  : UDINT;
 
-    // ── gate ─────────────────────────────────────────────────
+    // -- gate -------------------------------------------------
     _xMotionEnable : BOOL;
 
-    // ── flags from the leaf FBs ──────────────────────────────
+    // -- flags from the leaf FBs ------------------------------
     _xEnabled, _xPowerErr                          : BOOL;
     _xResetDone, _xResetErr                        : BOOL;
     _xHomeBusy, _xHomeDone, _xHomeErr              : BOOL;
@@ -83,7 +83,7 @@ VAR
     _xInPos, _xCspErr                              : BOOL;
     _xActiveFault, _xAnyErr                        : BOOL;
 
-    // ── combined-state computation ───────────────────────────
+    // -- combined-state computation ---------------------------
     _eBase : E_AXIS_STATE;
     _eProg : E_PROGRESS;
 END_VAR
@@ -119,7 +119,7 @@ _udiDec  := LREAL_TO_UDINT(Data.lrDeceleration   * Ctrl.Scale);
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-// /leaf FBs — called every cycle, gated via eCmd (like FB_SML)
+// /leaf FBs - called every cycle, gated via eCmd (like FB_SML)
 //------------------------------------------------------------------------------
 inst_Power(
     Axis           := Axis,
@@ -244,7 +244,7 @@ Info.xTouchProbeError := _xTpErr;
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-// /CSP + OTG — active only with eCmd = AXIS_MOVE_CSP
+// /CSP + OTG - active only with eCmd = AXIS_MOVE_CSP
 //------------------------------------------------------------------------------
 _xInPos := FALSE;
 IF (_eCmd = AXIS_MOVE_CSP) AND _xMotionEnable THEN

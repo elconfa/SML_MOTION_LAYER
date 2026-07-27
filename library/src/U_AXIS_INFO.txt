@@ -1,6 +1,6 @@
 (* ============================================================
-   U_AXIS_INFO — Bus UNION for the axis info
-   SML v8 — Level B / MAPPING (new)
+   U_AXIS_INFO - Bus UNION for the axis info
+   SML v8 - Level B / MAPPING (new)
 
    stData : ST_AXIS_INFO (typed) / aRaw : byte block (fieldbus).
    Fixed size = MAP_SIZE_INFO (>= SIZEOF(ST_AXIS_INFO)).

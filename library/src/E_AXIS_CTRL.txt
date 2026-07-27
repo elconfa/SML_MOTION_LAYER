@@ -1,6 +1,6 @@
 (* ============================================================
-   E_AXIS_CTRL — Axis command (eCmd) for FB_AxisCtrl
-   SML v6 — Level B (new)
+   E_AXIS_CTRL - Axis command (eCmd) for FB_AxisCtrl
+   SML v6 - Level B (new)
 
    Level-based command enum: the application writes Ctrl.eCmd;
    FB_AxisCtrl routes the command to the corresponding leaf FB.

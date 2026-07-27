@@ -1,6 +1,6 @@
 (* ============================================================
-   MAIN — Multi-axis orchestrator of the SML Motion Layer
-   SML v7 — Level B (new)
+   MAIN - Multi-axis orchestrator of the SML Motion Layer
+   SML v7 - Level B (new)
 
    Runs all axes 1..MAX_AXIS. For each axis:
      - updates the interface reference (ItfSmlAxis[n] := Control[n])

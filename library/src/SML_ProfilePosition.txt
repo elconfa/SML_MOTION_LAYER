@@ -1,12 +1,12 @@
 (* ============================================================
-   SML_ProfilePosition — CiA402 Profile Position Mode (PP, mode 1)
-   SML v4 — Merged (OpenSML_ProfilePosition + SML_ProfilePosition/Confa)
+   SML_ProfilePosition - CiA402 Profile Position Mode (PP, mode 1)
+   SML v4 - Merged (OpenSML_ProfilePosition + SML_ProfilePosition/Confa)
 
    Profile Acceleration and Deceleration are passed per-call and
    written to Axis.Profile_Acceleration / Axis.Profile_Deceleration
-   (0x6083 / 0x6084) via PDO — no SDO access required.
+   (0x6083 / 0x6084) via PDO - no SDO access required.
 
-   CiA402 PP setpoint protocol (implemented via states 10→20→30→40):
+   CiA402 PP setpoint protocol (implemented via states 10->20->30->40):
      1. Write Target_Position, Profile_Velocity, Accel, Decel
      2. Set ControlWord bit 4 (New Setpoint) = 1
      3. Wait StatusWord bit 12 (Setpoint Acknowledge) = 1
@@ -14,12 +14,12 @@
      5. Wait StatusWord bit 10 (Target Reached) = 1
 
    States:
-     0   Idle — wait for enable + execute
-     10  Mode Switch — switch to PP mode 1
-     20  Setpoint active — wait for acknowledge / target / error
-     30  Acknowledged — wait for target reached or new execute
-     40  Target reached — hold xDone until execute drops
-     999 Error — hold position; reset by xReset or NOT xEnable
+     0   Idle - wait for enable + execute
+     10  Mode Switch - switch to PP mode 1
+     20  Setpoint active - wait for acknowledge / target / error
+     30  Acknowledged - wait for target reached or new execute
+     40  Target reached - hold xDone until execute drops
+     999 Error - hold position; reset by xReset or NOT xEnable
    ============================================================ *)
 
 FUNCTION_BLOCK SML_ProfilePosition
@@ -40,7 +40,7 @@ END_VAR
 VAR_OUTPUT
     xDone   : BOOL; // Target position reached (bit 10 set, no following error)
     xBusy   : BOOL; // Setpoint acknowledged (bit 12), motion in progress
-    xMoving : BOOL; // Axis velocity ≠ 0 (StatusWord bit 14 = 0 on many drives)
+    xMoving : BOOL; // Axis velocity <> 0 (StatusWord bit 14 = 0 on many drives)
     xError  : BOOL; // Fault (bit 3) or following error (bit 13)
     eProgress : E_PROGRESS; // Level A: unified progress (projection of iState)
 END_VAR
@@ -48,7 +48,7 @@ VAR
     iState : INT;
 END_VAR
 
-// ── Continuous outputs (updated every cycle while in PP mode) ─────────────
+// -- Continuous outputs (updated every cycle while in PP mode) -------------
 // xBusy: setpoint acknowledged AND target not yet reached
 IF xEnable AND Axis.Modes_of_operation_display = 1 THEN
     xBusy := (iState > 0 AND iState < 999)
@@ -56,10 +56,10 @@ IF xEnable AND Axis.Modes_of_operation_display = 1 THEN
              AND NOT Axis.StatusWord.10; // NOT Target Reached
 END_IF
 
-// xMoving: bit 14 = standstill flag (0 = moving) — drive-dependent
+// xMoving: bit 14 = standstill flag (0 = moving) - drive-dependent
 xMoving := NOT Axis.StatusWord.14;
 
-// ── Write ramp parameters only when commanded ─────────────────────────────
+// -- Write ramp parameters only when commanded -----------------------------
 IF xExecute THEN
     Axis.Profile_Acceleration := udiProfileAcceleration;
     Axis.Profile_Deceleration := udiProfileDeceleration;
@@ -73,7 +73,7 @@ CASE iState OF
 
         IF xEnable THEN
             IF xExecute AND Axis.StatusWord.1 AND NOT Axis.StatusWord.3 THEN
-                // Drive is at least SwitchedOn and no fault — attempt move
+                // Drive is at least SwitchedOn and no fault - attempt move
                 Axis.ControlWord.5    := xContinueMove;
                 Axis.ControlWord.6    := xRelativeMode;
                 Axis.Profile_Velocity := udiProfileVelocity;
@@ -84,39 +84,39 @@ CASE iState OF
             END_IF
         END_IF
 
-    10: // Mode Switch — request PP (mode 1), re-enable operation when confirmed
+    10: // Mode Switch - request PP (mode 1), re-enable operation when confirmed
         Axis.Modes_of_operation := 1;
         Axis.ControlWord.3 := (Axis.Modes_of_operation_display = 1);
 
         IF Axis.StatusWord.3 OR NOT xEnable THEN
             iState := 999;
         ELSIF Axis.StatusWord.2 AND Axis.Modes_of_operation_display = 1 THEN
-            // OperationEnabled in PP mode → trigger new setpoint (rising edge on bit 4)
+            // OperationEnabled in PP mode -> trigger new setpoint (rising edge on bit 4)
             Axis.ControlWord.4 := TRUE;
             iState := 20;
         END_IF
 
-    20: // Active — setpoint sent, waiting for acknowledge/target/error
+    20: // Active - setpoint sent, waiting for acknowledge/target/error
         IF Axis.StatusWord.13 OR Axis.StatusWord.3 OR NOT xEnable THEN
             // Following error, fault, or operator cancel
             iState := 999;
         ELSIF Axis.StatusWord.10 THEN
-            // Target Reached (bit 10) — move complete
+            // Target Reached (bit 10) - move complete
             xDone := TRUE;
             Axis.ControlWord.4 := FALSE;
             iState := 40;
         ELSIF Axis.StatusWord.12 AND NOT xExecute THEN
             // Setpoint acknowledged but xExecute already dropped
-            // → clear bit 4 and move to ready-for-next state
+            // -> clear bit 4 and move to ready-for-next state
             Axis.ControlWord.4 := FALSE;
             iState := 30;
         ELSIF NOT Axis.StatusWord.12 AND NOT Axis.StatusWord.10 AND NOT xExecute THEN
-            // Neither acknowledged nor reached, execute dropped → clean exit
+            // Neither acknowledged nor reached, execute dropped -> clean exit
             Axis.ControlWord.4 := FALSE;
             iState := 0;
         END_IF
 
-    30: // Acknowledged — moving toward target; accept next execute or wait
+    30: // Acknowledged - moving toward target; accept next execute or wait
         IF Axis.StatusWord.13 OR Axis.StatusWord.3 OR NOT xEnable THEN
             iState := 999;
         ELSIF Axis.StatusWord.10 THEN
@@ -124,7 +124,7 @@ CASE iState OF
             Axis.ControlWord.4 := FALSE;
             iState := 40;
         ELSIF xExecute AND Axis.StatusWord.1 AND NOT Axis.StatusWord.3 THEN
-            // New move requested — queue it
+            // New move requested - queue it
             Axis.ControlWord.5    := xContinueMove;
             Axis.ControlWord.6    := xRelativeMode;
             Axis.Profile_Velocity := udiProfileVelocity;
@@ -132,13 +132,13 @@ CASE iState OF
             iState := 10;
         END_IF
 
-    40: // Target reached — hold xDone until execute or enable drops
+    40: // Target reached - hold xDone until execute or enable drops
         IF NOT xEnable OR NOT xExecute THEN
             xDone  := FALSE;
             iState := 0;
         END_IF
 
-    999: // Error — hold current position; reset by xReset or dropping xEnable
+    999: // Error - hold current position; reset by xReset or dropping xEnable
         Axis.Profile_Velocity := 0;
         // SAFETY: hold current position, never write 0 (that commands a move to origin)
         Axis.Target_Position  := Axis.Position_Actual_Value;
@@ -151,7 +151,7 @@ CASE iState OF
 
 END_CASE
 
-// ── Level A: unified progress projection (E_PROGRESS) ──────────────
+// -- Level A: unified progress projection (E_PROGRESS) --------------
 IF    xError     THEN eProgress := PROGRESS_ERROR;
 ELSIF xDone      THEN eProgress := PROGRESS_DONE;
 ELSIF iState = 0 THEN eProgress := PROGRESS_INVALID;

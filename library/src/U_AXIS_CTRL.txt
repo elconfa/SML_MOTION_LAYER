@@ -1,6 +1,6 @@
 (* ============================================================
-   U_AXIS_CTRL — Bus UNION for the axis command
-   SML v8 — Level B / MAPPING (new)
+   U_AXIS_CTRL - Bus UNION for the axis command
+   SML v8 - Level B / MAPPING (new)
 
    Overlay of the same memory block as:
      - stData : ST_AXIS_CTRL   (typed view for the logic)

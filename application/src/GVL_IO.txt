@@ -1,6 +1,6 @@
 (* ============================================================
-   GVL_IO — I/O bridge process images (hardware)
-   SML v9 — I/O bridge
+   GVL_IO - I/O bridge process images (hardware)
+   SML v9 - I/O bridge
 
    Used ONLY with the bridge. On CoDeSys with a direct link it is NOT
    needed: in that case leave IO_LINK_ENABLE = FALSE (the two
@@ -15,7 +15,7 @@
        bind each PDO to GVL_IO.DriveOut[n].<field> / DriveIn[n].<field>.
      - TwinCAT: 'Change Link' on each PDO to GVL_IO.DriveOut/DriveIn,
        or (if you prefer the explicit process image) re-add
-       'AT %Q*' / 'AT %I*' — supported on TwinCAT.
+       'AT %Q*' / 'AT %I*' - supported on TwinCAT.
    See docs/GUIDA_IO_Linking.md.
    ============================================================ *)
 

@@ -1,6 +1,6 @@
 (* ============================================================
-   ST_DriveIn — INPUT process image (Drive -> PLC)
-   SML v9 — I/O bridge (new)
+   ST_DriveIn - INPUT process image (Drive -> PLC)
+   SML v9 - I/O bridge (new)
 
    The "input" half of OpenSML_Axis, SAME order and same types.
    Used for the I/O bridge: declared AT %I* (mapped to the drive's

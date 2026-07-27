@@ -1,6 +1,6 @@
 (* ============================================================
-   U_AXIS_STATE — Bus UNION for the axis state
-   SML v8 — Level B / MAPPING (new)
+   U_AXIS_STATE - Bus UNION for the axis state
+   SML v8 - Level B / MAPPING (new)
 
    stData : ST_AXIS_STATE (typed) / aRaw : byte block (fieldbus).
    Fixed size = MAP_SIZE_STATE (>= SIZEOF(ST_AXIS_STATE)).

@@ -1,6 +1,6 @@
 (* ============================================================
-   ST_MOVE_DATA — Setpoints and dynamic limits (app -> layer)
-   SML v6 — Level B (new)
+   ST_MOVE_DATA - Setpoints and dynamic limits (app -> layer)
+   SML v6 - Level B (new)
 
    The "Data" data contract. All values are in USER UNITS (LREAL).
    FB_AxisCtrl converts to the drive's raw units via Ctrl.Scale
@@ -18,6 +18,6 @@ STRUCT
     lrVelocity       : LREAL := 10.0;      // velocity [units/s]; signed for MOVE_VELOCITY
     lrAcceleration   : LREAL := 1000.0;    // [units/s^2]
     lrDeceleration   : LREAL := 1000.0;    // [units/s^2]
-    lrJerk           : LREAL := 10000.0;   // [units/s^3] — CSP/OTG only
+    lrJerk           : LREAL := 10000.0;   // [units/s^3] - CSP/OTG only
 END_STRUCT
 END_TYPE

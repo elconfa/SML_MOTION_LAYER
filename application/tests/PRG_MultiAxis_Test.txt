@@ -1,6 +1,6 @@
 (* ============================================================
-   PRG_MultiAxis_Test — Multi-axis test bench (Level B)
-   SML v7 — new
+   PRG_MultiAxis_Test - Multi-axis test bench (Level B)
+   SML v7 - new
 
    Simulation harness for the multi-axis orchestration. It uses the
    real GVL_AXIS arrays and runs the SAME logic as MAIN, plus:
@@ -22,14 +22,14 @@ VAR
     step  : INT;
     xTestDone : BOOL;
 
-    // ── results ──────────────────────────────────────────────
+    // -- results ----------------------------------------------
     xAx1CspDone  : BOOL;
     xAx2JogBusy  : BOOL;
     xIndependent : BOOL;   // different commands active in parallel
     xTestPassed  : BOOL;
 END_VAR
 
-// ── configuration of axes under test (1 and 2), every cycle ──
+// -- configuration of axes under test (1 and 2), every cycle --
 FOR nAxis := 1 TO 2 DO
     GVL_AXIS.Ctrl[nAxis].xSimulation    := TRUE;
     GVL_AXIS.Ctrl[nAxis].xEmergencyStop := TRUE;
@@ -41,7 +41,7 @@ FOR nAxis := 1 TO 2 DO
     GVL_AXIS.Data[nAxis].lrJerk         := 10000.0;
 END_FOR
 
-// ── sequence ~300 ms/step ────────────────────────────────────
+// -- sequence ~300 ms/step ------------------------------------
 tStep(IN := NOT xTestDone, PT := T#300MS);
 IF tStep.Q THEN
     tStep(IN := FALSE);
@@ -60,7 +60,7 @@ CASE step OF
     7:  xTestDone := TRUE;
 END_CASE
 
-// ── axis execution (identical to MAIN) ───────────────────────
+// -- axis execution (identical to MAIN) -----------------------
 FOR nAxis := 1 TO GVL_App.MAX_AXIS DO
     GVL_AXIS.ItfSmlAxis[nAxis] := GVL_AXIS.Control[nAxis];
     GVL_AXIS.Control[nAxis](
@@ -71,7 +71,7 @@ FOR nAxis := 1 TO GVL_App.MAX_AXIS DO
         Info  := GVL_AXIS.Info[nAxis]);
 END_FOR
 
-// ── mini CiA402 emulator for the axes under test ─────────────
+// -- mini CiA402 emulator for the axes under test -------------
 FOR nAxis := 1 TO 2 DO
     GVL_AXIS.Axis[nAxis].Modes_of_operation_display := GVL_AXIS.Axis[nAxis].Modes_of_operation;
     GVL_AXIS.Axis[nAxis].StatusWord.0  := GVL_AXIS.Axis[nAxis].ControlWord.1;
@@ -81,7 +81,7 @@ FOR nAxis := 1 TO 2 DO
     GVL_AXIS.Axis[nAxis].StatusWord.10 := GVL_AXIS.Axis[nAxis].ControlWord.8;
 END_FOR
 
-// ── observation: independence + expected results ─────────────
+// -- observation: independence + expected results -------------
 IF (GVL_AXIS.State[1].eCmdActive = AXIS_MOVE_CSP) AND (GVL_AXIS.State[1].eProgress = PROGRESS_DONE)
     THEN xAx1CspDone := TRUE; END_IF
 

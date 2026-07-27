@@ -1,6 +1,6 @@
 (* ============================================================
-   FB_AxisCycleDemo — Example application using SML
-   SML v9 — example (NOT part of the library)
+   FB_AxisCycleDemo - Example application using SML
+   SML v9 - example (NOT part of the library)
 
    Shows the typical "command -> wait for State.xDone" pattern on an
    axis handled by the Motion Layer. It runs a continuous cycle:
@@ -40,14 +40,14 @@ VAR
     tonDwell : TON;
 END_VAR
 
-// ── mirror of axis state ─────────────────────────────────────
+// -- mirror of axis state -------------------------------------
 xError := GVL_AXIS.State[nAxis].xError;
 sDiag  := GVL_AXIS.State[nAxis].DiagText;
 
 // dwell timer (active only in steps 40/60, auto-resets on exit)
 tonDwell(IN := (iStep = 40) OR (iStep = 60), PT := tDwell);
 
-// ── supervision: error or stop while in the cycle ────────────
+// -- supervision: error or stop while in the cycle ------------
 IF (iStep > 0) AND (iStep < 900) THEN
     IF xError    THEN iStep := 900; END_IF
     IF xStop     THEN iStep := 200; END_IF
@@ -55,7 +55,7 @@ END_IF
 
 CASE iStep OF
 
-    0: // IDLE — axis stopped, enable kept if already on
+    0: // IDLE - axis stopped, enable kept if already on
         GVL_AXIS.Ctrl[nAxis].eCmd := AXIS_NULL;
         xBusy := FALSE;
         IF xStart THEN
@@ -63,7 +63,7 @@ CASE iStep OF
             iStep := 10;
         END_IF
 
-    10: // ENABLE — wait for OperationEnabled
+    10: // ENABLE - wait for OperationEnabled
         xBusy := TRUE;
         GVL_AXIS.Ctrl[nAxis].eCmd := AXIS_ENABLE;
         IF GVL_AXIS.Info[nAxis].xEnabled THEN
@@ -98,7 +98,7 @@ CASE iStep OF
         GVL_AXIS.Ctrl[nAxis].eCmd := AXIS_NULL;
         IF tonDwell.Q THEN iStep := 30; END_IF
 
-    200: // STOP requested — Halt and end
+    200: // STOP requested - Halt and end
         GVL_AXIS.Ctrl[nAxis].eCmd := AXIS_STOP;
         IF NOT GVL_AXIS.Info[nAxis].xMoving THEN
             GVL_AXIS.Ctrl[nAxis].eCmd := AXIS_NULL;
@@ -107,7 +107,7 @@ CASE iStep OF
             iStep := 0;
         END_IF
 
-    900: // ERROR — automatic reset, then idle (needs a new xStart)
+    900: // ERROR - automatic reset, then idle (needs a new xStart)
         GVL_AXIS.Ctrl[nAxis].eCmd := AXIS_RESET;
         xBusy := FALSE;
         IF NOT xError THEN

@@ -1,22 +1,22 @@
 (* ============================================================
-   SML_Power — CiA402 Drive Power-On / Power-Off Sequencer
-   SML v4 — Merged (best of OpenSML_Power + SML_Power/Confa)
+   SML_Power - CiA402 Drive Power-On / Power-Off Sequencer
+   SML v4 - Merged (best of OpenSML_Power + SML_Power/Confa)
 
    Drives the CiA402 state machine:
-     SwitchOnDisabled → ReadyToSwitchOn → SwitchedOn → OperationEnabled
+     SwitchOnDisabled -> ReadyToSwitchOn -> SwitchedOn -> OperationEnabled
 
    KEY DESIGN CHOICES (vs original OpenSML):
    - xExecute (edge/level) instead of xEnable:
      After a fault reset the drive returns to Idle and REQUIRES a
      new xExecute pulse.  This prevents automatic re-enable after
-     any fault — the operator must consciously re-request power.
+     any fault - the operator must consciously re-request power.
    - Single tonTimeout instance with explicit IN management per state.
    - Proper CiA402 Shutdown command on disable (bit3=0, bit0=0).
    - All control bits forced low in error state.
 
    EMERGENCY STOP:
-     xEmergencyStop = TRUE  → ControlWord bit 2 = 1 → normal run
-     xEmergencyStop = FALSE → ControlWord bit 2 = 0 → quick-stop
+     xEmergencyStop = TRUE  -> ControlWord bit 2 = 1 -> normal run
+     xEmergencyStop = FALSE -> ControlWord bit 2 = 0 -> quick-stop
    Applied every cycle regardless of state.
    ============================================================ *)
 
@@ -39,16 +39,16 @@ VAR
     tTimeOut   : TIME := T#500MS; // Max time allowed per CiA402 state transition
 END_VAR
 
-// ── Quick-Stop line — written every scan regardless of state ──────────────
-// CiA402 bit 2: 1 = normal, 0 = quick-stop. Active-LOW — never invert here.
+// -- Quick-Stop line - written every scan regardless of state --------------
+// CiA402 bit 2: 1 = normal, 0 = quick-stop. Active-LOW - never invert here.
 Axis.ControlWord.2 := xEmergencyStop;
 
-// ── Single timer instance — IN assigned per state ─────────────────────────
+// -- Single timer instance - IN assigned per state -------------------------
 tonTimeout(PT := tTimeOut);
 
 CASE iState OF
 
-    0: // Idle — safe default; wait for execute request
+    0: // Idle - safe default; wait for execute request
         xDone  := FALSE;
         xError := FALSE;
         tonTimeout.IN := FALSE;
@@ -58,13 +58,13 @@ CASE iState OF
         Axis.ControlWord.7 := FALSE; // Fault Reset (pre-clear)
         IF xExecute THEN
             IF Axis.StatusWord.3 THEN
-                iState := 10; // Fault active → reset first
+                iState := 10; // Fault active -> reset first
             ELSE
-                iState := 20; // No fault → begin enable sequence
+                iState := 20; // No fault -> begin enable sequence
             END_IF
         END_IF
 
-    10: // Fault Reset — pulse bit 7 (rising edge 0→1 clears fault)
+    10: // Fault Reset - pulse bit 7 (rising edge 0->1 clears fault)
         // On success: return to IDLE (not directly to enable).
         // Operator must re-assert xExecute to intentionally re-enable.
         Axis.ControlWord.7 := TRUE;
@@ -72,14 +72,14 @@ CASE iState OF
         IF tonTimeout.Q AND NOT Axis.StatusWord.3 THEN
             Axis.ControlWord.7 := FALSE;
             tonTimeout.IN := FALSE;
-            iState := 0; // Back to idle — requires deliberate re-enable
+            iState := 0; // Back to idle - requires deliberate re-enable
         ELSIF tonTimeout.Q THEN
             tonTimeout.IN := FALSE;
             iState := 999; // Drive did not clear fault within timeout
         END_IF
 
-    20: // Enable Voltage — Shutdown command: bit1=1, bit0=0, bit3=0
-        // Transitions: SwitchOnDisabled → ReadyToSwitchOn
+    20: // Enable Voltage - Shutdown command: bit1=1, bit0=0, bit3=0
+        // Transitions: SwitchOnDisabled -> ReadyToSwitchOn
         Axis.ControlWord.1 := TRUE;
         tonTimeout.IN := TRUE;
         IF Axis.StatusWord.0 THEN
@@ -91,8 +91,8 @@ CASE iState OF
             iState := 999;
         END_IF
 
-    30: // Switch On — command: bit1=1, bit0=1, bit3=0
-        // Transitions: ReadyToSwitchOn → SwitchedOn
+    30: // Switch On - command: bit1=1, bit0=1, bit3=0
+        // Transitions: ReadyToSwitchOn -> SwitchedOn
         Axis.ControlWord.0 := TRUE;
         tonTimeout.IN := TRUE;
         IF Axis.StatusWord.0 AND Axis.StatusWord.1 THEN
@@ -104,8 +104,8 @@ CASE iState OF
             iState := 999;
         END_IF
 
-    40: // Enable Operation — command: bit0=1, bit1=1, bit3=1
-        // Transitions: SwitchedOn → OperationEnabled
+    40: // Enable Operation - command: bit0=1, bit1=1, bit3=1
+        // Transitions: SwitchedOn -> OperationEnabled
         // Freeze target position BEFORE asserting bit3 to prevent a position jump
         Axis.Target_Position := Axis.Position_Actual_Value;
         Axis.ControlWord.3 := TRUE;
@@ -119,7 +119,7 @@ CASE iState OF
             iState := 999;
         END_IF
 
-    50: // Running — drive in OperationEnabled, accepting setpoints
+    50: // Running - drive in OperationEnabled, accepting setpoints
         xDone := TRUE;
         IF NOT xExecute THEN
             // CiA402 Shutdown: bit3=0 (Disable Operation) + bit0=0 (Switch Off)
@@ -139,7 +139,7 @@ CASE iState OF
             iState := 20;
         END_IF
 
-    999: // Error — latched; reset by dropping xExecute
+    999: // Error - latched; reset by dropping xExecute
         tonTimeout.IN := FALSE;
         xDone  := FALSE;
         xError := TRUE;
@@ -151,7 +151,7 @@ CASE iState OF
 
 END_CASE
 
-// ── Level A: unified progress projection (E_PROGRESS) ──────────────
+// -- Level A: unified progress projection (E_PROGRESS) --------------
 IF    xError     THEN eProgress := PROGRESS_ERROR;
 ELSIF xDone      THEN eProgress := PROGRESS_DONE;      // OperationEnabled (iState 50)
 ELSIF iState = 0 THEN eProgress := PROGRESS_INVALID;   // idle

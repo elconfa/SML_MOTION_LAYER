@@ -1,6 +1,6 @@
 (* ============================================================
-   PRG_LevelA_Test — E_PROGRESS projection test (Level A)
-   SML v5 — new
+   PRG_LevelA_Test - E_PROGRESS projection test (Level A)
+   SML v5 - new
 
    Verifies, WITHOUT hardware, that the eProgress output introduced in
    Level A follows the expected transitions. It drives SML_Power with a
@@ -26,15 +26,15 @@ VAR
     Axis  : OpenSML_Axis;   // struct shared app <-> FB (no I/O mapping)
     Power : SML_Power;      // FB under test
 
-    // ── test sequencer ───────────────────────────────────────
+    // -- test sequencer ---------------------------------------
     step  : INT;
     tStep : TON;
 
-    // ── stimuli ──────────────────────────────────────────────
+    // -- stimuli ----------------------------------------------
     xEnable      : BOOL;    // drive enable request
     xInjectFault : BOOL;    // inject a fault (StatusWord bit 3)
 
-    // ── observation ──────────────────────────────────────────
+    // -- observation ------------------------------------------
     ePwr : E_PROGRESS;      // current eProgress of Power
 
     xSeenInvalid : BOOL;    // flag "value observed at least once"
@@ -45,9 +45,9 @@ VAR
     xTestDone    : BOOL;    // sequence finished
 END_VAR
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 //  Sequencer: ~200 ms per step
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 tStep(IN := NOT xTestDone, PT := T#200MS);
 IF tStep.Q THEN
     tStep(IN := FALSE);
@@ -75,9 +75,9 @@ CASE step OF
         xTestDone := TRUE;
 END_CASE
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 //  FB under test
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 Power(
     Axis           := Axis,
     xExecute       := xEnable,
@@ -85,14 +85,14 @@ Power(
 
 ePwr := Power.eProgress;
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 //  Mini CiA402 emulator (called AFTER Power: it responds to the
 //  ControlWord written by Power in the current cycle)
 //    bit1 EnableVoltage  -> StatusWord.0 ReadyToSwitchOn
 //    bit0 SwitchOn       -> StatusWord.1 SwitchedOn (requires voltage)
 //    bit3 EnableOp       -> StatusWord.2 OperationEnabled (requires SwitchedOn)
 //    bit7 FaultReset     -> clears StatusWord.3
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 IF xInjectFault THEN
     Axis.StatusWord.3 := TRUE;                 // Fault
 ELSIF Axis.ControlWord.7 THEN
@@ -104,9 +104,9 @@ Axis.StatusWord.1 := Axis.ControlWord.0 AND Axis.ControlWord.1;   // SwitchedOn
 Axis.StatusWord.2 := Axis.ControlWord.3 AND Axis.StatusWord.1;    // OperationEnabled
 Axis.StatusWord.5 := TRUE;                                        // QuickStop not active
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 //  Result collection
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 CASE ePwr OF
     PROGRESS_INVALID: xSeenInvalid := TRUE;
     PROGRESS_BUSY:    xSeenBusy    := TRUE;

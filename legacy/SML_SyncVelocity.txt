@@ -1,16 +1,16 @@
 (* ============================================================
-   SML_SyncVelocity — CSP-based Cyclic Synchronous Velocity
-   SML v4 — Merged (OpenSML_SyncVelocity fixed + Confa improvements)
+   SML_SyncVelocity - CSP-based Cyclic Synchronous Velocity
+   SML v4 - Merged (OpenSML_SyncVelocity fixed + Confa improvements)
 
    v4 fixes:
-   - C1: otg called with correct param name CycleTIme (v3 used CycleTime →
+   - C1: otg called with correct param name CycleTIme (v3 used CycleTime ->
      did not compile).
    - M1: explicit OTG seed via xInit.
    - M2: simulation path now passes through the seed state (state 10).
    - B4: simplified signed LREAL_TO_DINT conversion.
 
    Integrates velocity in PLC via OTG, writes Target_Position
-   (CSP mode 8) every cycle — avoids requiring a CSV PDO mapping.
+   (CSP mode 8) every cycle - avoids requiring a CSV PDO mapping.
 
    If the drive supports CSV (mode 9) natively:
      Uncomment the otg.NewVelocity line below and switch mode to 9.
@@ -63,7 +63,7 @@ CASE iState OF
             END_IF
         END_IF
 
-    10: // Mode Switch to CSP (8) — used as velocity integrator; also seeds OTG
+    10: // Mode Switch to CSP (8) - used as velocity integrator; also seeds OTG
         // M1: call OTG here with xInit=TRUE so the integrator is (re)seeded to
         // the actual position every cycle while in this state.
         Axis.Modes_of_operation := 8;
@@ -113,7 +113,7 @@ CASE iState OF
         END_IF
 END_CASE
 
-// ── Level A: unified progress projection (E_PROGRESS) ──────────────
+// -- Level A: unified progress projection (E_PROGRESS) --------------
 // Continuous sync: no discrete "DONE".
 IF    xError     THEN eProgress := PROGRESS_ERROR;
 ELSIF iState = 0 THEN eProgress := PROGRESS_INVALID;
