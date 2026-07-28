@@ -117,7 +117,8 @@ GVL_AXIS.ItfSmlAxis[1].MoveFollow(...);               // CSP con generatore di t
 Comandi (`eCmd`): `AXIS_ENABLE`, `AXIS_DISABLE`, `AXIS_RESET`, `AXIS_HOME`, `AXIS_MOVE_ABS`, `AXIS_MOVE_REL`,
 `AXIS_MOVE_VELOCITY`, `AXIS_JOG_POS`, `AXIS_JOG_NEG`, `AXIS_MOVE_CSP`, `AXIS_STOP`.
 
-Riferimento completo comandi/API: [`docs/MANUALE_SML.it.md`](docs/MANUALE_SML.it.md).
+Elenco completo variabili: [`docs/API_Reference.it.md`](docs/API_Reference.it.md). Guida comandi/uso:
+[`docs/MANUALE_SML.it.md`](docs/MANUALE_SML.it.md).
 
 ---
 
@@ -131,7 +132,7 @@ Riferimento completo comandi/API: [`docs/MANUALE_SML.it.md`](docs/MANUALE_SML.it
 | `application/examples/` | `FB_AxisCycleDemo`, `PLC_APP` (la macchina a 2 assi) |
 | `application/tests/` | banchi di simulazione (emulatore CiA402) |
 | `legacy/` | facce superate, conservate per tracciabilità |
-| `docs/` | manuale, guida collegamento I/O, checklist di import, la nota di design estratta |
+| `docs/` | [riferimento API](docs/API_Reference.it.md), manuale, guida collegamento I/O, checklist, nota di design |
 | `binaries/` | progetti compilati CoDeSys (`codesys/`) e TwinCAT (`twincat/`) (Git LFS) |
 
 ---
