@@ -103,6 +103,55 @@ See [`MANUALE_SML.md`](MANUALE_SML.md) §3 for the full per-command reference (D
 
 ---
 
+## Combined state `eState` (INT)
+
+`eState` packs "what the axis is doing" and "how far along" into a single number:
+
+```
+eState = functional_state + progress
+         (hundreds: WHAT)    (units: HOW FAR)
+```
+
+- **hundreds** = functional state (`E_AXIS_STATE`, multiples of 100)
+- **units** = progress (`E_PROGRESS`, the values above)
+
+Example: `502` = `500` (MOVING) + `2` (BUSY) -> "moving, in progress"; `306` = `300` (IDLE) + `6` (DONE)
+-> "enabled and still, ready".
+
+### Values actually produced
+| `eState` | Meaning | When |
+|---|---|---|
+| `0` | not yet executed | before the first cycle |
+| `200` | disabled, stopped | `AXIS_NULL` with drive OFF |
+| `202` / `206` | disabling / disabled (done) | `AXIS_DISABLE` |
+| `300` | **IDLE**: enabled and stopped, ready | `AXIS_NULL` with drive ON |
+| `302` / `306` | enabling / **enabled (done)** | `AXIS_ENABLE` |
+| `102` / `106` | reset in progress / done | `AXIS_RESET` |
+| `402` / `406` | homing / **homed (done)** | `AXIS_HOME` |
+| `502` / `506` | move in progress / **at target** | `AXIS_MOVE_ABS/REL/CSP` |
+| `602` | ramping / jog held | `AXIS_MOVE_VELOCITY`, `AXIS_JOG_*` |
+| `606` | **target velocity reached** | `AXIS_MOVE_VELOCITY` at steady state |
+| `702` / `706` | stopping / **stopped** | `AXIS_STOP` |
+| `907` | **error** | any fault |
+
+Units mnemonic: **0** = idle/no request · **2** = working · **6** = done · **7** = error. (Jog stays at
+`x02`: continuous motion has no discrete "DONE".) The combined state uses only progress 0/2/6/7.
+
+### Decompose it
+```pascal
+base := GVL_AXIS.State[n].eState / 100;                 // 5 = MOVING
+prog := GVL_AXIS.State[n].eState MOD 100;               // 2 = BUSY, 6 = DONE
+// or with the library functions:
+base := SML.f_GetState(GVL_AXIS.State[n].eState);       // 500
+prog := SML.f_GetProgress(GVL_AXIS.State[n].eState);    // 2 (SML.PROGRESS_BUSY)
+```
+
+For application logic you usually just read `State[n].eProgress` (already the units part) plus
+`State[n].xDone` / `xError`. `eState` is handy as a single number for an HMI display or a log
+(e.g. "502" = moving).
+
+---
+
 ## Notes
 
 - **Namespace:** with the library published as `SML`, prefix *types* and *enum values*

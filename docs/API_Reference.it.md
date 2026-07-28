@@ -103,6 +103,56 @@ Vedi [`MANUALE_SML.it.md`](MANUALE_SML.it.md) §3 per il riferimento completo pe
 
 ---
 
+## Stato combinato `eState` (INT)
+
+`eState` impacchetta "cosa fa l'asse" e "a che punto e'" in un unico numero:
+
+```
+eState = stato_funzionale + avanzamento
+         (centinaia: COSA)   (unita': A CHE PUNTO)
+```
+
+- **centinaia** = stato funzionale (`E_AXIS_STATE`, multipli di 100)
+- **unita'** = avanzamento (`E_PROGRESS`, i valori sopra)
+
+Esempio: `502` = `500` (MOVING) + `2` (BUSY) -> "in movimento, in corso"; `306` = `300` (IDLE) + `6`
+(DONE) -> "abilitato e fermo, pronto".
+
+### Valori che ottieni davvero
+| `eState` | Significato | Quando |
+|---|---|---|
+| `0` | non ancora eseguito | prima del primo ciclo |
+| `200` | disabilitato, fermo | `AXIS_NULL` con drive OFF |
+| `202` / `206` | disabilitazione / disabilitato (fatto) | `AXIS_DISABLE` |
+| `300` | **IDLE**: abilitato e fermo, pronto | `AXIS_NULL` con drive ON |
+| `302` / `306` | abilitazione / **abilitato (fatto)** | `AXIS_ENABLE` |
+| `102` / `106` | reset in corso / fatto | `AXIS_RESET` |
+| `402` / `406` | homing / **azzerato (fatto)** | `AXIS_HOME` |
+| `502` / `506` | moto in corso / **al target** | `AXIS_MOVE_ABS/REL/CSP` |
+| `602` | in rampa / jog tenuto | `AXIS_MOVE_VELOCITY`, `AXIS_JOG_*` |
+| `606` | **velocita' raggiunta** | `AXIS_MOVE_VELOCITY` a regime |
+| `702` / `706` | in arresto / **fermo** | `AXIS_STOP` |
+| `907` | **errore** | qualsiasi fault |
+
+Regola sulle unita': **0** = fermo/nessuna richiesta · **2** = sta lavorando · **6** = finito · **7** =
+errore. (Il jog resta `x02`: moto continuo, nessun "DONE" discreto.) Lo stato combinato usa solo gli
+avanzamenti 0/2/6/7.
+
+### Come scomporlo
+```pascal
+base := GVL_AXIS.State[n].eState / 100;                 // 5 = MOVING
+prog := GVL_AXIS.State[n].eState MOD 100;               // 2 = BUSY, 6 = DONE
+// oppure con le funzioni della libreria:
+base := SML.f_GetState(GVL_AXIS.State[n].eState);       // 500
+prog := SML.f_GetProgress(GVL_AXIS.State[n].eState);    // 2 (SML.PROGRESS_BUSY)
+```
+
+Per la logica applicativa di solito basta leggere `State[n].eProgress` (gia' la parte "unita'") piu'
+`State[n].xDone` / `xError`. `eState` e' comodo come singolo numero per un display HMI o un log
+(es. "502" = in movimento).
+
+---
+
 ## Note
 
 - **Namespace:** con libreria pubblicata come `SML`, prefissa *tipi* ed *enum*
