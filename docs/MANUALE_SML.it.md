@@ -101,6 +101,49 @@ Imposti `Ctrl.eCmd` al valore voluto. La colonna "DONE quando" dice quando
   (aggiorni `lrTargetPosition` mentre l'asse insegue).
 - **Jog**: tieni `AXIS_JOG_POS`/`NEG`; rilascia mettendo `AXIS_NULL` o `AXIS_STOP`.
 
+### 3.1 Esempio minimo per ogni comando
+
+Tutto su `GVL_AXIS.…[1]` (asse 1). Imposta i `Data` **prima** di `eCmd`.
+
+```pascal
+// -- ENABLE / DISABLE / RESET -----------------------------------
+GVL_AXIS.Ctrl[1].eCmd := AXIS_ENABLE;   // abilita  -> attendi Info[1].xEnabled
+GVL_AXIS.Ctrl[1].eCmd := AXIS_DISABLE;  // disabilita (drive off)
+GVL_AXIS.Ctrl[1].eCmd := AXIS_RESET;    // reset fault -> attendi State[1].xDone
+
+// -- HOME -------------------------------------------------------
+GVL_AXIS.Ctrl[1].HomeOffset := 0;       // offset [encoder counts], opzionale
+GVL_AXIS.Ctrl[1].eCmd := AXIS_HOME;     // -> attendi State[1].xDone
+
+// -- MOVE_ABS / MOVE_REL (PP, discreti) -------------------------
+GVL_AXIS.Data[1].lrTargetPosition := 50.0;    // ABS: posizione; REL: distanza
+GVL_AXIS.Data[1].lrVelocity       := 100.0;
+GVL_AXIS.Data[1].lrAcceleration   := 1000.0;
+GVL_AXIS.Data[1].lrDeceleration   := 1000.0;
+GVL_AXIS.Ctrl[1].eCmd := AXIS_MOVE_ABS;       // o AXIS_MOVE_REL -> attendi State[1].xDone
+
+// -- MOVE_VELOCITY (PV, continuo; il SEGNO = direzione) ---------
+GVL_AXIS.Data[1].lrVelocity := -30.0;         // negativo = indietro
+GVL_AXIS.Ctrl[1].eCmd := AXIS_MOVE_VELOCITY;  // a regime -> State[1].xDone (velocita' raggiunta)
+
+// -- JOG (tenuto finche' resta il comando) ----------------------
+GVL_AXIS.Data[1].lrVelocity := 20.0;          // magnitudo (senza segno)
+GVL_AXIS.Ctrl[1].eCmd := AXIS_JOG_POS;        // o AXIS_JOG_NEG; rilascia con AXIS_NULL/AXIS_STOP
+
+// -- MOVE_CSP (inseguimento online, jerk-limited) ---------------
+GVL_AXIS.Data[1].lrTargetPosition := 120.0;   // ri-scrivibile OGNI ciclo
+GVL_AXIS.Data[1].lrVelocity     := 200.0;
+GVL_AXIS.Data[1].lrAcceleration := 2000.0;
+GVL_AXIS.Data[1].lrJerk         := 20000.0;
+GVL_AXIS.Ctrl[1].eCmd := AXIS_MOVE_CSP;       // -> State[1].xDone quando entro PositionWindow
+
+// -- STOP / NULL ------------------------------------------------
+GVL_AXIS.Ctrl[1].eCmd := AXIS_STOP;           // Halt controllato -> attendi State[1].xDone (fermo)
+GVL_AXIS.Ctrl[1].eCmd := AXIS_NULL;           // nessun comando; mantiene lo stato (idle/errore)
+```
+
+Per il TouchProbe (parallelo al moto, non e' un `eCmd`) vedi §6.
+
 ---
 
 ## 4. Comandare via interfaccia `I_Axis` (metodi)
@@ -155,6 +198,8 @@ eProg := f_GetProgress(State.eState);   // 2    (E_PROGRESS.PROGRESS_BUSY)
 ```
 Stati funzionali: `NULL 0, INIT 100, DISABLED 200, IDLE 300, HOMING 400,
 MOVING 500, VELOCITY 600, STOPPING 700, ERROR 900`.
+Tabella dei valori concreti di `eState` (0/200/300/306/402/406/502/506/606/907…):
+vedi [`API_Reference.it.md`](API_Reference.it.md#stato-combinato-estate-int).
 
 ### 5.3 `Info` — valori attuali
 | Campo | Significato |
@@ -331,13 +376,59 @@ provano la sequenza comandi: metti UN banco nel task (non MAIN) e verifica
 
 ## 12. Diagnostica (`SML_DiagCode`)
 
-Leggi `State.DiagCode`/`DiagText` (condizione live) e
-`State.FirstFaultCode`/`FirstFaultText` (primo guasto). Categorie:
-- `1..9` warning (moto continua) — es. `DIAG_INTERNAL_LIMIT`
-- `10..19` fault del drive — es. `DIAG_DRIVE_FAULT`, `DIAG_FOLLOWING_ERROR`, `DIAG_QUICK_STOP`
-- `20..29` fault di un FB — es. `DIAG_HOME_ERROR`, `DIAG_MOVE_ERROR`, `DIAG_OTG_ERROR`, `DIAG_TOUCHPROBE_ERROR`
+Leggi `State.DiagCode`/`DiagText` (condizione **live**) e
+`State.FirstFaultCode`/`FirstFaultText` (**primo** guasto latchato = root cause,
+resta anche se la condizione live cambia; si azzera col reset).
 
-Reset: `AXIS_RESET` (pulisce il fault del drive e degli FB foglia).
+### 12.1 Come sapere se — e dove — l'asse è andato in errore
+
+Due livelli: "c'è un errore?" e "di quale comando / che tipo?".
+
+| Domanda | Dove leggere |
+|---|---|
+| **C'è un errore di moto?** | `State[n].xError` = TRUE (o `eProgress = PROGRESS_ERROR`, o `eState = 907`) |
+| **Di che tipo / quale FB?** | `State[n].DiagCode` (es. `DIAG_HOME_ERROR`) + `DiagText` per il testo |
+| **Qual è la causa prima?** | `State[n].FirstFaultCode` / `FirstFaultText` (root cause latchata) |
+| **Quale comando era attivo?** | `State[n].eCmdActive` (es. `AXIS_HOME`) |
+| **Fault grezzo del drive?** | `Info[n].Status.Fault` / `Status.ErrId` (Error_Code 0x603F) |
+
+> Il **TouchProbe** è a parte: un suo errore **non** setta `xError`; lo leggi in
+> `Info[n].xTouchProbeError` (e `DiagCode = DIAG_TOUCHPROBE_ERROR`).
+
+```pascal
+IF GVL_AXIS.State[1].xError THEN
+    CASE GVL_AXIS.State[1].DiagCode OF        // quale comando/FB ha fallito
+        DIAG_HOME_ERROR:  ;                   // homing fallito
+        DIAG_MOVE_ERROR:  ;                   // move PP fallito
+        DIAG_DRIVE_FAULT: ;                   // fault del drive
+    END_CASE
+    sMsg  := GVL_AXIS.State[1].DiagText;       // testo condizione live (HMI)
+    sRoot := GVL_AXIS.State[1].FirstFaultText; // testo causa prima
+    GVL_AXIS.Ctrl[1].eCmd := AXIS_RESET;       // pulisce drive + FB foglia
+END_IF
+```
+
+### 12.2 Tabella completa `SML_DiagCode`
+
+| Codice | Val | Categoria | Significato / origine | Comando tipico |
+|---|---|---|---|---|
+| `DIAG_OK` | 0 | ok | nessun fault né warning | — |
+| `DIAG_WARNING` | 1 | warning | StatusWord bit 7 (warning generico) | qualsiasi |
+| `DIAG_INTERNAL_LIMIT` | 2 | warning | StatusWord bit 11 (limite interno attivo) | qualsiasi |
+| `DIAG_DRIVE_FAULT` | 10 | drive | StatusWord bit 3 (Fault), senza codice | qualsiasi |
+| `DIAG_DRIVE_ERRORCODE` | 11 | drive | Fault + Error_Code (0x603F) > 0 | qualsiasi |
+| `DIAG_QUICK_STOP` | 12 | drive | QuickStop attivo (StatusWord bit 5 = 0) | qualsiasi |
+| `DIAG_FOLLOWING_ERROR` | 13 | drive | StatusWord bit 13 (errore di inseguimento) | move/CSP |
+| `DIAG_POWER_ERROR` | 20 | FB | errore sequenza abilitazione (`SML_Power`) | `AXIS_ENABLE` |
+| `DIAG_HOME_ERROR` | 21 | FB | errore homing (`SML_Home`: stallo/timeout/abort) | `AXIS_HOME` |
+| `DIAG_MOVE_ERROR` | 22 | FB | errore move PP (`SML_ProfilePosition`) | `AXIS_MOVE_ABS/REL` |
+| `DIAG_VEL_ERROR` | 23 | FB | errore velocità (`SML_ProfileVelocity`) | `AXIS_MOVE_VELOCITY` |
+| `DIAG_JOG_ERROR` | 24 | FB | errore jog (`SML_ProfileVelocity_Jog`) | `AXIS_JOG_POS/NEG` |
+| `DIAG_TOUCHPROBE_ERROR` | 25 | FB | errore TouchProbe (**non** ferma il moto) | TouchProbe |
+| `DIAG_OTG_ERROR` | 26 | FB | vincoli OTG non validi (limiti / `CycleTime`) | `AXIS_MOVE_CSP` |
+
+Fasce: **0** ok · **1..9** warning (il moto continua) · **10..19** fault del drive ·
+**20..29** fault di un FB foglia. Reset: **`AXIS_RESET`** (pulisce sia il drive sia gli FB foglia).
 
 ---
 

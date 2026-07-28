@@ -100,6 +100,49 @@ Set `Ctrl.eCmd` to the value you want. The "DONE when" column tells you when
   re-targeting use `AXIS_MOVE_CSP` (update `lrTargetPosition` while the axis follows).
 - **Jog**: hold `AXIS_JOG_POS`/`NEG`; release by setting `AXIS_NULL` or `AXIS_STOP`.
 
+### 3.1 Minimal example per command
+
+All on `GVL_AXIS.…[1]` (axis 1). Set `Data` **before** `eCmd`.
+
+```pascal
+// -- ENABLE / DISABLE / RESET -----------------------------------
+GVL_AXIS.Ctrl[1].eCmd := AXIS_ENABLE;   // enable  -> wait Info[1].xEnabled
+GVL_AXIS.Ctrl[1].eCmd := AXIS_DISABLE;  // disable (drive off)
+GVL_AXIS.Ctrl[1].eCmd := AXIS_RESET;    // reset fault -> wait State[1].xDone
+
+// -- HOME -------------------------------------------------------
+GVL_AXIS.Ctrl[1].HomeOffset := 0;       // offset [encoder counts], optional
+GVL_AXIS.Ctrl[1].eCmd := AXIS_HOME;     // -> wait State[1].xDone
+
+// -- MOVE_ABS / MOVE_REL (PP, discrete) -------------------------
+GVL_AXIS.Data[1].lrTargetPosition := 50.0;    // ABS: position; REL: distance
+GVL_AXIS.Data[1].lrVelocity       := 100.0;
+GVL_AXIS.Data[1].lrAcceleration   := 1000.0;
+GVL_AXIS.Data[1].lrDeceleration   := 1000.0;
+GVL_AXIS.Ctrl[1].eCmd := AXIS_MOVE_ABS;       // or AXIS_MOVE_REL -> wait State[1].xDone
+
+// -- MOVE_VELOCITY (PV, continuous; SIGN = direction) -----------
+GVL_AXIS.Data[1].lrVelocity := -30.0;         // negative = reverse
+GVL_AXIS.Ctrl[1].eCmd := AXIS_MOVE_VELOCITY;  // at steady state -> State[1].xDone (velocity reached)
+
+// -- JOG (held while the command stays) -------------------------
+GVL_AXIS.Data[1].lrVelocity := 20.0;          // magnitude (unsigned)
+GVL_AXIS.Ctrl[1].eCmd := AXIS_JOG_POS;        // or AXIS_JOG_NEG; release with AXIS_NULL/AXIS_STOP
+
+// -- MOVE_CSP (online follow, jerk-limited) ---------------------
+GVL_AXIS.Data[1].lrTargetPosition := 120.0;   // re-writable EVERY cycle
+GVL_AXIS.Data[1].lrVelocity     := 200.0;
+GVL_AXIS.Data[1].lrAcceleration := 2000.0;
+GVL_AXIS.Data[1].lrJerk         := 20000.0;
+GVL_AXIS.Ctrl[1].eCmd := AXIS_MOVE_CSP;       // -> State[1].xDone when within PositionWindow
+
+// -- STOP / NULL ------------------------------------------------
+GVL_AXIS.Ctrl[1].eCmd := AXIS_STOP;           // controlled Halt -> wait State[1].xDone (stopped)
+GVL_AXIS.Ctrl[1].eCmd := AXIS_NULL;           // no command; holds the state (idle/error)
+```
+
+For TouchProbe (parallel to motion, not an `eCmd`) see §6.
+
 ---
 
 ## 4. Commanding via the `I_Axis` interface (methods)
@@ -153,6 +196,8 @@ eProg := f_GetProgress(State.eState);   // 2    (E_PROGRESS.PROGRESS_BUSY)
 ```
 Functional states: `NULL 0, INIT 100, DISABLED 200, IDLE 300, HOMING 400,
 MOVING 500, VELOCITY 600, STOPPING 700, ERROR 900`.
+Table of the concrete `eState` values (0/200/300/306/402/406/502/506/606/907…):
+see [`API_Reference.md`](API_Reference.md#combined-state-estate-int).
 
 ### 5.3 `Info` — actual values
 | Field | Meaning |
@@ -327,13 +372,59 @@ sequence: put ONE bench in the task (not MAIN) and check `xTestPassed = TRUE`.
 
 ## 12. Diagnostics (`SML_DiagCode`)
 
-Read `State.DiagCode`/`DiagText` (live condition) and
-`State.FirstFaultCode`/`FirstFaultText` (first fault). Categories:
-- `1..9` warning (motion continues) — e.g. `DIAG_INTERNAL_LIMIT`
-- `10..19` drive fault — e.g. `DIAG_DRIVE_FAULT`, `DIAG_FOLLOWING_ERROR`, `DIAG_QUICK_STOP`
-- `20..29` FB fault — e.g. `DIAG_HOME_ERROR`, `DIAG_MOVE_ERROR`, `DIAG_OTG_ERROR`, `DIAG_TOUCHPROBE_ERROR`
+Read `State.DiagCode`/`DiagText` (**live** condition) and
+`State.FirstFaultCode`/`FirstFaultText` (**first** latched fault = root cause; it
+survives even if the live condition changes; cleared by reset).
 
-Reset: `AXIS_RESET` (clears the fault of the drive and of the leaf FBs).
+### 12.1 Telling whether — and where — the axis faulted
+
+Two levels: "is there an error?" and "which command / what type?".
+
+| Question | Where to read |
+|---|---|
+| **Is there a motion error?** | `State[n].xError` = TRUE (or `eProgress = PROGRESS_ERROR`, or `eState = 907`) |
+| **What type / which FB?** | `State[n].DiagCode` (e.g. `DIAG_HOME_ERROR`) + `DiagText` for the text |
+| **What is the root cause?** | `State[n].FirstFaultCode` / `FirstFaultText` (latched root cause) |
+| **Which command was active?** | `State[n].eCmdActive` (e.g. `AXIS_HOME`) |
+| **Raw drive fault?** | `Info[n].Status.Fault` / `Status.ErrId` (Error_Code 0x603F) |
+
+> **TouchProbe** is separate: its error does **not** set `xError`; read it in
+> `Info[n].xTouchProbeError` (and `DiagCode = DIAG_TOUCHPROBE_ERROR`).
+
+```pascal
+IF GVL_AXIS.State[1].xError THEN
+    CASE GVL_AXIS.State[1].DiagCode OF         // which command/FB failed
+        DIAG_HOME_ERROR:  ;                    // homing failed
+        DIAG_MOVE_ERROR:  ;                    // PP move failed
+        DIAG_DRIVE_FAULT: ;                    // drive fault
+    END_CASE
+    sMsg  := GVL_AXIS.State[1].DiagText;        // live condition text (HMI)
+    sRoot := GVL_AXIS.State[1].FirstFaultText;  // root cause text
+    GVL_AXIS.Ctrl[1].eCmd := AXIS_RESET;        // clears drive + leaf FBs
+END_IF
+```
+
+### 12.2 Full `SML_DiagCode` table
+
+| Code | Val | Category | Meaning / origin | Typical command |
+|---|---|---|---|---|
+| `DIAG_OK` | 0 | ok | no fault, no warning | — |
+| `DIAG_WARNING` | 1 | warning | StatusWord bit 7 (generic warning) | any |
+| `DIAG_INTERNAL_LIMIT` | 2 | warning | StatusWord bit 11 (internal limit active) | any |
+| `DIAG_DRIVE_FAULT` | 10 | drive | StatusWord bit 3 (Fault), no specific code | any |
+| `DIAG_DRIVE_ERRORCODE` | 11 | drive | Fault + Error_Code (0x603F) > 0 | any |
+| `DIAG_QUICK_STOP` | 12 | drive | QuickStop active (StatusWord bit 5 = 0) | any |
+| `DIAG_FOLLOWING_ERROR` | 13 | drive | StatusWord bit 13 (following error) | move/CSP |
+| `DIAG_POWER_ERROR` | 20 | FB | enable sequence error (`SML_Power`) | `AXIS_ENABLE` |
+| `DIAG_HOME_ERROR` | 21 | FB | homing error (`SML_Home`: stall/timeout/abort) | `AXIS_HOME` |
+| `DIAG_MOVE_ERROR` | 22 | FB | PP move error (`SML_ProfilePosition`) | `AXIS_MOVE_ABS/REL` |
+| `DIAG_VEL_ERROR` | 23 | FB | velocity error (`SML_ProfileVelocity`) | `AXIS_MOVE_VELOCITY` |
+| `DIAG_JOG_ERROR` | 24 | FB | jog error (`SML_ProfileVelocity_Jog`) | `AXIS_JOG_POS/NEG` |
+| `DIAG_TOUCHPROBE_ERROR` | 25 | FB | TouchProbe error (does **not** stop motion) | TouchProbe |
+| `DIAG_OTG_ERROR` | 26 | FB | invalid OTG constraints (limits / `CycleTime`) | `AXIS_MOVE_CSP` |
+
+Ranges: **0** ok · **1..9** warning (motion continues) · **10..19** drive fault ·
+**20..29** leaf-FB fault. Reset: **`AXIS_RESET`** (clears both the drive and the leaf FBs).
 
 ---
 

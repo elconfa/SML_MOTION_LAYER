@@ -153,6 +153,52 @@ Per la logica applicativa di solito basta leggere `State[n].eProgress` (gia' la 
 
 ---
 
+## Diagnostica: capire se e dove l'asse è andato in errore
+
+| Domanda | Dove leggere |
+|---|---|
+| C'è un errore di moto? | `State[n].xError` = TRUE (o `eProgress = PROGRESS_ERROR`, o `eState = 907`) |
+| Di che tipo / quale FB? | `State[n].DiagCode` + `DiagText` |
+| Qual è la causa prima? | `State[n].FirstFaultCode` / `FirstFaultText` (root cause latchata) |
+| Quale comando era attivo? | `State[n].eCmdActive` (es. `AXIS_HOME`) |
+| Fault grezzo del drive? | `Info[n].Status.Fault` / `Status.ErrId` (0x603F) |
+
+Il **TouchProbe** è ortogonale: un suo errore **non** setta `xError`; leggi
+`Info[n].xTouchProbeError`.
+
+### Valori di `DiagCode` (`SML_DiagCode`)
+| Codice | Val | Categoria | Origine | Comando tipico |
+|---|---|---|---|---|
+| `DIAG_OK` | 0 | ok | nessun fault/warning | — |
+| `DIAG_WARNING` | 1 | warning | StatusWord bit 7 | qualsiasi |
+| `DIAG_INTERNAL_LIMIT` | 2 | warning | StatusWord bit 11 | qualsiasi |
+| `DIAG_DRIVE_FAULT` | 10 | drive | StatusWord bit 3 (Fault) | qualsiasi |
+| `DIAG_DRIVE_ERRORCODE` | 11 | drive | Fault + Error_Code (0x603F) | qualsiasi |
+| `DIAG_QUICK_STOP` | 12 | drive | QuickStop (bit 5 = 0) | qualsiasi |
+| `DIAG_FOLLOWING_ERROR` | 13 | drive | StatusWord bit 13 | move/CSP |
+| `DIAG_POWER_ERROR` | 20 | FB | `SML_Power` | `AXIS_ENABLE` |
+| `DIAG_HOME_ERROR` | 21 | FB | `SML_Home` | `AXIS_HOME` |
+| `DIAG_MOVE_ERROR` | 22 | FB | `SML_ProfilePosition` | `AXIS_MOVE_ABS/REL` |
+| `DIAG_VEL_ERROR` | 23 | FB | `SML_ProfileVelocity` | `AXIS_MOVE_VELOCITY` |
+| `DIAG_JOG_ERROR` | 24 | FB | `SML_ProfileVelocity_Jog` | `AXIS_JOG_POS/NEG` |
+| `DIAG_TOUCHPROBE_ERROR` | 25 | FB | `SML_TouchProbe` (non ferma il moto) | TouchProbe |
+| `DIAG_OTG_ERROR` | 26 | FB | `FB_S7RTT_OTG` (limiti/CycleTime) | `AXIS_MOVE_CSP` |
+
+Fasce: **1..9** warning (moto continua) · **10..19** fault drive · **20..29** fault FB.
+Reset con `AXIS_RESET`.
+
+```pascal
+IF GVL_AXIS.State[1].xError THEN
+    CASE GVL_AXIS.State[1].DiagCode OF
+        SML.DIAG_HOME_ERROR: (* homing fallito *) ;
+        SML.DIAG_MOVE_ERROR: (* move fallito *) ;
+    END_CASE
+    GVL_AXIS.Ctrl[1].eCmd := SML.AXIS_RESET;
+END_IF
+```
+
+---
+
 ## Note
 
 - **Namespace:** con libreria pubblicata come `SML`, prefissa *tipi* ed *enum*
