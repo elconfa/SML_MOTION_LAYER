@@ -177,16 +177,33 @@ Usa **o** i metodi **o** la struct sullo stesso asse, non entrambi nello stesso 
 
 ## 5. Leggere lo stato
 
-### 5.1 `State` — esito del comando
-| Campo | Tipo | Significato |
+### 5.1 `State` — esito del comando (tutti i campi)
+| Campo | Tipo | Spiegazione dettagliata |
 |---|---|---|
-| `eProgress` | `E_PROGRESS` | avanzamento: INVALID / INIT / BUSY / PREPARE / STARTUP / CHECK / **DONE** / **ERROR** |
-| `eState` | INT | **stato combinato** = stato funzionale + avanzamento (vedi 5.2) |
-| `eCmdActive` | `E_AXIS_CTRL` | comando attualmente in esecuzione |
-| `xDone` | BOOL | comando corrente completato (= `eProgress = DONE`) |
-| `xError` | BOOL | errore di moto (aggregato) |
-| `DiagCode` / `DiagText` | `SML_DiagCode` / STRING | condizione live + testo |
-| `FirstFaultCode` / `FirstFaultText` | | primo guasto latchato (root cause) |
+| `eState` | INT | **stato combinato** = stato funzionale (centinaia) + avanzamento (unità). Un solo numero, comodo per HMI/log. Scomposizione in §5.2 |
+| `eProgress` | `E_PROGRESS` | avanzamento del comando corrente, già scomposto (è la parte "unità" di `eState`). Valori nella tabella sotto |
+| `eCmdActive` | `E_AXIS_CTRL` | il comando **effettivamente in esecuzione** nel FB. Dice "cosa sta facendo l'asse" (es. `AXIS_HOME`), utile anche in caso di errore |
+| `xDone` | BOOL | TRUE quando il comando corrente è **completato** (equivale a `eProgress = PROGRESS_DONE`). Per i comandi continui (JOG) non diventa TRUE |
+| `xError` | BOOL | errore di moto **aggregato** (Power OR Home OR Move OR Vel OR Jog OR CSP OR Reset). **Non** include il TouchProbe |
+| `DiagCode` | `SML_DiagCode` | codice della condizione diagnostica **live** (tabella completa in §12.2) |
+| `DiagText` | STRING(80) | testo leggibile della condizione live (per HMI/log) |
+| `FirstFaultCode` | `SML_DiagCode` | **primo** guasto latchato = root cause; resta finché non fai `AXIS_RESET` |
+| `FirstFaultText` | STRING(80) | testo del primo guasto |
+
+**Valori di `eProgress` (`E_PROGRESS`)**
+| Valore | N | Significato |
+|---|---|---|
+| `PROGRESS_INVALID` | 0 | non inizializzato / a riposo, nessuna richiesta |
+| `PROGRESS_INIT` | 1 | richiesta di start ricevuta |
+| `PROGRESS_BUSY` | 2 | in esecuzione |
+| `PROGRESS_PREPARE` | 3 | preparazione parametri / precondizioni |
+| `PROGRESS_STARTUP` | 4 | fase di avvio |
+| `PROGRESS_CHECK` | 5 | verifica esito / avanzamento indice |
+| `PROGRESS_DONE` | 6 | completato con successo (= `xDone`) |
+| `PROGRESS_ERROR` | 7 | errore, terminale fino al reset (= `xError`) |
+
+> Lo **stato combinato** `eState` usa solo gli avanzamenti **0/2/6/7**; i valori
+> intermedi 1/3/4/5 possono comparire in `eProgress` durante le transizioni interne.
 
 ### 5.2 Stato combinato `eState`
 `eState = E_AXIS_STATE + E_PROGRESS`. Esempi: `306` = `AXIS_STATE_IDLE(300)` +
@@ -201,22 +218,73 @@ MOVING 500, VELOCITY 600, STOPPING 700, ERROR 900`.
 Tabella dei valori concreti di `eState` (0/200/300/306/402/406/502/506/606/907…):
 vedi [`API_Reference.it.md`](API_Reference.it.md#stato-combinato-estate-int).
 
-### 5.3 `Info` — valori attuali
-| Campo | Significato |
-|---|---|
-| `lrActualPosition` / `lrActualVelocity` | posizione / velocità attuali [unità] |
-| `xEnabled` | drive in OperationEnabled |
-| `xHomed` | homing eseguito almeno una volta |
-| `xMoving` | asse in movimento |
-| `xInPosition` | entro `PositionWindow` (percorso CSP) |
-| `Status` | decoder CiA402 completo (vedi 5.4) |
-| `xTouchProbeDoneR/F`, `TouchProbeRisingValue/FallingValue`, `xTouchProbeBusy`, `xTouchProbeError` | risultati TouchProbe |
+### 5.3 `Info` — valori attuali (tutti i campi)
+| Campo | Tipo | Spiegazione dettagliata |
+|---|---|---|
+| `lrActualPosition` | LREAL | posizione attuale in unità utente (raw drive / `Scale`) |
+| `lrActualVelocity` | LREAL | velocità attuale [unità/s] |
+| `xEnabled` | BOOL | drive in **OperationEnabled** (abilitato, può muovere). = `Status.OperationEnabled` |
+| `xHomed` | BOOL | homing eseguito **almeno una volta** (latch; resta TRUE fino a spegnimento / nuovo home) |
+| `xMoving` | BOOL | asse in movimento (velocità ≠ 0) |
+| `xInPosition` | BOOL | entro `Ctrl.PositionWindow` dal target (percorso CSP/OTG) |
+| `Status` | `ST_CiA402_Status` | decoder CiA402 completo — ogni bit in §5.4 |
+| `xTouchProbeDoneR` | BOOL | latch sul fronte di **salita** acquisito (valore in `TouchProbeRisingValue`) |
+| `xTouchProbeDoneF` | BOOL | latch sul fronte di **discesa** acquisito (valore in `TouchProbeFallingValue`) |
+| `xTouchProbeBusy` | BOOL | TouchProbe armato e in attesa del trigger |
+| `xTouchProbeError` | BOOL | errore TouchProbe (**ortogonale**: non setta `State.xError`) |
+| `TouchProbeRisingValue` | DINT | posizione latchata sul fronte di salita [encoder counts] |
+| `TouchProbeFallingValue` | DINT | posizione latchata sul fronte di discesa [encoder counts] |
 
-### 5.4 `Info.Status` — bit CiA402 (da SML_Status)
-`OperationEnabled, SwitchedOn, ReadyToSwitchOn, Fault, Warning, QuickStopActive,
-VoltageEnabled, TargetReached, Halted, InternalLimit, Moving, StandStill, Homed,
-ProfilePositionMode, ProfileVelocityMode, SyncPositionMode(CSP), HomingMode, …`
-più `Err`, `ErrId` (0x603F), `ActTorque`, `FollowingError`.
+### 5.4 `Info.Status` — decoder CiA402 completo (`ST_CiA402_Status`)
+Bit e valori decodificati da `SML_Status` a partire dalla StatusWord (0x6041), dal
+Mode-of-operation display (0x6061) e dagli oggetti di errore. Tutti in sola lettura.
+
+**Macchina di stato CiA402** (stato del drive)
+| Campo | Spiegazione |
+|---|---|
+| `NotReadyToSwitchOn` | drive non pronto (inizializzazione / autotest in corso) |
+| `SwitchOnDisabled` | accensione inibita: stato sicuro, attende la sequenza di enable |
+| `ReadyToSwitchOn` | pronto per lo Switch-On (StatusWord bit 0) |
+| `SwitchedOn` | alimentato ma senza moto abilitato (bit 1) |
+| `OperationEnabled` | **abilitato**: può muovere (bit 2). = `Info.xEnabled` |
+| `QuickStopActive` | quick-stop in corso (bit 5 = 0) |
+| `FaultReactionActive` | reazione a un fault in corso (decelerazione controllata) |
+| `Fault` | drive in **fault**: richiede `AXIS_RESET` (bit 3) |
+
+**Stato generale**
+| Campo | Spiegazione |
+|---|---|
+| `Warning` | warning presente, il moto continua (bit 7) |
+| `TargetReached` | target raggiunto — dipende dal modo (bit 10) |
+| `Halted` | moto arrestato (dopo Halt/Stop) |
+| `VoltageEnabled` | tensione di potenza presente (bit 4) |
+| `InternalLimit` | limite interno attivo: coppia/velocità/posizione clampata (bit 11) |
+
+**Modo operativo attivo** (da 0x6061; uno solo TRUE alla volta)
+| Campo | Modo |
+|---|---|
+| `ProfilePositionMode` | PP — profilo di posizione (1) |
+| `ProfileVelocityMode` | PV — profilo di velocità (3) |
+| `VelocityMode` | modo velocità legacy (2) |
+| `TorqueProfileMode` | profilo di coppia (4) |
+| `HomingMode` | homing (6) |
+| `SyncPositionMode` | CSP — sincrono di posizione (8) |
+| `SyncVelocityMode` | CSV — sincrono di velocità (9) |
+
+**Moto**
+| Campo | Spiegazione |
+|---|---|
+| `Moving` | asse in movimento |
+| `StandStill` | asse fermo (a regime, velocità nulla) |
+| `Homed` | riferimento / zero valido |
+
+**Errore / dettaglio** (valori, non solo bit)
+| Campo | Tipo | Spiegazione |
+|---|---|---|
+| `Err` | BOOL | Error_Code ≠ 0 |
+| `ErrId` | UINT | codice errore del drive (0x603F) |
+| `ActTorque` | INT | coppia attuale (0x6077) [0.1% del nominale] |
+| `FollowingError` | DINT | errore di inseguimento (0x60F4) [encoder counts] |
 
 ---
 
@@ -246,6 +314,16 @@ Un errore TouchProbe va nella **diagnostica** e in `Info.xTouchProbeError`, ma
 | `PositionWindow` | 0.01 | deadband "in posizione" [unità] (CSP) |
 | `HomeOffset` | 0 | offset homing [encoder counts → 0x607C] |
 | `xTouchProbe*` | FALSE | controllo TouchProbe (vedi 6) |
+
+Esempio di configurazione (una-tantum, tipicamente all'avvio):
+```pascal
+// Encoder 20 bit (1048576 counts/giro) su vite passo 10 mm -> counts/mm
+GVL_AXIS.Ctrl[1].Scale          := 1048576.0 / 10.0;  // = 104857.6 counts/mm
+GVL_AXIS.Ctrl[1].CycleTime      := 0.001;   // task a 1 ms (deve combaciare, per CSP/OTG)
+GVL_AXIS.Ctrl[1].PositionWindow := 0.02;    // "in posizione" entro 0.02 mm (CSP)
+GVL_AXIS.Ctrl[1].HomeOffset     := 0;       // lo zero coincide con lo zero macchina
+GVL_AXIS.Ctrl[1].xEmergencyStop := TRUE;    // consenso marcia (TRUE = run)
+```
 
 `Data`: `lrTargetPosition` [unità], `lrVelocity` [unità/s, con segno per PV],
 `lrAcceleration`, `lrDeceleration` [unità/s²], `lrJerk` [unità/s³, solo CSP].
