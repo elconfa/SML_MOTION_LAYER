@@ -1,0 +1,23 @@
+(* ============================================================
+   GVL_AXIS - Per-axis instances (STARTER)
+
+   The arrays and FB instances the application owns. It references
+   the SML library: with namespace 'SML' the library types are
+   prefixed 'SML.' (as below). If you import everything into a
+   single project WITHOUT a forced namespace, remove the 'SML.'.
+
+   You WRITE:  Ctrl[n], Data[n]
+   You READ :  State[n], Info[n]
+   ============================================================ *)
+
+{attribute 'qualified_only'}
+VAR_GLOBAL
+    Axis       : ARRAY[1..GVL_App.MAX_AXIS] OF SML.OpenSML_Axis;   // PDO image (link to drive I/O)
+    Ctrl       : ARRAY[1..GVL_App.MAX_AXIS] OF SML.ST_AXIS_CTRL;   // command   (you write)
+    Data       : ARRAY[1..GVL_App.MAX_AXIS] OF SML.ST_MOVE_DATA;   // setpoint  (you write)
+    State      : ARRAY[1..GVL_App.MAX_AXIS] OF SML.ST_AXIS_STATE;  // result    (you read)
+    Info       : ARRAY[1..GVL_App.MAX_AXIS] OF SML.ST_AXIS_INFO;   // actuals   (you read)
+
+    Control    : ARRAY[1..GVL_App.MAX_AXIS] OF SML.FB_AxisCtrl;    // per-axis control FB
+    ItfSmlAxis : ARRAY[1..GVL_App.MAX_AXIS] OF SML.I_Axis;         // interface access (optional)
+END_VAR

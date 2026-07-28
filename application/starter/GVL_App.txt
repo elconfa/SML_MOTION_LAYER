@@ -1,0 +1,12 @@
+(* ============================================================
+   GVL_App - Application configuration (STARTER)
+
+   The only machine-specific constant: how many axes. Change it here
+   to scale the GVL_AXIS arrays and the MAIN loop. This object lives
+   in the APPLICATION, not in the SML library.
+   ============================================================ *)
+
+{attribute 'qualified_only'}
+VAR_GLOBAL CONSTANT
+    MAX_AXIS : UINT := 1;   // number of axes on this machine
+END_VAR

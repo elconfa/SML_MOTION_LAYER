@@ -6,10 +6,15 @@ le istanze, l'orchestratore, il bridge I/O e gli esempi.
 
 > **Namespace**: se la libreria è pubblicata con namespace `SML`, aggiungi il
 > prefisso `SML.` alle referenze di libreria dove il compilatore lo richiede
-> (es. `SML.FB_AxisCtrl`, `SML.AXIS_MOVE_ABS`). I sorgenti qui sono senza
+> (es. `SML.FB_AxisCtrl`, `SML.AXIS_MOVE_ABS`). I sorgenti in `src/` sono senza
 > prefisso (uso come progetto unico o namespace non forzato).
 
-## `src/` — configurazione + orchestrazione
+## `starter/` — il minimo per iniziare (consigliato)
+Tre oggetti pronti da incollare in un progetto nuovo che **referenzia la libreria**
+(`GVL_App`, `GVL_AXIS`, `MAIN`) già con il prefisso `SML.`, più una guida rapida in
+4 passi. È il punto di partenza più semplice. Vedi [`starter/README.md`](starter/README.md).
+
+## `src/` — template completo (configurazione + orchestrazione)
 
 | File | Ruolo |
 |---|---|

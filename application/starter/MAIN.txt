@@ -1,0 +1,38 @@
+(* ============================================================
+   MAIN - Axis orchestrator (STARTER)
+
+   Put this PROGRAM in a cyclic task. It runs every axis each cycle
+   by calling the per-axis control FB with the data contract by
+   reference (VAR_IN_OUT). Nothing else is required for the minimal
+   setup (direct I/O link).
+
+   Command from your own logic:  GVL_AXIS.Ctrl[n].eCmd := SML.AXIS_...
+   Read status:                  GVL_AXIS.State[n] / GVL_AXIS.Info[n]
+
+   Align GVL_AXIS.Ctrl[n].CycleTime to the real task period (for CSP/OTG).
+
+   Optional I/O bridge (only if you do NOT map GVL_AXIS.Axis[] directly,
+   e.g. on TwinCAT): declare instances of the library FBs and call them
+   before/after the loop:
+     ioIn  : SML.FB_IoLink_In;   ioOut : SML.FB_IoLink_Out;
+     ioIn (xEnable := GVL_IO.IO_LINK_ENABLE, DriveIn := GVL_IO.DriveIn, Axis := GVL_AXIS.Axis);
+     // ... loop ...
+     ioOut(xEnable := GVL_IO.IO_LINK_ENABLE, Axis := GVL_AXIS.Axis, DriveOut := GVL_IO.DriveOut);
+   (see ../../docs/GUIDA_IO_Linking.md)
+   ============================================================ *)
+
+PROGRAM MAIN
+VAR
+    nAxis : UINT;
+END_VAR
+
+FOR nAxis := 1 TO GVL_App.MAX_AXIS DO
+    GVL_AXIS.ItfSmlAxis[nAxis] := GVL_AXIS.Control[nAxis];   // optional: interface access
+
+    GVL_AXIS.Control[nAxis](
+        Axis  := GVL_AXIS.Axis[nAxis],
+        Ctrl  := GVL_AXIS.Ctrl[nAxis],
+        Data  := GVL_AXIS.Data[nAxis],
+        State := GVL_AXIS.State[nAxis],
+        Info  := GVL_AXIS.Info[nAxis]);
+END_FOR
