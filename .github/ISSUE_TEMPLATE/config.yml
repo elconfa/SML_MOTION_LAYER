@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 📖 Manual and API reference
+    url: https://github.com/elconfa/SML_MOTION_LAYER/blob/main/docs/MANUALE_SML.md
+    about: Command guide, per-field docs and the worked 2-axis example. Check here before opening an issue.
+  - name: 🔌 I/O linking guide
+    url: https://github.com/elconfa/SML_MOTION_LAYER/blob/main/docs/GUIDA_IO_Linking.md
+    about: How to map GVL_AXIS.Axis[n] onto your drive PDOs.
+  - name: 📥 Import checklist
+    url: https://github.com/elconfa/SML_MOTION_LAYER/blob/main/docs/IMPORT_CHECKLIST.md
+    about: Importing the .txt Structured Text exports into CoDeSys or TwinCAT.

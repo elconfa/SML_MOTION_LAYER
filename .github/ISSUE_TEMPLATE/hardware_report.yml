@@ -1,0 +1,71 @@
+name: ⚙️ Hardware report — it ran (or didn't) on my drive
+description: Tell us how SML behaved on a real CiA402 drive. Positive reports are just as useful as failures.
+title: "[hw] "
+labels: ["hardware-report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The README says it plainly: this is simulation-tested. **Every report from real hardware moves the
+        project forward**, whether everything worked or nothing did. Write in English or Italian.
+  - type: input
+    id: drive
+    attributes:
+      label: Drive
+      description: Vendor, model, firmware version.
+      placeholder: "e.g. Vendor X, model Y, fw 1.2.3"
+    validations:
+      required: true
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: Runtime
+      options:
+        - CoDeSys 3.5
+        - TwinCAT 3
+        - Other IEC 61131-3 runtime
+    validations:
+      required: true
+  - type: input
+    id: master
+    attributes:
+      label: EtherCAT master / hardware
+      placeholder: "e.g. CoDeSys EtherCAT master on a Raspberry Pi 4, cycle 4 ms"
+  - type: checkboxes
+    id: works
+    attributes:
+      label: What worked
+      options:
+        - label: Enable / disable (CiA402 state machine)
+        - label: Reset after fault
+        - label: Homing
+        - label: Profile position (absolute / relative)
+        - label: Profile velocity
+        - label: Jog
+        - label: CSP + OTG (MoveFollow)
+        - label: Stop
+        - label: Status and error decoding (eProgress / eState / wDiagCode)
+        - label: Touch probe
+        - label: Multi-axis (more than one axis in the array)
+        - label: MAPPING / UNION layer over a fieldbus or ADS
+  - type: textarea
+    id: problems
+    attributes:
+      label: What didn't work, or needed changes
+      description: Including anything you had to patch to make it run — those patches are the most useful part.
+  - type: textarea
+    id: pdo
+    attributes:
+      label: PDO mapping and scaling
+      description: How you linked GVL_AXIS.Axis[n], plus increments-per-unit and any drive-specific quirk.
+      render: text
+  - type: input
+    id: cycle
+    attributes:
+      label: Task cycle time
+      placeholder: "e.g. 4 ms (GVL_App.CycleTime = 0.004)"
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: Photos or a short video of the axis running are very welcome.

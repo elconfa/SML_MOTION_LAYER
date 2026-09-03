@@ -1,0 +1,50 @@
+name: 💡 Idea or improvement
+description: Suggest a feature, an API change, or a documentation improvement.
+title: "[idea] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: "Write in English or Italian — both are fine."
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve
+      description: Describe the situation, not just the solution you have in mind.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like SML to do
+      placeholder: |
+        e.g. a new eCmd value, an extra field in ST_AXIS_INFO, support for a homing method,
+        a section in the manual...
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      multiple: true
+      options:
+        - library/ (core FBs, DUTs, enums, I_Axis)
+        - application/ (template, example machine, tests)
+        - MAPPING / fieldbus exposure
+        - CSP / OTG trajectory generation
+        - Documentation
+        - Build / import workflow
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: Which runtime matters to you
+      options:
+        - CoDeSys 3.5
+        - TwinCAT 3
+        - Both
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contribution
+      options:
+        - label: I would be willing to work on this myself

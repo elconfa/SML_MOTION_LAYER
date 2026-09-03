@@ -1,0 +1,107 @@
+name: 🐞 Bug report
+description: Something in the ST code behaves incorrectly.
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. This project is young and simulation-tested, so real reports are valuable.
+        Write in **English or Italian** — both are fine.
+
+        ⚠️ **Safety first:** if the problem caused unexpected axis motion, say so explicitly and describe
+        your STO / emergency-stop setup. Never test a suspected motion bug without an independent hardware stop.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What the code did, and what you expected instead.
+      placeholder: |
+        Expected: the axis decelerates and eProgress goes to PROGRESS_DONE.
+        Observed: eProgress stays at PROGRESS_BUSY and the axis keeps the last target velocity.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: The command sequence and the values written to Ctrl / Data.
+      placeholder: |
+        1. GVL_AXIS.Ctrl[1].eCmd := AXIS_ENABLE;
+        2. GVL_AXIS.Data[1].lrVelocity := 80.0;
+        3. GVL_AXIS.Ctrl[1].eCmd := AXIS_MOVE_VELOCITY;
+        4. GVL_AXIS.Ctrl[1].eCmd := AXIS_STOP;   // <-- here
+      render: pascal
+    validations:
+      required: true
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: Runtime
+      options:
+        - CoDeSys 3.5
+        - TwinCAT 3
+        - Other IEC 61131-3 runtime
+    validations:
+      required: true
+  - type: input
+    id: runtime-version
+    attributes:
+      label: Runtime version
+      placeholder: "e.g. CoDeSys 3.5 SP19 Patch 4 / TwinCAT 3.1 build 4024.56"
+  - type: dropdown
+    id: setup
+    attributes:
+      label: Where does it happen
+      options:
+        - Simulation (xSimulation := TRUE or a test bench)
+        - Real drive over EtherCAT
+        - Both
+    validations:
+      required: true
+  - type: input
+    id: drive
+    attributes:
+      label: Drive (if on real hardware)
+      description: Vendor, model, firmware. Skip if you are in simulation.
+      placeholder: "e.g. Vendor X, model Y, fw 1.2.3"
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      multiple: true
+      options:
+        - Power / enable / disable
+        - Reset / error handling
+        - Homing
+        - Profile position (MoveAbs / MoveRel)
+        - Profile velocity
+        - Jog
+        - CSP + OTG (MoveFollow)
+        - Stop
+        - Status / eProgress / eState decoding
+        - Touch probe
+        - MAPPING / UNION layer
+        - Multi-axis orchestration (MAIN)
+        - Import into the IDE / build errors
+        - Documentation
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: |
+        The more of these you can give, the faster this gets fixed:
+        `State[n].eProgress`, `State[n].eState`, `State[n].xError`, `Info[n].wDiagCode`,
+        the CiA402 Statusword/Controlword, and `Info[n].lrActualPosition` at the moment of the fault.
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: SML version
+      description: Commit hash or the date you downloaded the sources.
+      placeholder: "e.g. 377a1b3"
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: Task cycle time, scaling factors, PDO mapping quirks, screenshots.
