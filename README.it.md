@@ -9,6 +9,11 @@ posizione ciclica sincrona con generatore di traiettoria online jerk-limited) **
 un function block per asse, comandato tramite una struttura dati *oppure* un'interfaccia. Nessun runtime di
 motion del produttore sotto.
 
+> **Costruito su due progetti esistenti:** le FB di esecuzione CiA402 di
+> **[OpenSML](https://github.com/feecat/opensml)** (feecat) — di cui SML è un derivato, da qui la GPL-3.0 — e il
+> pattern architetturale di **[PLC_MOTION_LAYER](https://github.com/haud-ba/PLC_MOTION_LAYER)** (haud-ba).
+> Vedi [Origine e crediti](#origine-e-crediti).
+
 ![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)
 ![Platform](https://img.shields.io/badge/PLC-CoDeSys%203.5%20%7C%20TwinCAT%203-informational)
 ![Language](https://img.shields.io/badge/IEC%2061131--3-Structured%20Text-orange)
@@ -183,7 +188,7 @@ Feedback, issue e segnalazioni dal campo sono benvenuti — è proprio la fase i
 
 ---
 
-## Origine e crediti — e la parte onesta su come è stato fatto
+## Origine e crediti
 
 Questo progetto poggia apertamente su due spalle, ed è stato costruito con l'aiuto di un assistente AI. Nulla di
 tutto ciò è nascosto:

@@ -8,6 +8,11 @@ Control EtherCAT servo/stepper drives that speak the **CiA402** profile (homing,
 jog, cyclic-synchronous position with a jerk-limited online trajectory generator) **entirely in Structured Text** —
 one function block per axis, commanded through a data struct *or* an interface. No vendor motion runtime underneath.
 
+> **Built on two existing projects:** the CiA402 execution FBs of
+> **[OpenSML](https://github.com/feecat/opensml)** (feecat) — of which SML is a derivative, hence GPL-3.0 — and the
+> architectural pattern of **[PLC_MOTION_LAYER](https://github.com/haud-ba/PLC_MOTION_LAYER)** (haud-ba).
+> See [Origin & credits](#origin--credits).
+
 ![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)
 ![Platform](https://img.shields.io/badge/PLC-CoDeSys%203.5%20%7C%20TwinCAT%203-informational)
 ![Language](https://img.shields.io/badge/IEC%2061131--3-Structured%20Text-orange)
@@ -180,7 +185,7 @@ Feedback, issues and real-world reports are very welcome — this is exactly the
 
 ---
 
-## Origin & credits — and the honest bit about how it was made
+## Origin & credits
 
 This project stands openly on two shoulders, and it was built with the help of an AI assistant. None of that is hidden:
 
