@@ -19,7 +19,7 @@ oggetto referenzia in codice `MAX_AXIS`, i GVL di istanza, o file legacy/applica
 | Title | `SML` |
 | Subtitle | SoftMotion Light — Motion Layer CiA402 |
 | Namespace | `SML` |
-| Version | `0.9.0` (pre-1.0: giovane, testata in simulazione) |
+| Version | `0.9.0` (pre-1.0: FB di esecuzione collaudate in campo, livello sopra in simulazione) |
 | Company / Author | *(imposta il tuo)* |
 | Licenza | GPL-3.0 (vedi [`../LICENSE`](../LICENSE)) |
 | Placeholder | lascia il default (o `SML, * (SML)`) |
@@ -124,6 +124,7 @@ non esistono come **oggetti figli**:
 
 ## Versioning
 
-`0.9.0` riflette uno stato giovane, testato in simulazione (vedi "Maturità e sicurezza" nel README root).
-Incrementa il minor per aggiunte, il patch per correzioni; riserva `1.0.0` alla prima release validata su
-hardware. Mantieni stabile il namespace `SML` così le applicazioni non devono ri-prefissare.
+`0.9.0` riflette la distinzione descritta nel README root ("Maturità e sicurezza"): le FB di esecuzione CiA402
+hanno anni di uso in campo alle spalle, mentre `FB_AxisCtrl` e i livelli multi-asse e MAPPING che le avvolgono
+sono per ora testati solo in simulazione. Incrementa il minor per aggiunte, il patch per correzioni; riserva
+`1.0.0` alla prima release il cui stack completo sia stato validato su hardware. Mantieni stabile il namespace `SML` così le applicazioni non devono ri-prefissare.

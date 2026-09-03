@@ -17,7 +17,8 @@ motion del produttore sotto.
 ![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)
 ![Platform](https://img.shields.io/badge/PLC-CoDeSys%203.5%20%7C%20TwinCAT%203-informational)
 ![Language](https://img.shields.io/badge/IEC%2061131--3-Structured%20Text-orange)
-![Status](https://img.shields.io/badge/status-early%20%2F%20simulation--tested-yellow)
+![Field record](https://img.shields.io/badge/execution%20FBs-3%20machines%20%C2%B7%206%20axes%20in%20production-success)
+![Status](https://img.shields.io/badge/layer%20on%20top-simulation--tested-yellow)
 
 > **I sorgenti sono export testuali Structured Text (`.txt`)** da importare in un progetto CoDeSys/TwinCAT.
 > Vedi [`docs/IMPORT_CHECKLIST.it.md`](docs/IMPORT_CHECKLIST.it.md).
@@ -158,6 +159,9 @@ Elenco completo variabili: [`docs/API_Reference.it.md`](docs/API_Reference.it.md
 
 ## Esempio reale — `application/examples/PLC_APP`
 
+Non è un "hello world": è una delle tre macchine in produzione citate sopra, semplificata a due assi e ripulita di
+tutto ciò che era specifico dell'impianto.
+
 Una macchina di misura e selezione a 2 assi:
 
 - **Asse 1** = nastro a rotazione continua (modo velocità) con **touch-probe**;
@@ -174,17 +178,26 @@ esterno). I/O macchina puliti in ingresso e in uscita. Dettagli in [`docs/MANUAL
 
 ## Maturità e sicurezza
 
-Sii consapevole di cos'è:
+In questo repository convivono due livelli con storie molto diverse alle spalle, e vale la pena dirlo chiaramente.
 
-- **Progetto giovane, testato in simulazione.** Il core compila correttamente in CoDeSys 3.5 e gira contro un
-  emulatore CiA402 nei banchi di test. La recente riorganizzazione a due livelli e la rinomina degli oggetti sono
-  **pronte all'import** ma vanno **ri-verificate con un Build** dopo l'import (i sorgenti sono export `.txt`, quindi
-  non c'è ancora un binario di cui fidarsi).
+- **Le FB di esecuzione CiA402 hanno ore di campo.** Questo codice di moto (macchina a stati CiA402, homing, profile
+  position, profile velocity, jog, touch probe) gira da anni su tre macchine costruite attorno a un **Beckhoff
+  CX8190** che comanda **sei brushless Delta in EtherCAT**. Quel controllore non può proprio montare la licenza
+  TwinCAT NC PTP, ed è esattamente il motivo per cui il motion è stato scritto in Structured Text.
+- **Il livello sopra è nuovo, ed è testato in simulazione.** `FB_AxisCtrl`, il contratto `Ctrl / Data / State / Info`,
+  `I_Axis`, l'array multi-asse e il livello MAPPING sono la riorganizzazione di quel codice di campo in una libreria
+  riutilizzabile. Compilano in CoDeSys 3.5 e girano contro un emulatore CiA402 nei banchi di test, ma non hanno
+  ancora mosso una macchina vera. Ri-verifica con un Build dopo l'import (i sorgenti sono export `.txt`, quindi non
+  c'è ancora un binario di cui fidarsi).
+- **È stata provata una sola famiglia di drive.** Le ore di campo sono su drive Delta. I costruttori differiscono su
+  metodi di homing, comportamento del touch probe e scalatura: su altro hardware aspettati qualche aggiustamento, e
+  per favore segnala cosa trovi.
 - **Il motion control è rilevante per la sicurezza.** Questo codice muove hardware reale. **Valida ogni funzione sul
-  tuo drive**, mantieni un percorso hardware di **STO / arresto d'emergenza** indipendente da questa logica, e rispetta
-  le norme di sicurezza macchina che ti riguardano. La licenza esclude ogni garanzia (GPL-3.0, "as is").
+  tuo drive**, mantieni un percorso hardware di **STO / arresto d'emergenza** indipendente da questa logica, e
+  rispetta le norme di sicurezza macchina che ti riguardano. La licenza esclude ogni garanzia (GPL-3.0, "as is").
 
-Feedback, issue e segnalazioni dal campo sono benvenuti — è proprio la fase in cui servono di più.
+Feedback, issue e segnalazioni dal campo sono benvenuti. C'è un modello di issue apposta per i report da hardware
+reale: in questa fase sono la cosa più utile che si possa mandare.
 
 ---
 

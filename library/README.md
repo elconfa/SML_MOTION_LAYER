@@ -19,7 +19,7 @@ object references `MAX_AXIS`, the instance GVLs, or any legacy/application file 
 | Title | `SML` |
 | Subtitle | SoftMotion Light — CiA402 Motion Layer |
 | Namespace | `SML` |
-| Version | `0.9.0` (pre-1.0: early, simulation-tested) |
+| Version | `0.9.0` (pre-1.0: execution FBs field-proven, layer on top simulation-tested) |
 | Company / Author | *(set your own)* |
 | License | GPL-3.0 (see [`../LICENSE`](../LICENSE)) |
 | Placeholder | leave default (or `SML, * (SML)`) |
@@ -123,6 +123,8 @@ exist as **child objects**:
 
 ## Versioning
 
-`0.9.0` reflects an early, simulation-tested state (see the root README "Maturity & safety"). Bump the
-minor for additive changes, the patch for fixes; reserve `1.0.0` for the first hardware-validated release.
+`0.9.0` reflects the split described in the root README ("Maturity & safety"): the CiA402 execution FBs have
+years of field use behind them, while `FB_AxisCtrl` and the multi-axis and MAPPING layers around them are so far
+only simulation-tested. Bump the minor for additive changes, the patch for fixes; reserve `1.0.0` for the first
+release whose full stack has been validated on hardware.
 Keep the namespace `SML` stable so applications don't have to re-prefix.

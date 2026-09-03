@@ -16,7 +16,8 @@ one function block per axis, commanded through a data struct *or* an interface. 
 ![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)
 ![Platform](https://img.shields.io/badge/PLC-CoDeSys%203.5%20%7C%20TwinCAT%203-informational)
 ![Language](https://img.shields.io/badge/IEC%2061131--3-Structured%20Text-orange)
-![Status](https://img.shields.io/badge/status-early%20%2F%20simulation--tested-yellow)
+![Field record](https://img.shields.io/badge/execution%20FBs-3%20machines%20%C2%B7%206%20axes%20in%20production-success)
+![Status](https://img.shields.io/badge/layer%20on%20top-simulation--tested-yellow)
 
 > **Sources are Structured Text text exports (`.txt`)** to be imported into a CoDeSys/TwinCAT project.
 > See [`docs/IMPORT_CHECKLIST.md`](docs/IMPORT_CHECKLIST.md).
@@ -157,6 +158,9 @@ Full variable list: [`docs/API_Reference.md`](docs/API_Reference.md). Command/us
 
 ## Worked example — `application/examples/PLC_APP`
 
+Not a hello-world: this is one of the three production machines mentioned above, simplified down to two axes and
+stripped of everything site-specific.
+
 A 2-axis measure-and-sort machine:
 
 - **Axis 1** = a continuously rotating belt (velocity mode) with **touch-probe**;
@@ -172,16 +176,26 @@ Clean machine I/O in and out. Details in [`docs/MANUALE_SML.md`](docs/MANUALE_SM
 
 ## Maturity & safety
 
-Be aware of what this is:
+This repository holds two layers with very different track records, and the difference is worth stating plainly.
 
-- **Young project, simulation-tested.** The core compiled cleanly in CoDeSys 3.5 and runs against a CiA402 emulator
-  in the test benches. The recent two-level reorganization and object renaming are **import-ready** but should be
-  re-verified with a Build after you import them (the sources are `.txt` exports, so there's no binary to trust yet).
-- **Motion control is safety-relevant.** This code moves real hardware. **Validate every function on your own drive**,
-  keep a hardware **STO / emergency-stop** path independent of this logic, and respect the machinery safety rules that
-  apply to you. The license disclaims warranty (GPL-3.0, "as is").
+- **The CiA402 execution FBs have field hours.** This motion code (the CiA402 state machine, homing, profile
+  position, profile velocity, jog, touch probe) has been running for years on three machines built around a
+  **Beckhoff CX8190** driving **six Delta brushless drives over EtherCAT**. That controller cannot take a TwinCAT
+  NC PTP license at all, which is exactly why the motion was written in Structured Text in the first place.
+- **The layer on top is new, and simulation-tested.** `FB_AxisCtrl`, the `Ctrl / Data / State / Info` contract,
+  `I_Axis`, the multi-axis array and the MAPPING layer are the reorganization of that field code into a reusable
+  library. They compile in CoDeSys 3.5 and run against a CiA402 emulator in the test benches, but they have not yet
+  moved a real machine. Re-verify with a Build after importing (the sources are `.txt` exports, so there is no
+  binary to trust yet).
+- **Only one drive family has been exercised.** The field record is on Delta drives. Vendors differ on homing
+  methods, touch-probe behaviour and scaling, so expect some adjustment on other hardware, and please report what
+  you find.
+- **Motion control is safety-relevant.** This code moves real hardware. **Validate every function on your own
+  drive**, keep a hardware **STO / emergency-stop** path independent of this logic, and respect the machinery safety
+  rules that apply to you. The license disclaims warranty (GPL-3.0, "as is").
 
-Feedback, issues and real-world reports are very welcome — this is exactly the stage where they help most.
+Feedback, issues and real-world reports are very welcome. There is an issue template specifically for reports from
+real hardware, and at this stage those are the most useful thing anyone can send.
 
 ---
 
