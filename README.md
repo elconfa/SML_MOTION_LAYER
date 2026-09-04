@@ -180,8 +180,10 @@ This repository holds two layers with very different track records, and the diff
 
 - **The CiA402 execution FBs have field hours.** This motion code (the CiA402 state machine, homing, profile
   position, profile velocity, jog, touch probe) has been running for years on three machines built around a
-  **Beckhoff CX8190** driving **six Delta brushless drives over EtherCAT**. That controller cannot take a TwinCAT
-  NC PTP license at all, which is exactly why the motion was written in Structured Text in the first place.
+  **Beckhoff CX8190** driving **six Delta brushless drives over EtherCAT**. TwinCAT NC PTP needs an EtherCAT
+  master with **Distributed Clocks**, which that controller does not provide, so the NC was never an option and the
+  motion had to live in the PLC code. (Beckhoff makes the same point when introducing `Tc3_DriveMotionControl`,
+  whose stated use case is a controller without Distributed Clocks.)
 - **The layer on top is new, and simulation-tested.** `FB_AxisCtrl`, the `Ctrl / Data / State / Info` contract,
   `I_Axis`, the multi-axis array and the MAPPING layer are the reorganization of that field code into a reusable
   library. They compile in CoDeSys 3.5 and run against a CiA402 emulator in the test benches, but they have not yet

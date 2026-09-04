@@ -182,8 +182,10 @@ In questo repository convivono due livelli con storie molto diverse alle spalle,
 
 - **Le FB di esecuzione CiA402 hanno ore di campo.** Questo codice di moto (macchina a stati CiA402, homing, profile
   position, profile velocity, jog, touch probe) gira da anni su tre macchine costruite attorno a un **Beckhoff
-  CX8190** che comanda **sei brushless Delta in EtherCAT**. Quel controllore non può proprio montare la licenza
-  TwinCAT NC PTP, ed è esattamente il motivo per cui il motion è stato scritto in Structured Text.
+  CX8190** che comanda **sei brushless Delta in EtherCAT**. L'NC PTP di TwinCAT richiede un master EtherCAT con
+  **Distributed Clocks**, che quel controllore non offre: l'NC non è mai stato un'opzione e il motion è dovuto
+  stare nel codice PLC. (Lo stesso punto lo fa Beckhoff presentando `Tc3_DriveMotionControl`, il cui caso d'uso
+  dichiarato è proprio un controllore senza Distributed Clocks.)
 - **Il livello sopra è nuovo, ed è testato in simulazione.** `FB_AxisCtrl`, il contratto `Ctrl / Data / State / Info`,
   `I_Axis`, l'array multi-asse e il livello MAPPING sono la riorganizzazione di quel codice di campo in una libreria
   riutilizzabile. Compilano in CoDeSys 3.5 e girano contro un emulatore CiA402 nei banchi di test, ma non hanno
